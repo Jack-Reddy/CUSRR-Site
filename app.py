@@ -14,6 +14,10 @@ def organizer():
 def dashboard():
     return render_template('dashboard.html')
 
+@app.route('/abstractGrader')
+def abstractGrader():
+    return render_template('abstractGrader.html')
+
 @app.route('/schedule')
 def schedule():
     return render_template('organizer.html')
