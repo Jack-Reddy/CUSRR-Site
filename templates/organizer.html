@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Organizer Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="row g-4">
+
+    <!-- 🟩 Left Column: Schedule -->
+    <div class="col-12 col-lg-8">
+      <section id="schedule">
+        <h3 class="mb-3">Schedule</h3>
+
+        <!-- Schedule Overview (clickable blocks) -->
+        <div class="row g-3 mb-4" id="schedule-overview">
+          <div class="col-12 col-md-6">
+            <a href="#session-1" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
+              <h6 class="mb-1 fw-bold">Opening</h6>
+              <p class="text-sm text-secondary mb-0">8:30–9:00 AM</p>
+            </a>
+          </div>
+          <div class="col-12 col-md-6">
+            <a href="#session-2" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
+              <h6 class="mb-1 fw-bold">Keynote</h6>
+              <p class="text-sm text-secondary mb-0">9:00–10:00 AM</p>
+            </a>
+          </div>
+          <div class="col-12 col-md-6">
+            <a href="#session-3" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
+              <h6 class="mb-1 fw-bold">Poster Session</h6>
+              <p class="text-sm text-secondary mb-0">10:15–11:00 AM</p>
+            </a>
+          </div>
+          <div class="col-12 col-md-6">
+            <a href="#session-4" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
+              <h6 class="mb-1 fw-bold">Lunch</h6>
+              <p class="text-sm text-secondary mb-0">12:00–1:00 PM</p>
+            </a>
+          </div>
+        </div>
+
+        <!-- Schedule Details -->
+        <div id="schedule-details" class="vstack gap-3">
+          <div class="card shadow-xs border-0 rounded-4" id="session-1">
+            <div class="card-body py-3">
+              <h5 class="mb-1">Opening Remarks</h5>
+              <p class="text-sm text-secondary mb-2">8:30–9:00 AM · Main Hall</p>
+              <p>Welcome by the organizing committee and conference chair.</p>
+            </div>
+          </div>
+
+          <div class="card shadow-xs border-0 rounded-4" id="session-2">
+            <div class="card-body py-3">
+              <h5 class="mb-1">Keynote Address</h5>
+              <p class="text-sm text-secondary mb-2">9:00–10:00 AM · Auditorium</p>
+              <p>Speaker: Prof. Jane Doe, University of Innovation</p>
+            </div>
+          </div>
+
+          <div class="card shadow-xs border-0 rounded-4" id="session-3">
+  <div class="card-body py-3">
+    <h5 class="mb-1">Poster Session I</h5>
+    <p class="text-sm text-secondary mb-2">10:15–11:00 AM · Exhibition Hall</p>
+    <p>Featuring 8 student posters. Light refreshments served.</p>
+
+    <!-- Poster List -->
+    <div class="row g-3 mt-3">
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">1. AI for Environmental Modeling</h6>
+          <p class="text-sm text-secondary mb-1">Jane Doe (University of X)</p>
+          <p class="text-sm mb-0">Poster #A1</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">2. Neural Nets for Wildlife Tracking</h6>
+          <p class="text-sm text-secondary mb-1">John Smith (Institute Y)</p>
+          <p class="text-sm mb-0">Poster #A2</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">3. Smart Sensor Calibration</h6>
+          <p class="text-sm text-secondary mb-1">Sara Lin (Tech U)</p>
+          <p class="text-sm mb-0">Poster #A3</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">4. Ocean Data Visualization</h6>
+          <p class="text-sm text-secondary mb-1">Carlos Reyes (Maritime College)</p>
+          <p class="text-sm mb-0">Poster #A4</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">5. Machine Learning for Coral Health</h6>
+          <p class="text-sm text-secondary mb-1">Lina Zhang (Marine Institute)</p>
+          <p class="text-sm mb-0">Poster #A5</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">6. Real-Time Ocean Mapping</h6>
+          <p class="text-sm text-secondary mb-1">Omar Khan (Hydro Labs)</p>
+          <p class="text-sm mb-0">Poster #A6</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">7. Underwater Drones for Sampling</h6>
+          <p class="text-sm text-secondary mb-1">Aisha Patel (BlueTech)</p>
+          <p class="text-sm mb-0">Poster #A7</p>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-xs rounded-4 h-100 p-3">
+          <h6 class="fw-bold mb-1">8. Cloud Systems for Ocean Data</h6>
+          <p class="text-sm text-secondary mb-1">Lukas Meyer (DataSea)</p>
+          <p class="text-sm mb-0">Poster #A8</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+          <div class="card shadow-xs border-0 rounded-4" id="session-4">
+            <div class="card-body py-3">
+              <h5 class="mb-1">Lunch Break</h5>
+              <p class="text-sm text-secondary mb-2">12:00–1:00 PM · Courtyard</p>
+              <p>Buffet lunch provided for registered attendees.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 🟦 Right Column: Reserved for Later -->
+    <div class="col-12 col-lg-4">
+      <section id="future-content" class="text-secondary">
+        <div class="card border-0 shadow-xs rounded-4 p-3 text-center">
+          <p class="mb-0">Reserve for generated program at a glance.</p>
+        </div>
+      </section>
+    </div>
+
+  </div>  
+
+
+   
+
+{% endblock %}

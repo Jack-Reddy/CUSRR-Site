@@ -1,0 +1,26 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sidebar — Mini Collapse (Icons Only)</title>
+
+ <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/soft-design-system.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
+
+ 
+</head>
+<body>
+  <!-- Include shared sidebar -->
+  {% include "_sidebar.html" %}
+
+  <!-- Page-specific content -->
+  <main class="main-content">
+    {% block content %}
+    {% endblock %}
+  </main>
+
+<script src="{{ url_for('static', filename='assets/js/soft-design-system.min.js') }}"></script>
+</body>
+</html>
