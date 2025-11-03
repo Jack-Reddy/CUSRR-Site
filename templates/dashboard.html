@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}General Dashboard{% endblock %}
+
+{% block content %}
+
+<h3 class="mb-3">Program</h3>
+    <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3">
+      <div class="col">
+        <div class="card card-plain card-blog h-100">
+          <div class="card-image border-radius-lg position-relative">
+            <a href="javascript:;">
+              <img class="w-100 border-radius-lg move-on-hover shadow" src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg" />
+            </a>
+          </div>
+          <div class="card-body px-0">
+            <h5><a href="javascript:;" class="text-dark font-weight-bold">dooo doo dodoooo</a></h5>
+            <p>!!! hi</p>
+            <a href="javascript:;" class="text-info icon-move-right">Read More
+              <i class="fas fa-arrow-right text-sm" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    
+      <div class="col">
+        <div class="card card-plain card-blog h-100">
+          <div class="card-image border-radius-lg position-relative">
+            <a href="javascript:;">
+              <img class="w-100 border-radius-lg move-on-hover shadow" src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-wall.jpg" />
+            </a>
+          </div>
+          <div class="card-body px-0">
+            <h5><a href="javascript:;" class="text-dark font-weight-bold">ba babah bahhh</a></h5>
+            <p>!!! hello</p>
+            <a href="javascript:;" class="text-info icon-move-right">Read More
+              <i class="fas fa-arrow-right text-sm" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    
+      <div class="col">
+        <div class="card card-plain card-blog h-100">
+          <div class="card-image border-radius-lg position-relative">
+            <a href="javascript:;">
+              <img class="w-100 border-radius-lg move-on-hover shadow" src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-clock.jpg" />
+            </a>
+          </div>
+          <div class="card-body px-0">
+            <h5><a href="javascript:;" class="text-dark font-weight-bold">twiddledee n twiddledum</a></h5>
+            <p>!!! wah</p>
+            <a href="javascript:;" class="text-info icon-move-right">Read More
+              <i class="fas fa-arrow-right text-sm" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <h3 class="mb-3 d-flex align-items-center justify-content-between">
+      <span>Upcoming</span>
+      <a href="#show-all" class="text-info text-sm">Show all</a>
+    </h3>
+    
+    <div class="vstack gap-3">
+    
+      <!-- Item -->
+      <div class="card shadow-xs border-0 rounded-4">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-start gap-3">
+            <img src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg"
+                 alt="thumb" class="rounded-3" style="width:56px;height:56px;object-fit:cover;">
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start">
+                <h6 class="mb-1">Poster: How to Steal the Moon</h6>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-gray-100 text-secondary me-2">9:41 AM</span>
+    
+                  <!-- Dropdown wrapper -->
+                  <div class="dropdown">
+                    <button type="button"
+                            class="btn btn-sm btn-link text-secondary px-2 mb-0"
+                            id="upcMenu1"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            aria-haspopup="true">
+                      ⋮
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="upcMenu1">
+                      <li><a class="dropdown-item" href="#">View</a></li>
+                      <li><a class="dropdown-item" href="#">Add to calendar</a></li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li><a class="dropdown-item text-danger" href="#">Remove</a></li>
+                    </ul>
+                  </div>
+                  <!-- /Dropdown wrapper -->
+    
+                </div>
+              </div>
+              <p class="text-sm text-secondary mb-0">This is a few lines from the abstract…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- Item -->
+      <div class="card shadow-xs border-0 rounded-4">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-start gap-3">
+            <img src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-wall.jpg"
+                 alt="thumb" class="rounded-3" style="width:56px;height:56px;object-fit:cover;">
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start">
+                <h6 class="mb-1">Presentation: Another Funny Presentation Title</h6>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-gray-100 text-secondary me-2">9:51 AM</span>
+    
+                  <div class="dropdown">
+                    <button type="button"
+                            class="btn btn-sm btn-link text-secondary px-2 mb-0"
+                            id="upcMenu2"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            aria-haspopup="true">
+                      ⋮
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="upcMenu2">
+                      <li><a class="dropdown-item" href="#">View</a></li>
+                      <li><a class="dropdown-item" href="#">Add to calendar</a></li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li><a class="dropdown-item text-danger" href="#">Remove</a></li>
+                    </ul>
+                  </div>
+    
+                </div>
+              </div>
+              <p class="text-sm text-secondary mb-0">A few lines from the abstract for another funny title…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- Item -->
+      <div class="card shadow-xs border-0 rounded-4">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-start gap-3">
+            <img src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-clock.jpg"
+                 alt="thumb" class="rounded-3" style="width:56px;height:56px;object-fit:cover;">
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start">
+                <h6 class="mb-1">Blitz: Lightning Talks</h6>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-gray-100 text-secondary me-2">10:15 AM</span>
+    
+                  <div class="dropdown">
+                    <button type="button"
+                            class="btn btn-sm btn-link text-secondary px-2 mb-0"
+                            id="upcMenu3"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            aria-haspopup="true">
+                      ⋮
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="upcMenu3">
+                      <li><a class="dropdown-item" href="#">View</a></li>
+                      <li><a class="dropdown-item" href="#">Add to calendar</a></li>
+                    </ul>
+                  </div>
+    
+                </div>
+              </div>
+              <p class="text-sm text-secondary mb-0">Short, high-energy presentations…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+    </div>
+
+{% endblock %}

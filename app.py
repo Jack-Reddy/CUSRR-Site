@@ -10,6 +10,10 @@ def program():
 def organizer():
     return render_template('organizer.html')
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
 @app.route('/schedule')
 def schedule():
     return render_template('organizer.html')
