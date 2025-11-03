@@ -10,33 +10,7 @@
     <section id="schedule">
       <h3 class="mb-3">Schedule</h3>
 
-             <!-- Schedule Overview (clickable blocks) -->
-        <div class="row g-3 mb-4" id="schedule-overview">
-          <div class="col-12 col-md-6">
-            <a href="#session-1" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
-              <h6 class="mb-1 fw-bold">Opening</h6>
-              <p class="text-sm text-secondary mb-0">8:30–9:00 AM</p>
-            </a>
-          </div>
-          <div class="col-12 col-md-6">
-            <a href="#session-2" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
-              <h6 class="mb-1 fw-bold">Keynote</h6>
-              <p class="text-sm text-secondary mb-0">9:00–10:00 AM</p>
-            </a>
-          </div>
-          <div class="col-12 col-md-6">
-            <a href="#session-3" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
-              <h6 class="mb-1 fw-bold">Poster Session</h6>
-              <p class="text-sm text-secondary mb-0">10:15–11:00 AM</p>
-            </a>
-          </div>
-          <div class="col-12 col-md-6">
-            <a href="#session-4" class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
-              <h6 class="mb-1 fw-bold">Lunch</h6>
-              <p class="text-sm text-secondary mb-0">12:00–1:00 PM</p>
-            </a>
-          </div>
-        </div>
+        {% include "_schedule-overview.html" %}
 
       <div id="schedule-details" class="vstack gap-3">
 
