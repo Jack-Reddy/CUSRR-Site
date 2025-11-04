@@ -4,4 +4,27 @@
   .sortable-ghost {
     opacity: 0.5;
   }
+/* Make ONLY the cards row scroll from 0–991.98px (below lg) */
+@media (max-width: 991.98px) {
+  .hscroll-mask { overflow-x: hidden; } /* prevent page-wide scroll */
 
+  .scroll-row {
+    flex-wrap: nowrap;                 /* never break to a second row */
+    overflow-x: auto;                  /* horizontal scrolling here */
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    gap: 1rem;
+    padding: 0 1rem .25rem;            /* fake gutters + avoid scrollbar overlap */
+    margin-left: 0 !important;         /* neutralize Bootstrap row negatives */
+    margin-right: 0 !important;
+  }
+
+  .scroll-row > .col {
+    flex: 0 0 50vw;                    /* width of each card while scrolling */
+    max-width: 50vw;
+    scroll-snap-align: start;
+  }
+}
+
+/* Safety net */
+html, body { overflow-x: hidden; }
