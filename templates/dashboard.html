@@ -1,70 +1,73 @@
 {% extends "base.html" %}
-
 {% block title %}General Dashboard{% endblock %}
 
 {% block content %}
 <h3 class="mb-3">Program</h3>
-<div class="hscroll-mask">
-  <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3 scroll-row">
-    <div class="col">
-      <div class="card card-plain card-blog h-100">
-        <div class="card-image border-radius-lg position-relative">
-          <a href="javascript:;">
-            <img class="w-100 border-radius-lg move-on-hover shadow" src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg" />
-          </a>
-        </div>
-        <div class="card-body px-0">
-          <h5><a href="javascript:;" class="text-dark font-weight-bold">Blitz</a></h5>
-          <p>Short, one slide presentations</p>
+
+<!-- Scope everything for the top row inside .program-cards -->
+<section class="program-cards">
+  <div class="hscroll-mask">
+    <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3 scroll-row">
+      <div class="col">
+        <div class="card card-plain card-blog h-100">
+          <div class="card-image border-radius-lg position-relative overflow-hidden">
+            <a href="javascript:;">
+              <img class="w-100 border-radius-lg move-on-hover shadow"
+                   src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg" />
+            </a>
+            <div class="card-overlay">
+              <h5 class="overlay-title">Blitz</h5>
+              <p class="overlay-subtitle">Short, one slide presentations</p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="col">
-      <div class="card card-plain card-blog h-100">
-        <div class="card-image border-radius-lg position-relative">
-          <a href="javascript:;">
-            <img class="w-100 border-radius-lg move-on-hover shadow" src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-wall.jpg" />
-          </a>
-        </div>
-        <div class="card-body px-0">
-          <h5><a href="javascript:;" class="text-dark font-weight-bold">Presentation</a></h5>
-          <p>Longer, mult-slide presentations</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="col">
-      <div class="card card-plain card-blog h-100">
-        <div class="card-image border-radius-lg position-relative">
-          <a href="javascript:;">
-            <img class="w-100 border-radius-lg move-on-hover shadow" src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-clock.jpg" />
-          </a>
-        </div>
-        <div class="card-body px-0">
-          <h5><a href="javascript:;" class="text-dark font-weight-bold">Poster</a></h5>
-          <p>A walk-through of a comprehensive poster</p>
+      <div class="col">
+        <div class="card card-plain card-blog h-100">
+          <div class="card-image border-radius-lg position-relative overflow-hidden">
+            <a href="javascript:;">
+              <img class="w-100 border-radius-lg move-on-hover shadow"
+                   src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-wall.jpg" />
+            </a>
+            <div class="card-overlay">
+              <h5 class="overlay-title">Presentation</h5>
+              <p class="overlay-subtitle">Longer, mult-slide presentations</p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</div>
 
+      <div class="col">
+        <div class="card card-plain card-blog h-100">
+          <div class="card-image border-radius-lg position-relative overflow-hidden">
+            <a href="javascript:;">
+              <img class="w-100 border-radius-lg move-on-hover shadow"
+                   src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-clock.jpg" />
+            </a>
+            <div class="card-overlay">
+              <h5 class="overlay-title">Poster</h5>
+              <p class="overlay-subtitle">A walk-through of a comprehensive paper</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /.row -->
+  </div><!-- /.hscroll-mask -->
+</section>
 
-<h3 class="mb-3 d-flex align-items-center justify-content-between">
+<h3 class="mt-5 mb-3 d-flex align-items-center justify-content-between">
   <span>Upcoming</span>
   <a href="#show-all" class="text-info text-sm">Show all</a>
 </h3>
 
-
 <div id="upcoming-container" class="vstack gap-3">
-  
+  <!-- upcoming cards here; unaffected -->
 </div>
-
 {% endblock %}
 
 {% block scripts %}
   {{ super() }}
   <script src="{{ url_for('static', filename='js/upcoming.js') }}"></script>
-  <style src="{{ url_for('static', filename='js/style.css') }}"></style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='js/style.css') }}">
 {% endblock %}
