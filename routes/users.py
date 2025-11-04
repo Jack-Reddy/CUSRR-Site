@@ -20,7 +20,7 @@ def get_user(id):
 def create_user():
     data = request.get_json()
     new_user = User(
-        name=data['firstname'],
+        name=data['name'],
         email=data['email'],
         activity=data.get('activity'),
         presentation_id=data.get('presentation_id')

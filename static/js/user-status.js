@@ -36,7 +36,8 @@ async function loadUsers() {
           <th>Name</th>
           <th>Email</th>
           <th>Activity</th>
-          <th>Presentation ID</th>
+          <th>Pres. ID</th>
+          <th>Status</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -51,10 +52,11 @@ async function loadUsers() {
 
       row.innerHTML = `
         <td>${index + 1}</td>
-        <td>${user.firstname +  " " +  user.lastname || '—'}</td>
+        <td>${user.name || '—'}</td>
         <td>${user.email || '—'}</td>
         <td>${user.activity || '—'}</td>
         <td>${user.presentation_id || '—'}</td>
+        <td>${user.status || '—'}</td>
         <td>
           <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
