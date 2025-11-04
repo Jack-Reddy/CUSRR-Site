@@ -1,22 +1,52 @@
-/* Fixed sidebar styles */
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 250px;
-  height: 100vh;
-  background-color: #f8f9fa;
-  padding: 1rem;
-  overflow-y: auto;
-  z-index: 1000;
-}
 
-/* Optional: scrollbar styling */
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
+    :root{
+      --sidebar-width: 200px;   /* was 260px */
+      --sidebar-mini: 72px;     /* keep as-is */
+    }
 
-.sidebar::-webkit-scrollbar-thumb {
-  background-color: rgba(0,0,0,0.2);
-  border-radius: 3px;
-}
+
+    /* Sidebar base */
+    #sidenav-main{
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-width);
+      overflow-y: auto; z-index: 1030;
+      background: #fff; border-right: 1px solid #e9ecef; padding: 16px;
+      transition: width .25s ease;
+    }
+
+    /* Content offset */
+    .main-content{
+      margin-left: var(--sidebar-width);
+      min-height: 100vh; padding: 24px;
+      transition: margin-left .25s ease;
+    }
+
+    /* Mini state: shrink widths, hide labels, center icons */
+    .sidebar-mini #sidenav-main{ width: var(--sidebar-mini); padding: 16px 8px; }
+    .sidebar-mini .main-content{ margin-left: var(--sidebar-mini); }
+
+    /* Icon + label structure */
+    .nav-link .icon { display:inline-flex; width: 28px; justify-content:center; }
+    .nav-link .label{ margin-left: 8px; white-space: nowrap; }
+
+    /* Hide labels in mini state */
+    .sidebar-mini .nav-link .label{ display:none; }
+
+    /* Make links full-width buttons without breaking layout */
+    .nav-link.btn{ display:flex; align-items:center; justify-content:flex-start; }
+
+    /* Header row inside the sidebar */
+    .sidebar-header{ display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+    .sidebar-title{ font-weight:700; }
+    .sidebar-mini .sidebar-title{ display:none; } /* hide title in mini */
+
+    /* Toggle button styles (fits inside sidebar; never overlays content) */
+    #toggleSidebar{
+      display:flex; align-items:center; justify-content:center;
+      width: 100%; height: 36px;
+      padding: 0; line-height: 1; font-size: 16px;
+    }
+    /* In mini state keep it compact but still visible */
+    .sidebar-mini #toggleSidebar{
+      width: 100%; /* stays full width of the mini rail */
+    }
