@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from models import db, Presentation
 
 presentations_bp = Blueprint('presentations', __name__)
@@ -52,3 +52,9 @@ def delete_presentation(id):
     db.session.delete(presentation)
     db.session.commit()
     return jsonify({"message": "Presentation deleted"})
+
+# Presentations sorted by time
+@presentations_bp.route('/recent', methods=['GET'])
+def get_recent_presentations():
+    presentations = Presentation.query.order_by(Presentation.time.desc()).all()
+    return jsonify([p.to_dict() for p in presentations])

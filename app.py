@@ -10,8 +10,8 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
-app.register_blueprint(users_bp, url_prefix="/api/users")
-app.register_blueprint(presentations_bp, url_prefix="/api/presentations")
+app.register_blueprint(users_bp, url_prefix="/routes/users")
+app.register_blueprint(presentations_bp, url_prefix="/routes/presentations")
 
 @app.route('/')
 def program():
