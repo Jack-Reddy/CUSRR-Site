@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Organizer Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Left Column: Schedule -->
+<div id="user-container" class="vstack gap-3 col-12 col-lg-8">
+  
+</div>
+
+  <!-- Right Column -->
+  <div class="col-12 col-lg-4">
+    <section id="future-content" class="text-secondary">
+      <div class="card border-0 shadow-xs rounded-4 p-3 text-center">
+        <p class="mb-0">Reserve for generated program at a glance.</p>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+{% endblock %}
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ url_for('static', filename='js/user-status.js') }}"></script>
+{% endblock %}

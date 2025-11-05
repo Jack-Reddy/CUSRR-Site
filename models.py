@@ -45,9 +45,12 @@ class User(db.Model):
             "id": self.id,
             "firstname": self.firstname,
             "lastname": self.lastname,
+            "name": f"{self.firstname} {self.lastname}",
             "email": self.email,
             "activity": self.activity,
-            "presentation": self.presentation.title if self.presentation else None
+            "presentation": self.presentation.title if self.presentation else None,
+            "presentation_id" : self.presentation_id,
+            "status": "Registered"  # Placeholder for user status
         }
 
     def to_dict_basic(self):

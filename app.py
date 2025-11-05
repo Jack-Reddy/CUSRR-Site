@@ -33,6 +33,10 @@ def abstractGrader():
 def schedule():
     return render_template('organizer.html')
 
+@app.route('/organizer-user-status')
+def organizer_user_status():
+    return render_template('organizer-user-status.html')
+
 @app.route('/attendees')
 def attendees():
     return render_template('organizer.html')
