@@ -132,7 +132,16 @@ def google_auth():
         user_info = {'error': 'token_exchange_failed', 'detail': str(e), 'token_resp': locals().get('token_json')}
 
     session['user'] = user_info
-    return redirect(url_for('program'))
+    # Check if user exists in DB
+    email = user_info.get('email')
+    db_user = User.query.filter_by(email=email).first()
+
+    if db_user:
+        # User exists, redirect to dashboard
+        return redirect(url_for('dashboard'))
+    else:
+        # User doesn't exist, redirect to signup page
+        return redirect(url_for('signup'))
 
 @app.route('/google/logout')
 def google_logout():
