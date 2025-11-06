@@ -1,7 +1,9 @@
 
     :root{
-      --sidebar-width: 200px;   /* was 260px */
-      --sidebar-mini: 72px;     /* keep as-is */
+      --sidebar-width: 230px;     /* your full width */
+      --sidebar-mini: 95px;       /* rail width */
+      --rail-icon-size: 22px;     /* icon size when mini */
+      --rail-btn: 48px;           /* square button size */
     }
 
 
@@ -22,11 +24,23 @@
     }
 
     /* Mini state: shrink widths, hide labels, center icons */
-    .sidebar-mini #sidenav-main{ width: var(--sidebar-mini); padding: 16px 8px; }
+    .sidebar-mini #sidenav-main{
+      width: var(--sidebar-mini);
+      padding: 12px 8px;          /* tighter padding so icons visually center */
+    }
+    
+    .sidebar-mini #sidenav-main .nav-link.btn{
+      justify-content: center;            /* center the icon */
+      padding: 0;                         /* remove leftover text padding */
+      height: var(--rail-btn);
+      border-radius: 12px;                /* same rounding as full size */
+      margin: 6px 0;                      /* even spacing down the rail */
+    }
+
     .sidebar-mini .main-content{ margin-left: var(--sidebar-mini); }
 
     /* Icon + label structure */
-    .nav-link .icon { display:inline-flex; width: 28px; justify-content:center; }
+    .nav-link .icon { display:inline-flex; width: 40px; justify-content:center; }
     .nav-link .label{ margin-left: 8px; white-space: nowrap; }
 
     /* Hide labels in mini state */
@@ -46,6 +60,7 @@
       width: 100%; height: 36px;
       padding: 0; line-height: 1; font-size: 16px;
     }
+    
     /* In mini state keep it compact but still visible */
     .sidebar-mini #toggleSidebar{
       width: 100%; /* stays full width of the mini rail */
