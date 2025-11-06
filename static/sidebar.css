@@ -6,6 +6,7 @@
       --rail-btn: 48px;           /* square button size */
     }
 
+
     /* Sidebar base */
     #sidenav-main{
       position: fixed; top: 0; left: 0; bottom: 0;
@@ -35,6 +36,7 @@
       border-radius: 12px;                /* same rounding as full size */
       margin: 6px 0;                      /* even spacing down the rail */
     }
+
     .sidebar-mini .main-content{ margin-left: var(--sidebar-mini); }
 
     /* Icon + label structure */
