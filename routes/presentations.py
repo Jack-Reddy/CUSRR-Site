@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, render_template
 from models import db, Presentation
+from datetime import datetime
 
 presentations_bp = Blueprint('presentations', __name__)
 
@@ -53,8 +54,39 @@ def delete_presentation(id):
     db.session.commit()
     return jsonify({"message": "Presentation deleted"})
 
-# Presentations sorted by time
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():
-    presentations = Presentation.query.order_by(Presentation.time.desc()).all()
+    """Return upcoming presentations sorted by soonest first."""
+    now = datetime.now()
+
+    presentations = (
+        Presentation.query
+        .filter(Presentation.time >= now)
+        .order_by(Presentation.time.asc())
+        .all()
+    )
+
     return jsonify([p.to_dict() for p in presentations])
+
+@presentations_bp.route('/type/<string:category>', methods=['GET'])
+def get_presentations_by_type(category):
+    """Return all presentations of a given type (Poster, Blitz, Presentation)."""
+    valid_types = {"poster", "presentation", "blitz"}
+
+    # normalize input
+    category_lower = category.strip().lower()
+    if category_lower not in valid_types:
+        return jsonify({"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
+
+    # fix capitalization
+    formatted_type = category_lower.capitalize()
+
+    # get the presentations
+    results = (
+        Presentation.query
+        .filter(Presentation.type.ilike(formatted_type))
+        .order_by(Presentation.time.asc())
+        .all()
+    )
+
+    return jsonify([p.to_dict() for p in results])
