@@ -96,7 +96,7 @@
     }
 
     try {
-      const response = await fetch('/routes/presentations/recent');
+      const response = await fetch('/api/v1/presentations/recent');
       if (!response.ok) {
         throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
       }

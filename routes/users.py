@@ -4,19 +4,19 @@ from models import db, User
 users_bp = Blueprint('users', __name__)
 
 # GET all users
-@users_bp.route('/', methods=['GET'])
+@users_bp.route('/api/v1/users', methods=['GET'])
 def get_users():
     users = User.query.all()
     return jsonify([u.to_dict() for u in users])
 
 # GET one user
-@users_bp.route('/<int:id>', methods=['GET'])
+@users_bp.route('/api/v1/users/<int:id>', methods=['GET'])
 def get_user(id):
     user = User.query.get_or_404(id)
     return jsonify(user.to_dict())
 
 # POST create user
-@users_bp.route('/', methods=['POST'])
+@users_bp.route('/api/v1/users', methods=['POST'])
 def create_user():
     data = request.get_json()
     new_user = User(
@@ -30,7 +30,7 @@ def create_user():
     return jsonify(new_user.to_dict()), 201
 
 # PUT update user
-@users_bp.route('/<int:id>', methods=['PUT'])
+@users_bp.route('/api/v1/users/<int:id>', methods=['PUT'])
 def update_user(id):
     user = User.query.get_or_404(id)
     data = request.get_json()
@@ -42,7 +42,7 @@ def update_user(id):
     return jsonify(user.to_dict())
 
 # DELETE user
-@users_bp.route('/<int:id>', methods=['DELETE'])
+@users_bp.route('/api/v1/users/<int:id>', methods=['DELETE'])
 def delete_user(id):
     user = User.query.get_or_404(id)
     db.session.delete(user)

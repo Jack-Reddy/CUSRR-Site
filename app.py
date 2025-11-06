@@ -30,8 +30,8 @@ def login_required(f):
 app.config.from_object(Config)
 db.init_app(app)
 
-app.register_blueprint(users_bp, url_prefix="/routes/users")
-app.register_blueprint(presentations_bp, url_prefix="/routes/presentations")
+app.register_blueprint(users_bp, url_prefix="/api/v1/users")
+app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
 
 @app.route('/')
 def program():
