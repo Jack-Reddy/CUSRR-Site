@@ -1,17 +1,19 @@
-{% extends "base.html" %} {% block title %}General Dashboard{% endblock %} {%
-block content %}
+{% extends "base.html" %}
+{% block title %}General Dashboard{% endblock %}
+
+{% block content %}
+
 <h3 class="mb-3">Program</h3>
 
-<!-- Scope everything for the top row inside .program-cards -->
 <section class="program-cards">
   <div class="hscroll-mask">
     <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3 scroll-row">
+
+      <!-- Blitz Card -->
       <div class="col">
         <a href="{{ url_for('blitz_page') }}" class="card-link-wrapper">
           <div class="card card-plain card-blog h-100">
-            <div
-              class="card-image border-radius-lg position-relative overflow-hidden"
-            >
+            <div class="card-image border-radius-lg position-relative overflow-hidden">
               <img
                 class="w-100 border-radius-lg move-on-hover shadow"
                 src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg"
@@ -24,12 +26,11 @@ block content %}
         </a>
       </div>
 
+      <!-- Presentation Card -->
       <div class="col">
         <a href="{{ url_for('presentation_page') }}" class="card-link-wrapper">
           <div class="card card-plain card-blog h-100">
-            <div
-              class="card-image border-radius-lg position-relative overflow-hidden"
-            >
+            <div class="card-image border-radius-lg position-relative overflow-hidden">
               <img
                 class="w-100 border-radius-lg move-on-hover shadow"
                 src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-wall.jpg"
@@ -42,12 +43,11 @@ block content %}
         </a>
       </div>
 
+      <!-- Poster Card -->
       <div class="col">
         <a href="{{ url_for('poster_page') }}" class="card-link-wrapper">
           <div class="card card-plain card-blog h-100">
-            <div
-              class="card-image border-radius-lg position-relative overflow-hidden"
-            >
+            <div class="card-image border-radius-lg position-relative overflow-hidden">
               <img
                 class="w-100 border-radius-lg move-on-hover shadow"
                 src="https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-clock.jpg"
@@ -59,10 +59,9 @@ block content %}
           </div>
         </a>
       </div>
+
     </div>
-    <!-- /.row -->
   </div>
-  <!-- /.hscroll-mask -->
 </section>
 
 <h3 class="mt-5 mb-3 d-flex align-items-center justify-content-between">
@@ -70,89 +69,23 @@ block content %}
   <a href="#show-all" class="text-info text-sm">Show all</a>
 </h3>
 
-<!-- Modal (kept) -->
-<div class="modal fade" id="sessionModal" tabindex="-1" aria-hidden="true">
-  <div
-    class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"
-  >
-    <div class="modal-content session-modal rounded-4 border-0 shadow-lg">
-      <div class="modal-body p-0">
-        <!-- HERO -->
-        <div class="session-hero position-relative rounded-top-4">
-          <!-- faint shapes -->
-          <svg class="hero-blobs" viewBox="0 0 200 120" aria-hidden="true">
-            <path
-              d="M35 60c0-12 10-22 22-22s22 10 22 22-10 22-22 22S35 72 35 60Z"
-            />
-            <path d="M120 25l20 10-10 20-20-10 10-20Z" />
-            <rect x="135" y="60" width="32" height="32" rx="8" />
-          </svg>
-
-          <div class="p-3 p-md-4">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <div class="session-time" id="mTime"></div>
-                <div
-                  class="session-location text-secondary"
-                  id="mRoom"
-                ></div>
-              </div>
-
-              <div class="dropdown">
-                <button
-                  class="btn btn-sm btn-link text-secondary px-2"
-                  data-bs-toggle="dropdown"
-                  aria-label="More"
-                >
-                  ⋮
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                  <li><a class="dropdown-item" href="#">Share</a></li>
-                  <li><a class="dropdown-item" href="#">Add to calendar</a></li>
-                </ul>
-              </div>
-            </div>
-
-            <div class="d-flex gap-3 align-items-center mt-3">
-              <img
-                id="mImg"
-                src=""
-                alt=""
-                class="rounded-3 d-none d-md-block session-thumb"
-              />
-              <div class="flex-grow-1">
-                <h5 class="mb-1 session-title" id="mTitle"></h5>
-                <div class="text-secondary session-authors" id="mAuthors"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- BODY -->
-        <div class="p-4 session-body">
-          <p class="mb-2">
-            <strong>Subject:</strong> <span id="mSubject"></span>
-          </p>
-          <p class="mb-2"><strong>Type:</strong> <span id="mType"></span></p>
-          <p class="mb-2">
-            <strong>Presenters:</strong> <span id="mPresenters"></span>
-          </p>
-          <p class="mb-0 session-abstract" id="mAbstract"></p>
-        </div>
-
-        <!-- FOOTER -->
-        <div class="p-3 d-flex justify-content-end">
-          <button class="btn btn-primary rounded-pill px-4">Rate</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Dynamic cards land here -->
 <div id="upcoming-container" class="vstack gap-3"></div>
 
-{% endblock %} {% block scripts %} {{ super() }}
-<script src="{{ url_for('static', filename='js/upcoming.js') }}"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+
+<script src="{{ url_for('static', filename='js/session-modal.js') }}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Load only upcoming presentations
+  SessionModal.loadSessions('/api/v1/presentations/recent', '#upcoming-container', 'session-card', 5);
+
+  // Enable modal clicks
+  SessionModal.setupDelegatedClicks('#upcoming-container');
+});
+</script>
+
 {% endblock %}

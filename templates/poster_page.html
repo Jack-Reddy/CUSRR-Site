@@ -2,23 +2,28 @@
 {% block title %}Poster Page{% endblock %}
 
 {% block content %}
-
 <h3 class="mt-5 mb-3 d-flex align-items-center justify-content-between">
   <span>Past Posters</span>
 </h3>
-<div id="past-poster-container" class="vstack gap-3 mb-5">
-</div>
+<div id="past-poster-container" class="vstack gap-3 mb-5"></div>
 
 <h3 class="mt-5 mb-3 d-flex align-items-center justify-content-between">
   <span>Upcoming Posters</span>
 </h3>
-<div id="upcoming-poster-container" class="vstack gap-3">
-</div>
-
+<div id="upcoming-poster-container" class="vstack gap-3"></div>
 {% endblock %}
 
 {% block scripts %}
-  {{ super() }}
-  <script src="{{ url_for('static', filename='js/poster-presentation.js') }}"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{{ super() }}
+<script src="{{ url_for('static', filename='js/session-modal.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  SessionModal.loadCards({
+    apiEndpoint: '/api/v1/presentations/type/poster',
+    upcomingContainer: '#upcoming-poster-container',
+    pastContainer: '#past-poster-container',
+    cardClass: 'poster-card'
+  });
+});
+</script>
 {% endblock %}
