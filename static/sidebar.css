@@ -6,7 +6,6 @@
       --rail-btn: 48px;           /* square button size */
     }
 
-
     /* Sidebar base */
     #sidenav-main{
       position: fixed; top: 0; left: 0; bottom: 0;
@@ -28,11 +27,6 @@
       width: var(--sidebar-mini);
       padding: 12px 8px;          /* tighter padding so icons visually center */
     }
-    /* .sidebar-mini #sidenav-main .text-uppercase,
-    .sidebar-mini #sidenav-main .label,
-    .sidebar-mini #sidenav-main .sidebar-title{
-      display: none !important;
-    } */
     
     .sidebar-mini #sidenav-main .nav-link.btn{
       justify-content: center;            /* center the icon */
@@ -64,21 +58,9 @@
       width: 100%; height: 36px;
       padding: 0; line-height: 1; font-size: 16px;
     }
+    
     /* In mini state keep it compact but still visible */
     .sidebar-mini #toggleSidebar{
       width: 100%; /* stays full width of the mini rail */
     }
-    /* center the avatar above the name */
-    .user-chip{
-      display:flex;
-      flex-direction: column;
-      align-items:center;
-      text-align:center;
-      gap:8px;            /* space between image and name */
-      text-decoration:none;
-    }
-    .user-chip #user-pic{
-      width:32px; height:32px; border-radius:50%;
-    }
-
 
