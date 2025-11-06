@@ -22,6 +22,8 @@ async function signup() {
             return;
         }
 
+        const activitySelect = document.getElementById('activity');
+
         const response = await fetch('/api/v1/users/', {
             method: 'POST',
             headers: {
@@ -30,7 +32,7 @@ async function signup() {
             body: JSON.stringify({
                 firstname: document.getElementById('first-name').value,
                 lastname: document.getElementById('last-name').value,
-                activity: document.getElementById('activity').value,
+                activity: activitySelect.options[activitySelect.selectedIndex].text,
                 email: user.email
             })
         });
