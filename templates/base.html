@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sidebar Layout</title>
 
+ <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/soft-design-system.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
+
+
+<!-- Authentication UI: shows Sign in / Logout and the user's name/photo -->
+<div id="auth-area" class="mb-3 text-end">
+  <a id="login-btn" href="/google/login" class="btn btn-outline-primary">Sign in with Google</a>
+  <a id="logout-btn" href="/google/logout" class="btn btn-outline-secondary" style="display:none">Logout</a>
+  <span id="user-name" class="ms-2"></span>
+  <img id="user-pic" src="" alt="" style="display:none;width:32px;height:32px;border-radius:50%;margin-left:8px;">
+
+
+</div>
+ 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/soft-design-system.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
@@ -19,6 +33,53 @@
     {% block content %}
     {% endblock %}
   </main>
+
+<script src="{{ url_for('static', filename='assets/js/soft-design-system.min.js') }}"></script>
+
+
+<!-- Small auth helper: fetch /me and update auth UI (dev-only, safe to remove/replace) -->
+<script>
+  (async function(){
+    try {
+      const resp = await fetch('/me', { credentials: 'same-origin' });
+      if (!resp.ok) {
+        // Not signed in: show login button, hide user info
+        document.getElementById('login-btn').style.display = '';
+        document.getElementById('logout-btn').style.display = 'none';
+        document.getElementById('user-name').textContent = '';
+        const img = document.getElementById('user-pic');
+        img.style.display = 'none';
+        img.src = '';
+        return;
+      }
+      const data = await resp.json();
+      if (data && data.authenticated) {
+        document.getElementById('login-btn').style.display = 'none';
+        document.getElementById('logout-btn').style.display = '';
+        document.getElementById('user-name').textContent = data.name || data.email || '';
+        const img = document.getElementById('user-pic');
+        if (data.picture) {
+          img.src = data.picture;
+          img.style.display = '';
+        } else {
+          img.style.display = 'none';
+          img.src = '';
+        }
+      } else {
+        // Unauthenticated
+        document.getElementById('login-btn').style.display = '';
+        document.getElementById('logout-btn').style.display = 'none';
+      }
+    } catch (e) {
+      // Network or other error: keep login visible
+      console.error('auth helper error', e);
+      document.getElementById('login-btn').style.display = '';
+      document.getElementById('logout-btn').style.display = 'none';
+    }
+  })();
+</script>
+
+
 
 
 
