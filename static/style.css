@@ -35,7 +35,7 @@
   background: linear-gradient(to top, rgba(0,0,0,.7), rgba(0,0,0,0));
   color: #fff;
 }
-.program-cards .overlay-title { margin: 0; font-weight: 600; font-size: 1.1rem; }
+.program-cards .overlay-title { margin: 0; font-weight: 600; font-size: 1.1rem; color:#fff }
 .program-cards .overlay-subtitle { margin: 0; font-size: .9rem; opacity: .9; }
 
 /* Safety net for the page */
