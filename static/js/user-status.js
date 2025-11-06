@@ -7,7 +7,7 @@ async function loadUsers() {
   }
 
   try {
-    const response = await fetch('/routes/users/');
+    const response = await fetch('/api/v1/users/');
 
     if (!response.ok) {
       throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
