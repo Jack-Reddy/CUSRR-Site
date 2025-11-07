@@ -43,6 +43,10 @@ async function signup() {
 
         const result = await response.json();
         div.innerHTML = `<p class="text-success">Signup successful! Welcome, ${result.name}.</p>`;
+
+        setTimeout(() => {
+            window.location.href = `/profile`; // or `/users/${result.id}` if applicable
+        }, 1500);
     } catch (error) {
         console.error('Error during signup:', error);
         div.innerHTML = '<p class="text-danger">Signup failed. Please try again later.</p>';

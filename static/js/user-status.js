@@ -102,6 +102,12 @@ removeUser = async function(userId) {
     if (!response.ok) {
       throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
     }
+
+    const filterInput = document.getElementById('user-filter');
+    if (filterInput) {
+      filterInput.value = '';
+    }
+    
     loadUsers(); // Refresh the user list
   
   } catch (err) {

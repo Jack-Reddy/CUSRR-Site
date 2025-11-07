@@ -24,7 +24,8 @@ removeUser = async function() {
     if (!response.ok) {
       throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
     }
-    loadUsers(); // Refresh the user list
+   
+    window.location.href = '/'; // Redirect to homepage after deletion
   
   } catch (err) {
     console.error('Failed to delete user', err);
@@ -66,7 +67,7 @@ async function signupPresentation() {
             body: JSON.stringify({
                 title: document.getElementById('title').value,
                 abstract: document.getElementById('Abstract').value,
-                subject: null,
+                subject: document.getElementById('subject').value,
                 time: "2026-11-04 13:30", // Placeholder time for presentation
                 room: null,
                 type: activitySelect.options[activitySelect.selectedIndex].text
