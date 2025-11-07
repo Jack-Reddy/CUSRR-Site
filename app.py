@@ -186,7 +186,7 @@ def signup():
 
 @app.route('/profile')
 def profile():
-    return render_template('dashboard.html')
+    return render_template('profile.html')
 
 if __name__ == '__main__':
     with app.app_context():
