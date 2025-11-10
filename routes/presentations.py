@@ -49,9 +49,9 @@ def create_presentation():
         db.session.add(new_presentation)
         db.session.commit()
         return jsonify(new_presentation.to_dict()), 201
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Failed to create presentation", "detail": str(e)}), 500
+        return jsonify({"error": "Failed to create presentation"}), 500
 
 # PUT update presentation
 @presentations_bp.route('/<int:id>', methods=['PUT'])
@@ -77,9 +77,9 @@ def update_presentation(id):
         presentation.type = data.get('type', presentation.type)
         db.session.commit()
         return jsonify(presentation.to_dict())
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Failed to update presentation", "detail": str(e)}), 500
+        return jsonify({"error": "Failed to update presentation"}), 500
 
 # DELETE presentation
 @presentations_bp.route('/<int:id>', methods=['DELETE'])
@@ -89,9 +89,9 @@ def delete_presentation(id):
         db.session.delete(presentation)
         db.session.commit()
         return jsonify({"message": "Presentation deleted"})
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Failed to delete presentation", "detail": str(e)}), 500
+        return jsonify({"error": "Failed to delete presentation"}), 500
 
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():

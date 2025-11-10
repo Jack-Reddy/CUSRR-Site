@@ -50,12 +50,12 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
         return jsonify(new_user.to_dict()), 201
-    except IntegrityError as e:
+    except IntegrityError:
         db.session.rollback()
-        return jsonify({"error": "Database integrity error", "detail": str(e)}), 400
-    except Exception as e:
+        return jsonify({"error": "Database integrity error"}), 400
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Failed to create user", "detail": str(e)}), 500
+        return jsonify({"error": "Failed to create user"}), 500
 
 # PUT update user
 @users_bp.route('/<int:id>', methods=['PUT'])
@@ -84,12 +84,12 @@ def update_user(id):
         user.presentation_id = data.get('presentation_id', user.presentation_id)
         db.session.commit()
         return jsonify(user.to_dict())
-    except IntegrityError as e:
+    except IntegrityError:
         db.session.rollback()
-        return jsonify({"error": "Database integrity error", "detail": str(e)}), 400
-    except Exception as e:
+        return jsonify({"error": "Database integrity error"}), 400
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Failed to update user", "detail": str(e)}), 500
+        return jsonify({"error": "Failed to update user"}), 500
 
 
 # DELETE user
@@ -100,6 +100,6 @@ def delete_user(id):
         db.session.delete(user)
         db.session.commit()
         return jsonify({"message": "User deleted"})
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Failed to delete user", "detail": str(e)}), 500
+        return jsonify({"error": "Failed to delete user"}), 500
