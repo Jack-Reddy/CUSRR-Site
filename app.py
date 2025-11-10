@@ -3,7 +3,7 @@ from flask import session, redirect, url_for, jsonify, request
 import os
 import auth
 import requests
-from authlib.jose.errors import InvalidClaimError
+from functools import wraps
 from dotenv import load_dotenv
 from models import db
 from routes.users import users_bp
@@ -22,6 +22,7 @@ auth.init_oauth(app)
 google = auth.oauth.create_client('google')
 
 def login_required(f):
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
             return redirect(url_for('google_login'))
@@ -194,4 +195,5 @@ if __name__ == '__main__':
         from models import User
         if User.query.count() == 0:
             seed_data()
-    app.run(debug=True)
+    # Use environment variable to control debug mode - never use debug=True in production
+    app.run(debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true')

@@ -10,7 +10,7 @@ def get_users():
     return jsonify([u.to_dict() for u in users])
 
 # GET one user
-@users_bp.route('/', methods=['GET'])
+@users_bp.route('/<int:id>', methods=['GET'])
 def get_user(id):
     user = User.query.get_or_404(id)
     return jsonify(user.to_dict())

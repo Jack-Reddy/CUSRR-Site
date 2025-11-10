@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -9,7 +10,7 @@ class Presentation(db.Model):
     title = db.Column(db.String(120), nullable=False)
     abstract = db.Column(db.String(500))
     subject = db.Column(db.String(100))
-    time = db.Column(db.String(50))
+    time = db.Column(db.DateTime)
     room = db.Column(db.String(50))
     type = db.Column(db.String(50))
 
@@ -21,7 +22,7 @@ class Presentation(db.Model):
             "title": self.title,
             "abstract": self.abstract,
             "subject": self.subject,
-            "time": self.time,
+            "time": self.time.isoformat() if self.time else None,
             "room": self.room,
             "type": self.type,
             "presenters": [p.to_dict_basic() for p in self.presenters]

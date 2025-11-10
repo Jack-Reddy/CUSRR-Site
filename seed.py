@@ -1,4 +1,5 @@
 from models import db, User, Presentation
+from datetime import datetime
 
 def seed_data():
     """Populate the database with initial test data."""
@@ -18,7 +19,7 @@ def seed_data():
             "streamline administrative processes, and foster lifelong learning in increasingly digital classrooms."
         ),
         subject="Artificial Intelligence",
-        time="2024-11-05 10:00",
+        time=datetime(2024, 11, 5, 10, 0),
         room="Room A",
         type="Blitz"
     )
@@ -37,7 +38,7 @@ def seed_data():
             "highlighting how effective policy implementation is critical to reducing the human and environmental impacts of global warming."
         ),
         subject="Environmental Studies",
-        time="2026-11-05 13:00",
+        time=datetime(2026, 11, 5, 13, 0),
         room="Room B",
         type="Poster"
     )
@@ -56,7 +57,7 @@ def seed_data():
             "This session emphasizes the critical role of developers, engineers, and organizations in creating resilient web environments."
         ),
         subject="Cybersecurity",
-        time="2026-11-06 09:30",
+        time=datetime(2026, 11, 6, 9, 30),
         room="Room C",
         type="Presentation"
     )
@@ -75,7 +76,7 @@ def seed_data():
             "Participants will leave with a comprehensive understanding of both the promise and the hurdles of quantum computing."
         ),
         subject="Computer Science",
-        time="2026-11-06 11:00",
+        time=datetime(2026, 11, 6, 11, 0),
         room="Room D",
         type="Blitz"
     )
@@ -93,7 +94,7 @@ def seed_data():
             "that will shape the future of sustainable energy systems."
         ),
         subject="Energy Engineering",
-        time="2026-11-06 14:00",
+        time=datetime(2026, 11, 6, 14, 0),
         room="Room E",
         type="Poster"
     )
@@ -111,7 +112,7 @@ def seed_data():
             "while improving overall user satisfaction and product adoption."
         ),
         subject="Human-Computer Interaction",
-        time="2026-11-07 09:00",
+        time=datetime(2026, 11, 7, 9, 0),
         room="Room F",
         type="Presentation"
     )
@@ -129,7 +130,7 @@ def seed_data():
             "to better understand and influence human behavior in both individual and organizational settings."
         ),
         subject="Neuroscience",
-        time="2026-11-07 11:30",
+        time=datetime(2026, 11, 7, 11, 30),
         room="Room G",
         type="Blitz"
     )
@@ -147,7 +148,7 @@ def seed_data():
             "to equip attendees with a comprehensive framework for evaluating and implementing ethical AI practices."
         ),
         subject="Philosophy",
-        time="2026-11-07 13:30",
+        time=datetime(2026, 11, 7, 13, 30),
         room="Room H",
         type="Presentation"
     )
@@ -165,7 +166,7 @@ def seed_data():
             "and explore actionable steps to mitigate the global plastic crisis."
         ),
         subject="Marine Biology",
-        time="2026-11-08 10:00",
+        time=datetime(2026, 11, 8, 10, 0),
         room="Room I",
         type="Poster"
     )
