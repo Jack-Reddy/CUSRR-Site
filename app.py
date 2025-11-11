@@ -36,7 +36,7 @@ app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
 
 @app.route('/')
 def program():
-    return render_template('organizer.html')
+    return render_template('dashboard.html')
 
 @app.route('/organizer')
 def organizer():
