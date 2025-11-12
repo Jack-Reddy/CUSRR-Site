@@ -1,6 +1,7 @@
+let userTable; // store DataTable instance
+
 async function loadUsers() {
   const container = document.getElementById('user-container');
-  
   if (!container) {
     console.error('User container not found!');
     return;
@@ -13,7 +14,7 @@ async function loadUsers() {
     }
 
     const users = await response.json();
-    allUsers = users; // save all users for filtering
+    allUsers = users; // keep for reference (optional)
 
     renderTable(users);
 
@@ -27,66 +28,65 @@ function renderTable(users) {
   const container = document.getElementById('user-container');
   if (!container) return;
 
-  if (!users || users.length === 0) {
-    container.innerHTML = '<p class="text-secondary">No users.</p>';
-    return;
-  }
-
-  
-
-  // Clear container
-  container.innerHTML = '';
-
-  // Create table element
-  const table = document.createElement('table');
-  table.className = 'table table-hover table-bordered align-middle mb-0';
-
-  // Build table header
-  table.innerHTML = `
-    <thead class="table table-striped table-hover align-middle">
-      <tr>
-        <th>#</th>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Activity</th>
-        <th>Pres. ID</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
+  // Clear any previous content
+  container.innerHTML = `
+    <table id="user-table" class="table table-hover table-bordered align-middle mb-0" style="width:100%">
+      <thead class="table table-striped align-middle">
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Activity</th>
+          <th>Pres. ID</th>
+          <th>Status</th>
+          <th> Role </th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   `;
 
-  const tbody = table.querySelector('tbody');
+  // Destroy previous DataTable instance if it exists
+  if (userTable) {
+    userTable.destroy();
+  }
 
-  // Add each user as a table row
-  users.forEach((user, index) => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${index + 1}</td>
-      <td>${user.name || '—'}</td>
-      <td>${user.email || '—'}</td>
-      <td>${user.activity || '—'}</td>
-      <td>${user.presentation_id || '—'}</td>
-      <td>${user.status || '—'}</td>
-      <td>
-        <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Options
-          </button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" onclick="viewPresentation(${user.id})">View Presentation</a></li>
-            <li><a class="dropdown-item" onclick="editUser(${user.id})">Edit</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" onclick="removeUser(${user.id})">Delete</a></li>
-          </ul>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(row);
+  // Initialize DataTable
+  userTable = new DataTable('#user-table', {
+    data: users,
+    columns: [
+      { data: null, render: (data, type, row, meta) => meta.row + 1 }, // index
+      { data: 'name', defaultContent: '—' },
+      { data: 'email', defaultContent: '—' },
+      { data: 'activity', defaultContent: '—' },
+      { data: 'presentation_id', defaultContent: '—' },
+      { data: 'status', defaultContent: '—' },
+      { data: 'auth', defaultContent: '—' },
+      {
+        data: 'id',
+        orderable: false,
+        searchable: false,
+        render: function (data, type, row) {
+          return `
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Options
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="editUser(${data})">Edit</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" onclick="removeUser(${data})">Delete</a></li>
+              </ul>
+            </div>
+          `;
+        }
+      }
+    ],
+    responsive: true,
+    pageLength: 10,
+    order: [[1, 'asc']], // default sort by Name
   });
-
-  container.appendChild(table);
 }
 
 removeUser = async function(userId) {
@@ -103,12 +103,7 @@ removeUser = async function(userId) {
       throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
     }
 
-    const filterInput = document.getElementById('user-filter');
-    if (filterInput) {
-      filterInput.value = '';
-    }
-    
-    loadUsers(); // Refresh the user list
+    await loadUsers(); // Refresh the user list
   
   } catch (err) {
     console.error('Failed to delete user', err);
@@ -116,23 +111,39 @@ removeUser = async function(userId) {
   }
 }
 
-function setupFilter() {
-  const filterInput = document.getElementById('user-filter');
-  if (!filterInput) return;
+//Edit User Function
+async function editUser(userId) {
+  try {
 
-  filterInput.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase().trim();
+    const response = await fetch(`/api/v1/users/${userId}`, {
+      method: 'GET',
+    });
+    if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+    const user = await response.json();
 
-    const filtered = allUsers.filter(user =>
-      (user.name && user.name.toLowerCase().includes(query)) ||
-      (user.email && user.email.toLowerCase().includes(query))
-    );
+    // Fill and show modal
+    EditModal.fillAndShowModal(user);
 
-    renderTable(filtered);
-  });
+    // Handle form submission (set up once)
+    EditModal.setupFormSubmit(async (data) => {
+      const updateResp = await fetch(`/api/v1/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!updateResp.ok) throw new Error(`Failed to update user: ${updateResp.status}`);
+
+      await loadUsers(); // refresh after save
+    });
+
+  } catch (err) {
+    console.error('Failed to edit user', err);
+    alert('Could not load user details.');
+  }
 }
-// Run after DOM is ready
+
+// Initialize after DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   loadUsers();
-  setupFilter();
 });
