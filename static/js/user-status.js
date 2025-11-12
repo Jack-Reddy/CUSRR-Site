@@ -39,6 +39,7 @@ function renderTable(users) {
           <th>Activity</th>
           <th>Pres. ID</th>
           <th>Status</th>
+          <th> Role </th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -61,6 +62,7 @@ function renderTable(users) {
       { data: 'activity', defaultContent: '—' },
       { data: 'presentation_id', defaultContent: '—' },
       { data: 'status', defaultContent: '—' },
+      { data: 'auth', defaultContent: '—' },
       {
         data: 'id',
         orderable: false,
