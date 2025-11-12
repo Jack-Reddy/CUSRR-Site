@@ -93,6 +93,9 @@
     else if (data.auth === 'abstract-grader') {
       if (Organizer) Organizer.remove();
     }
+    else if (data.auth === 'organizer') {
+      //all good
+    }
     else {
       //other roles
       if (Organizer) Organizer.remove();

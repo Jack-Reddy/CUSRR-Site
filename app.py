@@ -94,7 +94,7 @@ def presenter_required(view):
         if not db_user:
             return redirect(url_for('signup'))
 
-        if db_user.auth == 'presenter':
+        if db_user.auth == 'presenter' or db_user.auth == 'organizer':
             return view(*args, **kwargs)
 
         # not permitted: return 403 for API/XHR, or redirect to dashboard
