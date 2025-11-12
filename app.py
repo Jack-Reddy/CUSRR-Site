@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, flash
 from flask import session, redirect, url_for, jsonify, request
 import os
 import auth
@@ -11,6 +11,8 @@ from seed import seed_data
 from config import Config
 from models import User
 from functools import wraps
+import csv
+from io import TextIOWrapper
 
 load_dotenv()
 
@@ -112,6 +114,45 @@ db.init_app(app)
 
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
+
+@app.route('/import_csv', methods=['POST'])
+@organizer_required
+def import_csv():
+    file = request.files.get('csv_file')
+    if not file:
+        flash("No file selected.", "danger")
+        return redirect(url_for('organizer_user_status'))
+
+    # Ensure it's a CSV
+    if not file.filename.endswith('.csv'):
+        flash("File must be a CSV.", "danger")
+        return redirect(url_for('organizer_user_status'))
+
+    # Read CSV file
+    csv_data = TextIOWrapper(file, encoding='utf-8')
+    reader = csv.DictReader(csv_data)
+
+    added = 0
+    for row in reader:
+        # Assuming CSV columns: name, email, role
+        user = User(
+            firstname=row.get('firstname'),
+            lastname=row.get('lastname'),
+            email=row.get('email'),
+            auth=row.get('role', 'presenter')
+        )
+
+        # Check if user already exists
+        existing_user = User.query.filter_by(email=user.email).first()
+        if existing_user:
+            continue  # Skip existing users
+
+        db.session.add(user)
+        added += 1
+
+    db.session.commit()
+    flash(f"Successfully imported {added} users!", "success")
+    return redirect(url_for('organizer_user_status'))
 
 @app.route('/')
 def program():
