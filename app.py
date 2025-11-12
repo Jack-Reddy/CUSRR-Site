@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from models import db
 from routes.users import users_bp
 from routes.presentations import presentations_bp
+from routes.abstract_grades import abstract_grades_bp
+from routes.grades import grades_bp
 from seed import seed_data
 from config import Config
 from models import User
@@ -112,6 +114,8 @@ db.init_app(app)
 
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
+app.register_blueprint(abstract_grades_bp, url_prefix='api/v1/abstractgrades')
+app.register_blueprint(grades_bp, url_prefix='/grades')
 
 @app.route('/')
 def program():
