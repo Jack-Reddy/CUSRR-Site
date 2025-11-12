@@ -72,8 +72,7 @@ function renderTable(users) {
                 Options
               </button>
               <ul class="dropdown-menu">
-                <li><a class="dropdown-item" onclick="viewPresentation(${data})">View Presentation</a></li>
-                <li><a class="dropdown-item" onclick="editUser(${data})">Edit</a></li>
+                <li><a class="dropdown-item" href="#" onclick="editUser(${data})">Edit</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" onclick="removeUser(${data})">Delete</a></li>
               </ul>
@@ -107,6 +106,38 @@ removeUser = async function(userId) {
   } catch (err) {
     console.error('Failed to delete user', err);
     alert('Could not delete user.');
+  }
+}
+
+//Edit User Function
+async function editUser(userId) {
+  try {
+
+    const response = await fetch(`/api/v1/users/${userId}`, {
+      method: 'GET',
+    });
+    if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+    const user = await response.json();
+
+    // Fill and show modal
+    EditModal.fillAndShowModal(user);
+
+    // Handle form submission (set up once)
+    EditModal.setupFormSubmit(async (data) => {
+      const updateResp = await fetch(`/api/v1/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!updateResp.ok) throw new Error(`Failed to update user: ${updateResp.status}`);
+
+      await loadUsers(); // refresh after save
+    });
+
+  } catch (err) {
+    console.error('Failed to edit user', err);
+    alert('Could not load user details.');
   }
 }
 
