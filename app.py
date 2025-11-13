@@ -68,7 +68,7 @@ def abstract_grader_required(view):
         if db_user.auth:
             roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
 
-        if 'organizer' in roles or 'abstract_grader' in roles:
+        if 'organizer' in roles or 'abstract-grader' in roles:
             return view(*args, **kwargs)
 
         # not permitted: return 403 for API/XHR, or redirect to dashboard
