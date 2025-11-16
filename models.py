@@ -8,7 +8,7 @@ class Presentation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(120), nullable=False)
-    abstract = db.Column(db.String(5000))
+    abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
     time = db.Column(DateTime)
     room = db.Column(db.String(50))
