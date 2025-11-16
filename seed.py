@@ -1,4 +1,17 @@
 from models import db, User, Presentation
+from csv_importer import import_users_from_csv
+
+
+def setup_permissions():
+    """Import permissions from a CSV file."""
+    try:
+        with open('permissions.csv', 'rb') as file:
+            added, warnings = import_users_from_csv(file)
+            print(f"Imported {added} users from permissions.csv")
+            for warning in warnings:
+                print(f"Warning: {warning}")
+    except FileNotFoundError:
+        print("permissions.csv file not found. Skipping permissions setup.")
 
 def seed_data():
     """Populate the database with initial test data."""
@@ -197,4 +210,4 @@ def seed_data():
     db.session.add_all(users)
     db.session.commit()
 
-    print("Database seeded with expanded test data!")
+    print("Database seeded with test data!")

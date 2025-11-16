@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, flash
 from flask import session, redirect, url_for, jsonify, request
 import os
 import auth
@@ -7,12 +7,15 @@ from dotenv import load_dotenv
 from models import db
 from routes.users import users_bp
 from routes.presentations import presentations_bp
+from seed import seed_data, setup_permissions
 from routes.abstract_grades import abstract_grades_bp
 from routes.grades import grades_bp
-from seed import seed_data
 from config import Config
 from models import User
 from functools import wraps
+import csv
+from io import TextIOWrapper
+from csv_importer import import_users_from_csv
 
 load_dotenv()
 
@@ -114,8 +117,36 @@ db.init_app(app)
 
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
-app.register_blueprint(abstract_grades_bp, url_prefix='api/v1/abstractgrades')
+app.register_blueprint(abstract_grades_bp, url_prefix='/api/v1/abstractgrades')
 app.register_blueprint(grades_bp, url_prefix='/grades')
+
+@app.route('/import_csv', methods=['POST'])
+@organizer_required
+def import_csv():
+    file = request.files.get('csv_file')
+    if not file:
+        flash("No file selected.", "danger")
+        return redirect(url_for('organizer_user_status'))
+
+    if not file.filename.lower().endswith('.csv'):
+        flash("File must be a CSV.", "danger")
+        return redirect(url_for('organizer_user_status'))
+
+    try:
+        added, warnings = import_users_from_csv(file)
+
+        flash(f"Successfully imported {added} users!", "success")
+
+        # Show each warning individually
+        for w in warnings:
+            flash(w, "warning")
+
+    except Exception as e:
+        flash(f"Error reading CSV: {str(e)}", "danger")
+
+    return redirect(url_for('organizer_user_status'))
+
+
 
 @app.route('/')
 def program():
@@ -281,5 +312,6 @@ if __name__ == '__main__':
         db.create_all()
         from models import User
         if User.query.count() == 0:
+            setup_permissions()
             seed_data()
     app.run(debug=True)

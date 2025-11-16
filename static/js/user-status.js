@@ -33,7 +33,6 @@ function renderTable(users) {
     <table id="user-table" class="table table-hover table-bordered align-middle mb-0" style="width:100%">
       <thead class="table table-striped align-middle">
         <tr>
-          <th>#</th>
           <th>Name</th>
           <th>Email</th>
           <th>Activity</th>
@@ -56,7 +55,6 @@ function renderTable(users) {
   userTable = new DataTable('#user-table', {
     data: users,
     columns: [
-      { data: null, render: (data, type, row, meta) => meta.row + 1 }, // index
       { data: 'name', defaultContent: '—' },
       { data: 'email', defaultContent: '—' },
       { data: 'activity', defaultContent: '—' },
