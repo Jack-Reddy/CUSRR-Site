@@ -24,7 +24,7 @@
         <span id="user-name" class="text-uppercase label"></span>
       </a>
 
-      <a id="logout-btn" href="/google/logout" class="btn btn-outline-secondary mb-6 nav-link" >
+      <a id="logout-btn" href="/google/logout" class="btn btn-outline-secondary mb-4 nav-link" >
         <img class="icon-img" src="{{ url_for('static', filename='icons/logout.svg') }}" alt="" aria-hidden="true">
         <span class="label">Logout</span>
       </a>
@@ -34,27 +34,28 @@
       <img class="icon-img" src="{{ url_for('static', filename='icons/dashboard.svg') }}" alt="" aria-hidden="true">
       <span class="label">Dashboard</span>
     </a>
+    <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('schedule') }}">
+      <img class="icon-img" src="{{ url_for('static', filename='icons/schedule.svg') }}" alt="" aria-hidden="true">
+      <span class="label">Schedule</span>
+    </a>
     <!-- <a id = "signup-btn" class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('signup') }}">
       <img class="icon-img" src="{{ url_for('static', filename='icons/dashboard.svg') }}" alt="" aria-hidden="true">
       <span class="label">Profile</span>
     </a> -->
     
-    <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">Abstract Grader</div>
+    <div id = "abstractGrader"><div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">Abstract Grader</div>
     <a class="btn btn-outline-secondary mb-2 nav-link" href="abstractGrader"  rel="noopener">
       <img class="icon-img" src="{{ url_for('static', filename='icons/abstractGrading.svg') }}" alt="" aria-hidden="true">
       <span class="label">Abstract Grading</span>
-    </a>
+    </a></div>
 
-    <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">Organizer</div>
-    <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('schedule') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/schedule.svg') }}" alt="" aria-hidden="true">
-      <span class="label">Schedule</span>
-    </a>
+    <div id = "Organizer"> <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">Organizer</div>
+    
     
     <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('organizer_user_status') }}">
       <img class="icon-img" src="{{ url_for('static', filename='icons/attendees.svg') }}" alt="" aria-hidden="true">
       <span class="label">Attendees</span>
-    </a>
+    </a></div>
 
     <!-- <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('program') }}">
       <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">

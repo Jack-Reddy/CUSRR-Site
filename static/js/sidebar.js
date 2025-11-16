@@ -21,6 +21,9 @@
     const logoutBtn = document.getElementById('logout-btn');
     const profileBtn = document.querySelector('.btn.btn-outline-secondary.mb-4.nav-link.card');
 
+    const abstractGrader = document.getElementById('abstractGrader');
+    const Organizer = document.getElementById('Organizer');
+
     const resp = await fetch('/me', { credentials: 'same-origin' });
 
     // If not authenticated
@@ -28,14 +31,12 @@
       loginBtn.style.display = '';
       if (logoutBtn) logoutBtn.style.display = 'none';
       if (profileBtn) profileBtn.remove();  // 👈 remove the entire profile button
+      if (abstractGrader) abstractGrader.remove();
+      if (Organizer) Organizer.remove();
       //if (signupBtn) signupBtn.remove();
       return;
     }
 
-    
-
-    
-  
 
     const data = await resp.json();
     if (data && data.authenticated) {
@@ -84,6 +85,24 @@
       } else {
         userName.remove();
       }
+
+    if (data.auth === 'presenter') {
+      if (abstractGrader) abstractGrader.remove();
+      if (Organizer) Organizer.remove();
+    }
+    else if (data.auth === 'abstract-grader') {
+      if (Organizer) Organizer.remove();
+    }
+    else if (data.auth === 'organizer') {
+      //all good
+    }
+    else {
+      //other roles
+      if (Organizer) Organizer.remove();
+      if (abstractGrader) abstractGrader.remove();
+    }
+
+
     } else {
       // Not authenticated
       loginBtn.style.display = '';

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Abstract Scoring Dashboard{% endblock %}
+
+
+{% block content %}
+<div class="review-app">
+  <div class="review-app__page"> 
+    <div class="review-app__left">
+      <pre id="txt" class="review-app__comic"></pre>
+    </div>
+
+    <!-- Right: grading panel -->
+    <aside class="review-app__right review-app__panel">
+      <h6 class="review-app__title">Grade Abstract</h6>
+      <form id="gradeForm">
+        <label class="review-app__label">Comments to authors</label>
+        <textarea class="review-app__textarea" rows="6" placeholder="Constructive comments…"></textarea>
+
+        <div class="review-app__crit">
+          <label class="review-app__label review-app__row">
+            <span>Originality</span><span id="scoreOrigVal">2</span>
+          </label>
+          <input type="range" class="review-app__range crit" min="0" max="3" value="2" id="scoreOrig">
+        </div>
+
+        <div class="review-app__crit">
+          <label class="review-app__label review-app__row">
+            <span>Clarity</span><span id="scoreClarVal">2</span>
+          </label>
+          
+          <input type="range" class="review-app__range crit" min="0" max="3" value="2" id="scoreClar">
+        </div>
+
+        <div class="review-app__crit">
+          <label class="review-app__label review-app__row">
+            <span>Significance</span><span id="scoreSignVal">2</span>
+          </label>
+          <input type="range" class="review-app__range crit" min="0" max="3" value="2" id="scoreSign">
+        </div>
+
+        <div class="review-app__total">
+          <div class="review-app__total-label">Total</div>
+          <div class="review-app__total-value" id="scoreTotal">9</div>
+        </div>
+
+        <div class="review-app__actions">
+          <a class="btn btn-sm btn-outline-info" href="{{ url_for('abstractGrader') }}">Cancel</a>
+          <a class="btn btn-sm btn-outline-info btn-success">Save Grade</a>
+        </div>
+      </form>
+    </aside>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/abstractScoring.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/abstractScoring.css') }}">
+
+
+{% endblock %}

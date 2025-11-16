@@ -8,6 +8,8 @@ from models import db
 from routes.users import users_bp
 from routes.presentations import presentations_bp
 from seed import seed_data, setup_permissions
+from routes.abstract_grades import abstract_grades_bp
+from routes.grades import grades_bp
 from config import Config
 from models import User
 from functools import wraps
@@ -71,7 +73,7 @@ def abstract_grader_required(view):
         if db_user.auth:
             roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
 
-        if 'organizer' in roles or 'abstract_grader' in roles:
+        if 'organizer' in roles or 'abstract-grader' in roles:
             return view(*args, **kwargs)
 
         # not permitted: return 403 for API/XHR, or redirect to dashboard
@@ -97,7 +99,7 @@ def presenter_required(view):
         if not db_user:
             return redirect(url_for('signup'))
 
-        if db_user.auth == 'presenter':
+        if db_user.auth == 'presenter' or db_user.auth == 'organizer':
             return view(*args, **kwargs)
 
         # not permitted: return 403 for API/XHR, or redirect to dashboard
@@ -115,6 +117,8 @@ db.init_app(app)
 
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
+app.register_blueprint(abstract_grades_bp, url_prefix='api/v1/abstractgrades')
+app.register_blueprint(grades_bp, url_prefix='/grades')
 
 @app.route('/import_csv', methods=['POST'])
 @organizer_required
@@ -298,6 +302,10 @@ def signup():
 @presenter_required
 def profile():
     return render_template('profile.html')
+
+@app.route('/abstractScoring')
+def abstractScoring():
+    return render_template('abstractScoring.html')
 
 if __name__ == '__main__':
     with app.app_context():
