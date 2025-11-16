@@ -7,12 +7,13 @@ from dotenv import load_dotenv
 from models import db
 from routes.users import users_bp
 from routes.presentations import presentations_bp
-from seed import seed_data
+from seed import seed_data, setup_permissions
 from config import Config
 from models import User
 from functools import wraps
 import csv
 from io import TextIOWrapper
+from csv_importer import import_users_from_csv
 
 load_dotenv()
 
@@ -123,69 +124,24 @@ def import_csv():
         flash("No file selected.", "danger")
         return redirect(url_for('organizer_user_status'))
 
-    # Ensure it's a CSV
     if not file.filename.lower().endswith('.csv'):
         flash("File must be a CSV.", "danger")
         return redirect(url_for('organizer_user_status'))
 
     try:
-        csv_data = TextIOWrapper(file, encoding='utf-8', errors='replace')
-        reader = csv.DictReader(csv_data)
+        added, warnings = import_users_from_csv(file)
 
-        # Ensure required columns exist
-        required_columns = {"firstname", "lastname", "email"}
-        missing = required_columns - set(reader.fieldnames or [])
-        if missing:
-            flash(f"Missing required CSV columns: {', '.join(missing)}", "danger")
-            return redirect(url_for('organizer_user_status'))
-
-        added = 0
-        row_num = 1  # For error reporting
-
-        for row in reader:
-            row_num += 1
-
-            # Skip empty or malformed rows
-            if not row or all(v in ("", None) for v in row.values()):
-                continue
-
-            # Validate email
-            email = (row.get("email") or "").strip()
-            if not email or "@" not in email:
-                flash(f"Invalid or missing email on row {row_num}. Row skipped.", "warning")
-                continue
-
-            # Create user object with sane defaults
-            user = User(
-                firstname=(row.get('firstname') or "").strip(),
-                lastname=(row.get('lastname') or "").strip(),
-                email=email,
-                auth=row.get('role', 'presenter')
-            )
-
-            # Do not insert incomplete rows
-            if not user.firstname or not user.lastname:
-                flash(f"Missing name fields on row {row_num}. Row skipped.", "warning")
-                continue
-
-            existing_user = User.query.filter_by(email=user.email).first()
-            if existing_user:
-                continue
-
-            db.session.add(user)
-            added += 1
-
-        db.session.commit()
         flash(f"Successfully imported {added} users!", "success")
-        return redirect(url_for('organizer_user_status'))
 
-    except csv.Error as e:
-        flash(f"CSV parsing error: {str(e)}", "danger")
-        return redirect(url_for('organizer_user_status'))
+        # Show each warning individually
+        for w in warnings:
+            flash(w, "warning")
+
     except Exception as e:
-        # Catch-all to prevent full site crash
-        flash(f"Unexpected error while reading CSV: {str(e)}", "danger")
-        return redirect(url_for('organizer_user_status'))
+        flash(f"Error reading CSV: {str(e)}", "danger")
+
+    return redirect(url_for('organizer_user_status'))
+
 
 
 @app.route('/')
@@ -348,5 +304,6 @@ if __name__ == '__main__':
         db.create_all()
         from models import User
         if User.query.count() == 0:
+            setup_permissions()
             seed_data()
     app.run(debug=True)
