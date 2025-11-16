@@ -117,7 +117,7 @@ db.init_app(app)
 
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
-app.register_blueprint(abstract_grades_bp, url_prefix='api/v1/abstractgrades')
+app.register_blueprint(abstract_grades_bp, url_prefix='/api/v1/abstractgrades')
 app.register_blueprint(grades_bp, url_prefix='/grades')
 
 @app.route('/import_csv', methods=['POST'])
