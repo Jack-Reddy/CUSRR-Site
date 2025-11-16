@@ -124,35 +124,69 @@ def import_csv():
         return redirect(url_for('organizer_user_status'))
 
     # Ensure it's a CSV
-    if not file.filename.endswith('.csv'):
+    if not file.filename.lower().endswith('.csv'):
         flash("File must be a CSV.", "danger")
         return redirect(url_for('organizer_user_status'))
 
-    # Read CSV file
-    csv_data = TextIOWrapper(file, encoding='utf-8')
-    reader = csv.DictReader(csv_data)
+    try:
+        csv_data = TextIOWrapper(file, encoding='utf-8', errors='replace')
+        reader = csv.DictReader(csv_data)
 
-    added = 0
-    for row in reader:
-        # Assuming CSV columns: name, email, role
-        user = User(
-            firstname=row.get('firstname'),
-            lastname=row.get('lastname'),
-            email=row.get('email'),
-            auth=row.get('role', 'presenter')
-        )
+        # Ensure required columns exist
+        required_columns = {"firstname", "lastname", "email"}
+        missing = required_columns - set(reader.fieldnames or [])
+        if missing:
+            flash(f"Missing required CSV columns: {', '.join(missing)}", "danger")
+            return redirect(url_for('organizer_user_status'))
 
-        # Check if user already exists
-        existing_user = User.query.filter_by(email=user.email).first()
-        if existing_user:
-            continue  # Skip existing users
+        added = 0
+        row_num = 1  # For error reporting
 
-        db.session.add(user)
-        added += 1
+        for row in reader:
+            row_num += 1
 
-    db.session.commit()
-    flash(f"Successfully imported {added} users!", "success")
-    return redirect(url_for('organizer_user_status'))
+            # Skip empty or malformed rows
+            if not row or all(v in ("", None) for v in row.values()):
+                continue
+
+            # Validate email
+            email = (row.get("email") or "").strip()
+            if not email or "@" not in email:
+                flash(f"Invalid or missing email on row {row_num}. Row skipped.", "warning")
+                continue
+
+            # Create user object with sane defaults
+            user = User(
+                firstname=(row.get('firstname') or "").strip(),
+                lastname=(row.get('lastname') or "").strip(),
+                email=email,
+                auth=row.get('role', 'presenter')
+            )
+
+            # Do not insert incomplete rows
+            if not user.firstname or not user.lastname:
+                flash(f"Missing name fields on row {row_num}. Row skipped.", "warning")
+                continue
+
+            existing_user = User.query.filter_by(email=user.email).first()
+            if existing_user:
+                continue
+
+            db.session.add(user)
+            added += 1
+
+        db.session.commit()
+        flash(f"Successfully imported {added} users!", "success")
+        return redirect(url_for('organizer_user_status'))
+
+    except csv.Error as e:
+        flash(f"CSV parsing error: {str(e)}", "danger")
+        return redirect(url_for('organizer_user_status'))
+    except Exception as e:
+        # Catch-all to prevent full site crash
+        flash(f"Unexpected error while reading CSV: {str(e)}", "danger")
+        return redirect(url_for('organizer_user_status'))
+
 
 @app.route('/')
 def program():
