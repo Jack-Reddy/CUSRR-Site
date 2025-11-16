@@ -20,11 +20,16 @@ def get_presentation(id):
 @presentations_bp.route('/', methods=['POST'])
 def create_presentation():
     data = request.get_json()
+    time_str = data.get('time')
+    try:
+        presentation_time = datetime.fromisoformat(time_str)
+    except ValueError:
+        return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
         subject=data.get('subject'),
-        time=data.get('time'),
+        time=presentation_time,
         room=data.get('room'),
         type=data.get('type')
     )
@@ -37,10 +42,15 @@ def create_presentation():
 def update_presentation(id):
     presentation = Presentation.query.get_or_404(id)
     data = request.get_json()
+    time_str = data.get('time')
+    if time_str:
+        try:
+            presentation_time = datetime.fromisoformat(time_str)
+        except ValueError:
+            return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
-    presentation.time = data.get('time', presentation.time)
     presentation.room = data.get('room', presentation.room)
     presentation.type = data.get('type', presentation.type)
     db.session.commit()
