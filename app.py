@@ -4,6 +4,7 @@ import os
 import auth
 import requests
 from dotenv import load_dotenv
+load_dotenv()
 from models import db
 from routes.users import users_bp
 from routes.presentations import presentations_bp
@@ -17,7 +18,7 @@ import csv
 from io import TextIOWrapper
 from csv_importer import import_users_from_csv
 
-load_dotenv()
+
 
 app = Flask(__name__)
 

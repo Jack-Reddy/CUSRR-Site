@@ -2,16 +2,16 @@ import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
-    # Flask core settings
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev_secret_key'
+    SECRET_KEY = os.environ.get('FLASK_SECRET') or 'dev_secret_key'
 
-    # SQLAlchemy database URI (here we use SQLite by default)
-    SQLALCHEMY_DATABASE_URI = (
-        os.environ.get('DATABASE_URL') or f"sqlite:///{os.path.join(basedir, 'app.db')}"
-    )
+    # Get DATABASE_URL from environment
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-    # Turn off SQLAlchemy event notifications (saves memory)
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL environment variable not set!")
+
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    # Optional: Enable debugging logs for SQL (can help during dev)
     SQLALCHEMY_ECHO = False
