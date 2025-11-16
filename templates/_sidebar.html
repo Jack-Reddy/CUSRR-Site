@@ -18,33 +18,36 @@
     {% endif %}
   
     {# Profile button:
+      - Only show if authenticated
       - If user is authenticated, in DB, and is presenter/organizer -> go to profile
       - Otherwise -> go to signup
    #}
-   {% if is_authenticated and db_user and (is_presenter or is_organizer) %}
-     {# Auth + has account + correct role -> profile #}
-     <a id="profile-btn"
-        class="btn btn-outline-secondary mb-4 nav-link card text-center border"
-        href="{{ url_for('profile') }}">
-       <span id="profile" class="text-uppercase label">CUSRR Profile</span>
-       {% if user_picture %}
-         <img id="user-pic" src="{{ user_picture }}" alt="User avatar" width="35" height="35">
-       {% endif %}
-       <span id="user-name" class="text-uppercase label">
-         {{ user_name or '' }}
-       </span>
-     </a>
-   {% else %}
-     {# No DB account yet, or wrong role, or not authenticated -> send them to signup #}
-     <a id="profile-btn"
-        class="btn btn-outline-secondary mb-4 nav-link card text-center border"
-        href="{{ url_for('signup') }}">
-       <span id="profile" class="text-uppercase label">CUSRR Profile</span>
-       <img id="user-pic" src="" alt="User avatar" width="35" height="35" style="display:none;">
-       <span id="user-name" class="text-uppercase label"></span>
-     </a>
+   {% if is_authenticated %}
+     {% if db_user and (is_presenter or is_organizer) %}
+       {# Auth + has account + correct role -> profile #}
+       <a id="profile-btn"
+          class="btn btn-outline-secondary mb-4 nav-link card text-center border"
+          href="{{ url_for('profile') }}">
+         <span id="profile" class="text-uppercase label">CUSRR Profile</span>
+         {% if user_picture %}
+           <img id="user-pic" src="{{ user_picture }}" alt="User avatar" width="35" height="35">
+         {% endif %}
+         <span id="user-name" class="text-uppercase label">
+           {{ user_name or '' }}
+         </span>
+       </a>
+     {% else %}
+       {# Auth'd with Google but no DB account / wrong role -> send them to signup #}
+       <a id="profile-btn"
+          class="btn btn-outline-secondary mb-4 nav-link card text-center border"
+          href="{{ url_for('signup') }}">
+         <span id="profile" class="text-uppercase label">CUSRR Profile</span>
+         <img id="user-pic" src="" alt="User avatar" width="35" height="35" style="display:none;">
+         <span id="user-name" class="text-uppercase label"></span>
+       </a>
+     {% endif %}
    {% endif %}
-   
+
     {# Show Logout ONLY if authenticated #}
     {% if is_authenticated %}
       <a id="logout-btn" href="/google/logout" class="btn btn-outline-secondary mb-4 nav-link">
