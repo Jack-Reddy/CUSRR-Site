@@ -1,0 +1,13 @@
+<div class="col-12 col-md-6 col-lg-4 swappable">
+
+  {% if is_organizer %}
+    <div class="drag-handle text-muted small mb-1">⇅</div>
+  {% endif %}
+
+  <div class="card border-0 shadow-xs rounded-4 h-100 p-3" id="poster-{{ poster.code }}">
+    <h6 class="fw-bold mb-1">{{ poster.index }}. {{ poster.title }}</h6>
+    <p class="text-sm text-secondary mb-1">{{ poster.presenter }}</p>
+    <p class="text-sm mb-0">Poster #{{ poster.code }}</p>
+  </div>
+
+</div>

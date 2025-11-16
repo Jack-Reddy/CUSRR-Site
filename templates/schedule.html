@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Left Column: Schedule -->
+  <div class="col-12 col-lg-8">
+    <section id="schedule">
+      <h3 class="mb-3">Schedule</h3>
+
+      {% include "_schedule-overview.html" %}
+
+      <div id="schedule-details" class="vstack gap-3">
+
+        {% for session in sessions %}
+            {% include "_session-card.html" %}
+        {% endfor %}
+
+      </div>
+    </section>
+  </div>
+
+  <!-- Right Column -->
+  <div class="col-12 col-lg-4">
+    <section id="future-content" class="text-secondary">
+      <div class="card border-0 shadow-xs rounded-4 p-3 text-center">
+        <p class="mb-0">Reserve for generated program at a glance.</p>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+{% if is_organizer %}
+<!-- SortableJS only for organizers -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const posterList = document.getElementById('poster-list');
+  if (posterList) {
+    new Sortable(posterList, {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      handle: '.drag-handle',
+      draggable: '.swappable'
+    });
+  }
+});
+</script>
+{% endif %}
+
+{% endblock %}

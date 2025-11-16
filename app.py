@@ -152,9 +152,17 @@ def import_csv():
 def program():
     return render_template('dashboard.html')
 
-@app.route('/organizer')
-def organizer():
-    return render_template('organizer.html')
+@app.route('/schedule')
+def schedule():
+
+    #if logged in and organizer, pass true
+    if 'user' in session:
+        user_info = session['user']
+        email = user_info.get('email')
+        db_user = User.query.filter_by(email=email).first()
+        if db_user and db_user.auth == 'organizer':
+            return render_template('schedule.html', is_organizer=True)
+    return render_template('schedule.html', is_organizer=False)
 
 @app.route('/dashboard')
 def dashboard():
@@ -165,18 +173,10 @@ def dashboard():
 def abstractGrader():
     return render_template('abstractGrader.html')
 
-@app.route('/schedule')
-def schedule():
-    return render_template('organizer.html')
-
 @app.route('/organizer-user-status')
 @organizer_required
 def organizer_user_status():
     return render_template('organizer-user-status.html')
-
-@app.route('/attendees')
-def attendees():
-    return render_template('organizer.html')
 
 
 #Authentication Routes
