@@ -30,7 +30,7 @@
           href="{{ url_for('profile') }}">
          <span id="profile" class="text-uppercase label">CUSRR Profile</span>
          {% if user_picture %}
-           <img id="user-pic" src="{{ user_picture }}" alt="User avatar" width="35" height="35">
+          <img id="user-pic" src="{{ user_picture }}" alt="User avatar" width="35" height="35">
          {% endif %}
          <span id="user-name" class="text-uppercase label">
            {{ user_name or '' }}
@@ -41,7 +41,7 @@
        <a id="profile-btn"
           class="btn btn-outline-secondary mb-4 nav-link card text-center border"
           href="{{ url_for('signup') }}">
-         <span id="profile" class="text-uppercase label">CUSRR Profile</span>
+         <span id="profile" class="text-uppercase label">Finish Sign Up!</span>
          <img id="user-pic" src="" alt="User avatar" width="35" height="35" style="display:none;">
          <span id="user-name" class="text-uppercase label"></span>
        </a>
