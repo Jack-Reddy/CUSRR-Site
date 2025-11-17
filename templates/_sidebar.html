@@ -57,6 +57,11 @@
       <span class="label">Attendees</span>
     </a></div>
 
+    <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('organizer_presentations') }}">
+      <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">
+      <span class="label">Presentations Status</span>
+    </a>
+
     <!-- <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('program') }}">
       <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">
       <span class="label">Program</span>

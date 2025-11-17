@@ -179,6 +179,11 @@ def organizer_user_status():
 def attendees():
     return render_template('organizer.html')
 
+@app.route('/organizer-presentations-status')
+@organizer_required
+def organizer_presentations():
+    return render_template('organizer-presentations-status.html')
+
 
 #Authentication Routes
 @app.route('/google/login')
