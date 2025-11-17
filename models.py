@@ -121,3 +121,26 @@ class AbstractGrade(db.Model):
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
         }
+
+class BlockSchedule(db.Model):
+    __tablename__ = "schedules"
+
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.String(20), nullable=False)
+    startTime = db.Column(DateTime, nullable=False)
+    endTime = db.Column(DateTime, nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(200))
+    location = db.Column(db.String(100))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "day": self.day,
+            "startTime": self.startTime,
+            "endTime": self.endTime,
+            "title": self.title,
+            "description": self.description,
+            "location": self.location,
+            "length": (self.endTime - self.startTime).total_seconds() / 60
+        }
