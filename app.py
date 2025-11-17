@@ -112,6 +112,44 @@ def presenter_required(view):
     return wrapped
 
 
+@app.context_processor
+def inject_permissions(): # helper so unauthed users cannot access links they shouldn't be able to get to when refreshing quickly
+    user_info = session.get('user')
+    email = user_info.get('email') if user_info else None
+
+    db_user = None
+    roles = []
+
+    if email:
+        db_user = User.query.filter_by(email=email).first()
+        if db_user and db_user.auth:
+            roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
+
+    is_authenticated = bool(user_info)  # Google auth?
+    is_organizer = 'organizer' in roles
+    is_presenter = 'presenter' in roles
+
+    allowed_programs = set()
+    if is_presenter or is_organizer: # show presentations info 
+        allowed_programs.update(['poster', 'presentation', 'blitz'])
+
+    user_name = None
+    user_picture = None
+    if user_info:
+        user_name = user_info.get('name') or user_info.get('email')
+        user_picture = user_info.get('picture')
+
+    return dict(
+        db_user=db_user,
+        roles=roles,
+        is_organizer=is_organizer,
+        is_presenter=is_presenter,
+        allowed_programs=allowed_programs,
+        is_authenticated=is_authenticated,
+        user_name=user_name,
+        user_picture=user_picture,
+    )
+
 
 app.config.from_object(Config)
 db.init_app(app)
@@ -305,7 +343,7 @@ def signup():
     return render_template('signup.html')
 
 @app.route('/profile')
-@presenter_required
+# @presenter_required
 def profile():
     return render_template('profile.html')
 

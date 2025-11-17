@@ -1,71 +1,131 @@
 <!-- templates/_sidebar.html -->
 <aside id="sidenav-main">
   <div class="sidebar-header">
-    <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary" aria-controls="sidenav-main" aria-expanded="true" title="Toggle sidebar">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/sidebar.svg') }}" alt="" aria-hidden="true">
+    <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary"
+            aria-controls="sidenav-main"
+            aria-expanded="true"
+            title="Toggle sidebar">
+      <img class="icon-img"
+           src="{{ url_for('static', filename='icons/sidebar.svg') }}"
+           alt=""
+           aria-hidden="true">
     </button>
   </div>
 
   <nav>
-      <a id="login-btn" href="/google/login" class="btn btn-outline-primary mb-2 nav-link">
-        <img class="icon-img" src="{{ url_for('static', filename='icons/google.svg') }}" alt="" aria-hidden="true">
-        <span class="label">Sign in with Google</span>
-      </a>
-      
-      <a id = "profile-btn" class="btn btn-outline-secondary mb-4 nav-link card text-center border " href="{{ url_for('signup') }}" 
+    {# AUTH AREA #}
+
+    {# LOGIN BUTTON: same markup as before, just hidden when authed #}
+    <a id="login-btn"
+       href="/google/login"
+       class="btn btn-outline-primary mb-2 nav-link {% if is_authenticated %}d-none{% endif %}">
+      <img class="icon-img"
+           src="{{ url_for('static', filename='icons/google.svg') }}"
+           alt=""
+           aria-hidden="true">
+      <span class="label">Sign in with Google</span>
+    </a>
+
+
+    {% set profile_href = url_for('signup') %}
+    {% if is_authenticated and db_user and (is_presenter or is_organizer) %}
+      {% set profile_href = url_for('profile') %}
+    {% endif %}
+
+    {# PROFILE BUTTON: same structure/classes as original #}
+    {% if is_authenticated and user_picture %}
+    <a id="profile-btn"
+      class="btn btn-outline-secondary mb-4 nav-link card text-center border"
+      href="{{ profile_href }}"
       data-signup-url="{{ url_for('signup') }}"
       data-profile-url="{{ url_for('profile') }}">
       <span id="profile" class="text-uppercase label">CUSRR Profile</span>
-        <img id="user-pic"
-               src=""
-               alt="User avatar"
-               width="35"
-               height="35">
-        <span id="user-name" class="text-uppercase label"></span>
-      </a>
 
-      <a id="logout-btn" href="/google/logout" class="btn btn-outline-secondary mb-4 nav-link" >
-        <img class="icon-img" src="{{ url_for('static', filename='icons/logout.svg') }}" alt="" aria-hidden="true">
-        <span class="label">Logout</span>
-      </a>
+      <img id="user-pic"
+          src="{{ user_picture }}"
+          alt="User avatar"
+          width="35"
+          height="35">
 
-    <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">All Users</div>
+      <span id="user-name" class="text-uppercase label">
+        {% if user_name %}{{ user_name }}{% endif %}
+      </span>
+    </a>
+{% else %}
+<!-- Button doesn't exist if auth doesn't exist -->
+{% endif %}
+
+
+    {# LOGOUT BUTTON: same markup, only shown when authed #}
+    <a id="logout-btn"
+       href="/google/logout"
+       class="btn btn-outline-secondary mb-4 nav-link {% if not is_authenticated %}d-none{% endif %}">
+      <img class="icon-img"
+           src="{{ url_for('static', filename='icons/logout.svg') }}"
+           alt=""
+           aria-hidden="true">
+      <span class="label">Logout</span>
+    </a>
+
+    <!-- Everyone can see these -->
+    <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">
+      All Users
+    </div>
+
     <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('dashboard') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/dashboard.svg') }}" alt="" aria-hidden="true">
+      <img class="icon-img"
+           src="{{ url_for('static', filename='icons/dashboard.svg') }}"
+           alt=""
+           aria-hidden="true">
       <span class="label">Dashboard</span>
     </a>
+
     <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('schedule') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/schedule.svg') }}" alt="" aria-hidden="true">
+      <img class="icon-img"
+           src="{{ url_for('static', filename='icons/schedule.svg') }}"
+           alt=""
+           aria-hidden="true">
       <span class="label">Schedule</span>
     </a>
-    <!-- <a id = "signup-btn" class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('signup') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/dashboard.svg') }}" alt="" aria-hidden="true">
-      <span class="label">Profile</span>
-    </a> -->
-    
-    <div id = "abstractGrader"><div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">Abstract Grader</div>
-    <a class="btn btn-outline-secondary mb-2 nav-link" href="abstractGrader"  rel="noopener">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/abstractGrading.svg') }}" alt="" aria-hidden="true">
-      <span class="label">Abstract Grading</span>
-    </a></div>
 
-    <div id = "Organizer"> <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">Organizer</div>
-    
-    
-    <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('organizer_user_status') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/attendees.svg') }}" alt="" aria-hidden="true">
-      <span class="label">Attendees</span>
-    </a></div>
+    {# ONLY for abstract graders and organizers #}
+    {% if 'abstract-grader' in roles or is_organizer %}
+      <div id="abstractGrader">
+        <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">
+          Abstract Grader
+        </div>
+        <a class="btn btn-outline-secondary mb-2 nav-link"
+           href="{{ url_for('abstractGrader') }}"
+           rel="noopener">
+          <img class="icon-img"
+               src="{{ url_for('static', filename='icons/abstractGrading.svg') }}"
+               alt=""
+               aria-hidden="true">
+          <span class="label">Abstract Grading</span>
+        </a>
+      </div>
+    {% endif %}
 
-    <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('organizer_presentations') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">
-      <span class="label">Presentations Status</span>
-    </a>
-
-    <!-- <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('program') }}">
-      <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">
-      <span class="label">Program</span>
-    </a> -->
+    {# ONLY for organizers #}
+    {% if is_organizer %}
+      <div id="Organizer">
+        <div class="mt-3 mb-2 text-uppercase text-xs opacity-6" style="padding-left:6px;">
+          Organizer
+        </div>
+        <a class="btn btn-outline-secondary mb-2 nav-link"
+           href="{{ url_for('organizer_user_status') }}">
+          <img class="icon-img"
+               src="{{ url_for('static', filename='icons/attendees.svg') }}"
+               alt=""
+               aria-hidden="true">
+          <span class="label">Attendees</span>
+        </a>
+        <a class="btn btn-outline-secondary mb-2 nav-link" href="{{ url_for('organizer_presentations') }}">
+          <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">
+          <span class="label">Presentations Status</span>
+        </a>
+      </div>
+    {% endif %}
 
   </nav>
 </aside>
