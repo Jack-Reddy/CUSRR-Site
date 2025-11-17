@@ -191,6 +191,10 @@ def import_csv():
 def program():
     return render_template('dashboard.html')
 
+@app.route('/fizzbuzz')
+def fizzbuzz():
+    return render_template('fizz-buzz.html')
+
 @app.route('/organizer')
 def organizer():
     return render_template('organizer.html')
