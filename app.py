@@ -280,7 +280,9 @@ def me():
         'picture': user.get('picture'),
         'account_exists': bool(db_user),  # True if user exists in DB
         'user_id': db_user.id if db_user else None,  # optionally include the DB id
-        'auth': db_user.auth if db_user else None
+        'auth': db_user.auth if db_user else None,
+        'presentation_id': db_user.presentation_id if db_user else None,
+        'activity': db_user.activity if db_user else None
     })
 
 @app.route('/blitz_page')

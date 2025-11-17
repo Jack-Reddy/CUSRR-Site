@@ -1,6 +1,6 @@
 
 removeUser = async function() {
-  if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+  if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
     return;
   }
 
@@ -30,20 +30,99 @@ removeUser = async function() {
   } catch (err) {
     console.error('Failed to delete user', err);
     alert('Could not delete user.');
-  } 
+  }
 }
 
-async function signupPresentation() {
-    const div = document.getElementById('signup-container');
-
-
+async function signupAbstract() {
+    const div = document.getElementById('abstract-form');
+    const messageDivId = 'abstract-message';
 
     if (!div) {
-        console.error('Signup container not found!');
+        console.error('Abstract form not found!');
         return;
     }
 
-    
+    // Create or get a message container
+    let msgDiv = document.getElementById(messageDivId);
+    if (!msgDiv) {
+        msgDiv = document.createElement('div');
+        msgDiv.id = messageDivId;
+        msgDiv.classList.add('mt-3');
+        div.prepend(msgDiv);
+    }
+    msgDiv.innerHTML = ''; // Clear previous messages
+
+    try {
+        // Fetch user info
+        const meResponse = await fetch('/me');
+        if (!meResponse.ok) throw new Error(`Failed to get user info: ${meResponse.status}`);
+        const user = await meResponse.json();
+        if (!user.authenticated) {
+            msgDiv.innerHTML = '<p class="text-danger">You must be signed in to create a presentation.</p>';
+            return;
+        }
+
+        // Get form values
+        const title = document.getElementById('title').value.trim();
+        const abstract = document.getElementById('Abstract').value.trim();
+        const subject = document.getElementById('subject').value.trim();
+        const typeSelect = document.getElementById('Type');
+        const type = typeSelect.options[typeSelect.selectedIndex].text;
+
+        if (!title || !abstract || !subject) {
+            msgDiv.innerHTML = '<p class="text-danger">Please fill in all required fields.</p>';
+            return;
+        }
+
+        // Submit abstract
+        const response = await fetch('/api/v1/presentations/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title,
+                abstract,
+                subject,
+                type,
+                time: "2026-11-04 13:30", // Placeholder
+                room: null
+            })
+        });
+
+        if (!response.ok) throw new Error(`Failed to submit abstract: ${response.status}`);
+
+        const resultData = await response.json();
+
+        // Update user with presentation_id
+        const userUpdate = await fetch(`/api/v1/users/${user.user_id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ presentation_id: resultData.id })
+        });
+
+        if (!userUpdate.ok) throw new Error(`Failed to update user: ${userUpdate.status}`);
+
+        // Show success and switch to full presentation form
+        msgDiv.innerHTML = `<p class="text-success">Abstract submitted successfully! Title: ${resultData.title}.</p>`;
+
+        // Hide abstract form, show presentation form
+        document.getElementById('abstract-form').classList.add('d-none');
+        document.getElementById('presentation-form').classList.remove('d-none');
+
+    } catch (error) {
+        console.error('Error during signup:', error);
+        msgDiv.innerHTML = '<p class="text-danger">Signup failed. Please try again later.</p>';
+    }
+}
+
+
+
+async function account_info() {
+    const div = document.getElementById('account-info-container');
+
+    if (!div) {
+        console.error('Account info container not found!');
+        return;
+    }
 
     try {
         const meResponse = await fetch('/me');
@@ -53,63 +132,69 @@ async function signupPresentation() {
 
         const user = await meResponse.json();
         if (!user.authenticated) {
-            div.innerHTML = '<p class="text-danger">You must be signed in to create presentation.</p>';
+            div.innerHTML = '<p class="text-danger">You must be signed in to view account information.</p>';
             return;
         }
 
-        const activitySelect = document.getElementById('Type');
+        div.innerHTML = `
+            <p><strong>Name:</strong> ${user.name}</p>
+            <p><strong>Email:</strong> ${user.email}</p>
+            <p><strong>Role:</strong> ${user.auth}</p>
+            <p><strong>Activity:</strong> ${user.activity || 'N/A'}</p>
+            <p><strong>Presentation ID:</strong> ${user.presentation_id || 'N/A'}</p>
+        `;
+    } catch (error) {
+        console.error('Error fetching account info:', error);
+        div.innerHTML = '<p class="text-danger">Could not load account information.</p>';
+    }
+    
+}
 
-        const response = await fetch('/api/v1/presentations/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                title: document.getElementById('title').value,
-                abstract: document.getElementById('Abstract').value,
-                subject: document.getElementById('subject').value,
-                time: "2026-11-04 13:30", // Placeholder time for presentation
-                room: null,
-                type: activitySelect.options[activitySelect.selectedIndex].text
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+async function setupPresentationField() {
+    try {
+        // Fetch user info
+        const meResponse = await fetch('/me');
+        if (!meResponse.ok) {
+            console.error('Failed to get user info for presentation field setup.');
+            return;
         }
 
-        const resultData = await response.json();
+        const user = await meResponse.json();
 
-        const result = await fetch(`api/v1/users/${user.user_id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                presentation_id: resultData.id
-            })
-        });
+        if (!user.authenticated) {
+            console.error('User not authenticated for presentation field setup.');
+            return;
+        }
 
-        div.innerHTML = `<p class="text-success">Presentation signup successful! Title: ${resultData.title}.</p>`;
-    } catch (error) {
-        console.error('Error during signup:', error);
-        div.innerHTML = '<p class="text-danger">Signup failed. Please try again later.</p>';
+        // Get form containers
+        const abstractForm = document.getElementById('abstract-form');
+        const presentationForm = document.getElementById('presentation-form');
+
+        if (!abstractForm || !presentationForm) {
+            console.error('Form containers not found!');
+            return;
+        }
+
+        if (user.presentation_id) {
+            // User has submitted abstract, show presentation form, hide abstract form
+            abstractForm.classList.add('d-none');
+            presentationForm.classList.remove('d-none');
+            
+        } else {
+            // User has not submitted abstract, show abstract form, hide presentation form
+            abstractForm.classList.remove('d-none');
+            presentationForm.classList.add('d-none');
+        }
+
+    } catch (err) {
+        console.error('Error setting up presentation field:', err);
     }
 }
 
-setupSignupButton = () => {
-    const btn = document.getElementById('signup-submit');
-    //print 
-    console.log('Signup button found:', btn);
-    if (btn) {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            signupPresentation();
-        });
-    }
-}
 
 window.addEventListener('DOMContentLoaded', () => {
-    setupSignupButton();
+    setupPresentationField();
+    account_info();
+    document.getElementById('abstract-submit')?.addEventListener('click', signupAbstract);
     document.getElementById('delete-account-btn').addEventListener('click', removeUser);
 });
