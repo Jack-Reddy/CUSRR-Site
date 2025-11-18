@@ -22,6 +22,7 @@ from csv_importer import import_users_from_csv
 
 app = Flask(__name__)
 
+
 app.secret_key = os.environ.get('FLASK_SECRET')
 
 auth.init_oauth(app)
