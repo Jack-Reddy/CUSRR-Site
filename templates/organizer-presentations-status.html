@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Presentation Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2 py-md-4">
+
+  <!-- Page Header -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
+    <h2 class="mb-0">Presentations Dashboard</h2>
+
+    <!-- Import CSV Presentations -->
+    <div>
+      <button id="import-presentations-btn"
+              class="btn btn-primary d-flex align-items-center gap-1 w-100 w-md-auto"
+              data-bs-toggle="modal"
+              data-bs-target="#importPresentationsModal">
+        <img class="icon-img"
+             src="{{ url_for('static', filename='icons/upload.svg') }}"
+             alt="" aria-hidden="true"
+             style="height: 1rem; width: auto; filter: brightness(0) invert(1);">
+        Import Presentations (CSV)
+      </button>
+    </div>
+  </div>
+
+  <!-- DataTable Container -->
+  <div id="presentation-container" class="card p-3 shadow-sm">
+    <div class="text-center py-3 py-md-5 text-muted">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-3">Loading presentations...</p>
+    </div>
+  </div>
+
+</div>
+
+{% include "edit_presentation_modal.html" %}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+
+  <!-- jQuery & DataTables -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+  <link rel="stylesheet"
+        href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
+
+  <!-- Custom JS -->
+  <script src="{{ url_for('static', filename='js/edit-presentation-modal.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/presentation-status.js') }}"></script>
+{% endblock %}

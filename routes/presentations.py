@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request, render_template
-from models import db, Presentation
+from models import BlockSchedule, db, Presentation
 from datetime import datetime
+from sqlalchemy import func
 
 presentations_bp = Blueprint('presentations', __name__)
 
@@ -20,11 +21,16 @@ def get_presentation(id):
 @presentations_bp.route('/', methods=['POST'])
 def create_presentation():
     data = request.get_json()
+    time_str = data.get('time')
+    try:
+        presentation_time = datetime.fromisoformat(time_str)
+    except ValueError:
+        return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
         subject=data.get('subject'),
-        time=data.get('time'),
+        time=presentation_time,
         room=data.get('room'),
         type=data.get('type')
     )
@@ -37,10 +43,15 @@ def create_presentation():
 def update_presentation(id):
     presentation = Presentation.query.get_or_404(id)
     data = request.get_json()
+    time_str = data.get('time')
+    if time_str:
+        try:
+            presentation_time = datetime.fromisoformat(time_str)
+        except ValueError:
+            return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
-    presentation.time = data.get('time', presentation.time)
     presentation.room = data.get('room', presentation.room)
     presentation.type = data.get('type', presentation.type)
     db.session.commit()
@@ -56,13 +67,18 @@ def delete_presentation(id):
 
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():
-    """Return upcoming presentations sorted by soonest first."""
+    """Return upcoming presentations sorted by Presentation.time first, then BlockSchedule.start_time."""
     now = datetime.now()
 
     presentations = (
         Presentation.query
-        .filter(Presentation.time >= now)
-        .order_by(Presentation.time.asc())
+        .join(Presentation.schedule)  # assuming one-to-one or many-to-one relationship
+        .filter(
+            func.coalesce(Presentation.time, BlockSchedule.start_time) >= now
+        )
+        .order_by(
+            func.coalesce(Presentation.time, BlockSchedule.start_time).asc()
+        )
         .all()
     )
 

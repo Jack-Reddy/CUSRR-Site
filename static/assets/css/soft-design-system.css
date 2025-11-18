@@ -13565,15 +13565,6 @@ fieldset:disabled .btn {
     cursor: pointer;
   }
 
-  .dropdown .dropdown-toggle:after,
-  .dropup .dropdown-toggle:after {
-    content: "\f107";
-    font: normal normal normal 14px/1 FontAwesome;
-    border: none;
-    vertical-align: middle;
-    font-weight: 600;
-  }
-
   .dropdown .dropdown-toggle.show:after,
   .dropup .dropdown-toggle.show:after {
     transform: rotate(180deg);
@@ -13619,21 +13610,6 @@ fieldset:disabled .btn {
     height: 100%;
   }
 
-  .dropdown:not(.dropdown-hover) .dropdown-menu {
-    margin-top: 8px !important;
-  }
-
-  .dropdown .dropdown-menu:before {
-    font-family: "FontAwesome";
-    content: "\f0d8";
-    position: absolute;
-    top: 0;
-    left: 28px;
-    right: auto;
-    font-size: 22px;
-    color: #fff;
-    transition: top 0.35s ease;
-  }
 
   .dropdown .dropdown-item .arrow {
     transform: rotate(-90deg);

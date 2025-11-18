@@ -28,22 +28,23 @@ function renderTable(users) {
   const container = document.getElementById('user-container');
   if (!container) return;
 
-  // Clear any previous content
   container.innerHTML = `
-    <table id="user-table" class="table table-hover table-bordered align-middle mb-0" style="width:100%">
-      <thead class="table table-striped align-middle">
-        <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Activity</th>
-          <th>Pres. ID</th>
-          <th>Status</th>
-          <th> Role </th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div class="table-responsive">
+      <table id="user-table" class="table table-hover table-bordered align-middle mb-0" style="width:100%">
+        <thead class="table table-striped align-middle">
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Activity</th>
+            <th>Pres. ID</th>
+            <th>Status</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   `;
 
   // Destroy previous DataTable instance if it exists
@@ -74,13 +75,13 @@ function renderTable(users) {
               <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="#" onclick="editUser(${data})">Edit</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" onclick="removeUser(${data})">Delete</a></li>
+                <li><a class="dropdown-item text-danger" href="#" onclick="removeUser(${data})">Delete</a></li>
               </ul>
             </div>
           `;
         }
       }
-    ],
+    ],  
     responsive: true,
     pageLength: 10,
     order: [[1, 'asc']], // default sort by Name

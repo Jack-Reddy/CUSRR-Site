@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import DateTime
 
 db = SQLAlchemy()
 
@@ -7,15 +8,16 @@ class Presentation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(120), nullable=False)
-    abstract = db.Column(db.String(500))
+    abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
-    time = db.Column(db.String(50))
-    room = db.Column(db.String(50))
-    type = db.Column(db.String(50))
+    time = db.Column(DateTime)
+    num_in_block = db.Column(db.Integer) # New field to track number of presentations in the same block
+    schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
 
-    presenters = db.relationship('User', back_populates='presentation', cascade='all, delete')
+    presenters = db.relationship('User', back_populates='presentation')
     grades = db.relationship('Grade', back_populates='presentation', cascade='all, delete')
     abstract_grades = db.relationship('AbstractGrade', back_populates='presentation', cascade='all, delete')
+    schedule = db.relationship('BlockSchedule', back_populates='presentations')
 
     def to_dict(self):
         return {
@@ -23,9 +25,9 @@ class Presentation(db.Model):
             "title": self.title,
             "abstract": self.abstract,
             "subject": self.subject,
-            "time": self.time,
-            "room": self.room,
-            "type": self.type,
+            "time": self.time if self.time else (self.schedule.start_time + self.num_in_block * self.schedule.sub_length if self.schedule and self.num_in_block is not None and self.schedule.sub_length is not None else self.schedule.start_time if self.schedule else None),
+            "room": self.schedule.location if self.schedule else None,
+            "type": self.schedule.block_type if self.schedule else None,
             "presenters": [p.to_dict_basic() for p in self.presenters]
         }
 
@@ -38,7 +40,7 @@ class User(db.Model):
     lastname = db.Column(db.String(80), nullable=False)
     presentation_id = db.Column(db.Integer, db.ForeignKey('presentations.id'))
     activity = db.Column(db.String(80))
-    auth = db.Column(db.String(80), default='organizer')
+    auth = db.Column(db.String(80), default='attendee')
 
     # Relationship to Presentation
     presentation = db.relationship('Presentation', back_populates='presenters')
@@ -119,4 +121,33 @@ class AbstractGrade(db.Model):
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
+        }
+
+class BlockSchedule(db.Model):
+    __tablename__ = "blockSchedules"
+
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.String(20), nullable=False)
+    start_time = db.Column(DateTime, nullable=False)
+    end_time = db.Column(DateTime, nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(300))
+    location = db.Column(db.String(100))
+    block_type = db.Column(db.String(50))
+    sub_length = db.Column(db.Integer)
+
+    presentations = db.relationship('Presentation', back_populates='schedule', cascade='save-update')
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "day": self.day,
+            "startTime": self.start_time,
+            "endTime": self.end_time,
+            "title": self.title,
+            "description": self.description,
+            "location": self.location,
+            "length": (self.end_time - self.start_time).total_seconds() / 60,
+            "type": self.block_type,
+            "sub_length": self.sub_length
         }
