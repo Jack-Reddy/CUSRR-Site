@@ -11,7 +11,7 @@ class Presentation(db.Model):
     abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
     time = db.Column(DateTime)
-    type = db.Column(db.String(50))
+    num_in_block = db.Column(db.Integer) # New field to track number of presentations in the same block
     schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
 
     presenters = db.relationship('User', back_populates='presentation')
@@ -25,9 +25,9 @@ class Presentation(db.Model):
             "title": self.title,
             "abstract": self.abstract,
             "subject": self.subject,
-            "time": self.time if self.time else (self.schedule.start_time if self.schedule else None),
+            "time": self.time if self.time else (self.schedule.start_time + self.num_in_block * self.schedule.sub_length if self.schedule and self.num_in_block is not None and self.schedule.sub_length is not None else self.schedule.start_time if self.schedule else None),
             "room": self.schedule.location if self.schedule else None,
-            "type": self.type,
+            "type": self.schedule.block_type if self.schedule else None,
             "presenters": [p.to_dict_basic() for p in self.presenters]
         }
 
@@ -133,6 +133,8 @@ class BlockSchedule(db.Model):
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(300))
     location = db.Column(db.String(100))
+    block_type = db.Column(db.String(50))
+    sub_length = db.Column(db.Integer)
 
     presentations = db.relationship('Presentation', back_populates='schedule', cascade='save-update')
 
@@ -145,5 +147,7 @@ class BlockSchedule(db.Model):
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "length": (self.end_time - self.start_time).total_seconds() / 60
+            "length": (self.end_time - self.start_time).total_seconds() / 60,
+            "type": self.block_type,
+            "sub_length": self.sub_length
         }

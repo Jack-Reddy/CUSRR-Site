@@ -31,7 +31,8 @@ def seed_data():
         start_time=parse_time("2026-11-06 08:30"),
         end_time=parse_time("2026-11-06 09:00"),
         location="Main Hall",
-        day="Day 1"
+        day="Day 1",
+        block_type="session"
     )
 
     keynote = BlockSchedule(
@@ -39,7 +40,8 @@ def seed_data():
         start_time=parse_time("2026-11-06 09:00"),
         end_time=parse_time("2026-11-06 10:00"),
         location="Auditorium",
-        day="Day 1"
+        day="Day 1",
+        block_type="session"
     )
 
     poster_session_1 = BlockSchedule(
@@ -47,7 +49,9 @@ def seed_data():
         start_time=parse_time("2026-11-06 10:15"),
         end_time=parse_time("2026-11-06 11:00"),
         location="Exhibition Hall",
-        day="Day 1"
+        day="Day 1",
+        block_type="poster",
+        sub_length=15
     )
 
     lunch = BlockSchedule(
@@ -55,7 +59,8 @@ def seed_data():
         start_time=parse_time("2026-11-06 12:00"),
         end_time=parse_time("2026-11-06 13:00"),
         location="Courtyard",
-        day="Day 1"
+        day="Day 1",
+        block_type="break"
     )
 
     db.session.add_all([opening, keynote, poster_session_1, lunch])
@@ -64,38 +69,71 @@ def seed_data():
     # --- PRESENTATIONS ---
     opening_talk = Presentation(
         title="Opening Remarks",
-        type="session",
         abstract="Welcome by the organizing committee and conference chair.",
-        schedule_id=opening.id
+        schedule_id=opening.id,
+        num_in_block=0
     )
 
     keynote_talk = Presentation(
         title="Keynote Address",
-        type="keynote",
         abstract="Speaker: Prof. Jane Doe, University of Innovation.",
+        num_in_block=1,
         schedule_id=keynote.id
     )
 
     poster_presentations = [
-        Presentation(
-            title="AI for Environmental Modeling",
-            abstract="Poster #A1 -- Jane Doe (University of X)",
-            type="poster",
-            schedule_id=poster_session_1.id,
+    Presentation(
+        title="AI for Environmental Modeling",
+        abstract=(
+            "Poster #A1 — Jane Doe (University of X)\n\n"
+            "This poster presents a conceptual framework for integrating artificial "
+            "intelligence techniques into large-scale environmental modeling workflows. "
+            "The work explores how machine-learning–driven surrogate models can reduce "
+            "computational costs while maintaining accuracy in climate simulations, "
+            "hydrological forecasting, and atmospheric chemistry analysis. Preliminary "
+            "tests demonstrate that AI-based approximation layers can accelerate model "
+            "runs by an order of magnitude, making real-time scenario exploration more "
+            "feasible for policy and research applications. The poster highlights open "
+            "challenges, including model interpretability, uncertainty quantification, "
+            "and scalable data pipelines."
         ),
-        Presentation(
-            title="Neural Nets for Wildlife Tracking",
-            abstract="Poster #A2 -- John Smith (Institute Y)",
-            type="poster",
-            schedule_id=poster_session_1.id
+        schedule_id=poster_session_1.id,
+    ),
+    Presentation(
+        title="Neural Nets for Wildlife Tracking",
+        abstract=(
+            "Poster #A2 — John Smith (Institute Y)\n\n"
+            "This poster introduces a deep-learning workflow for automated wildlife "
+            "tracking using camera-trap and drone-based imagery. The project evaluates "
+            "convolutional and transformer-based neural network architectures for "
+            "species detection, individual identification, and movement pattern analysis. "
+            "A semi-synthetic dataset combining real field captures with augmented "
+            "samples is used to improve robustness to occlusion, lighting variation, "
+            "and partial visibility. Early benchmarks show significant improvements "
+            "over traditional tracking methods, particularly in low-visibility "
+            "conditions. The poster also discusses ethical data-collection practices "
+            "and considerations for minimizing ecological disturbance."
         ),
-        Presentation(
-            title="Smart Sensor Calibration",
-            abstract="Poster #A3 -- Sara Lin (Tech U)",
-            type="poster",
-            schedule_id=poster_session_1.id
-        )
+        schedule_id=poster_session_1.id
+    ),
+    Presentation(
+        title="Smart Sensor Calibration",
+        abstract=(
+            "Poster #A3 — Sara Lin (Tech U)\n\n"
+            "This poster describes an adaptive calibration framework for distributed "
+            "environmental sensor networks. The system employs lightweight machine-learning "
+            "models that run directly on embedded sensor nodes to detect drift, adjust "
+            "measurement baselines, and transmit correction factors to nearby devices. "
+            "By using cross-sensor consensus and historical trend analysis, the approach "
+            "reduces the need for manual recalibration in long-term deployments. "
+            "Simulation results show improved stability in temperature, humidity, and "
+            "air-quality readings across heterogeneous hardware configurations. The work "
+            "lays the groundwork for resilient, self-managing sensor infrastructures."
+        ),
+        schedule_id=poster_session_1.id
+    )
     ]
+
 
     db.session.add_all([opening_talk, keynote_talk] + poster_presentations)
     db.session.flush()
