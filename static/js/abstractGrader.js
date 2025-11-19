@@ -1,104 +1,163 @@
 (function () {
-    const todoGrid = document.getElementById('todoGrid');
-    const completedGrid = document.getElementById('completedGrid');
-    const searchInput = document.getElementById('searchInput');
-    const trackMenu = document.getElementById('trackFilter');
-    const statusButtons = document.querySelectorAll('[data-filter]');
-  
-    let statusFilter = 'all';   // 'all' | 'todo' | 'done'
-    let trackFilter = '';       // '' or a track (lowercased)
-    let query = '';             // lowercased search string
-  
-    function updateProgress() {
-      const cards = Array.from(document.querySelectorAll('[data-card]'));
-      const total = cards.length;
-      const done  = cards.filter(c => c.dataset.status === 'done').length;
-      const pct   = total ? Math.round(done / total * 100) : 0;
-      const bar   = document.getElementById('progressBar');
-      const lbl   = document.getElementById('progressLabel');
-      if (bar) bar.style.width = pct + '%';
-      if (lbl) lbl.textContent = `${pct}% complete · ${done}/${total}`;
-    }
-  
-    function matchesQuery(card) {
-      if (!query) return true;
-      const t = (card.dataset.title || '').toLowerCase();
-      const a = (card.dataset.authors || '').toLowerCase();
-      const r = (card.dataset.track || '').toLowerCase();
-      return (t.includes(query) || a.includes(query) || r.includes(query));
-    }
-  
-    function matchesStatus(card) {
-      return statusFilter === 'all' || (card.dataset.status === statusFilter);
-    }
-  
-    function matchesTrack(card) {
-      if (!trackFilter) return true;
-      return (card.dataset.track || '').toLowerCase() === trackFilter;
-    }
-  
-    function applyFilters() {
-      document.querySelectorAll('[data-card]').forEach(card => {
-        const show = matchesStatus(card) && matchesTrack(card) && matchesQuery(card);
-        card.style.display = show ? '' : 'none';
-      });
-    }
-  
-    // Search: live filter
-    searchInput.addEventListener('input', () => {
-      query = searchInput.value.trim().toLowerCase();
-      applyFilters();
+  const todoGrid = document.getElementById('todoGrid');
+  const completedGrid = document.getElementById('completedGrid');
+  const searchInput = document.getElementById('searchInput');
+  const statusButtons = document.querySelectorAll('[data-filter]');
+
+  let presentations = []; // loaded from API
+  let statusFilter = 'all';
+  let query = '';
+
+  function createCard(p) {
+    const col = document.createElement('div');
+    col.className = "col abstract-card";
+    col.dataset.card = "";
+    col.dataset.status = p.status;
+    col.dataset.id = p.id; // for toggling
+    col.dataset.title = p.title.toLowerCase();
+
+    col.innerHTML = `
+      <div class="card shadow-xs border-0 rounded-4 h-100">
+        <div class="card-body d-flex gap-3 align-items-center">
+
+          <div class="d-flex flex-column align-items-center pt-1">
+            ${p.status === "done"
+              ? `<span class="btn btn-success rounded-circle p-0" style="width:36px;height:36px">
+                   <i class="fas fa-check"></i>
+                 </span>`
+              : `<button class="btn btn-outline-secondary rounded-circle p-0 status-toggle"
+                   style="width:36px;height:36px" aria-pressed="false" title="Mark as completed">
+                   <i class="far fa-circle"></i>
+                 </button>`
+            }
+          </div>
+
+          <div class="flex-grow-1 ms-3">
+            <div class="d-flex justify-content-between align-items-start">
+              <h6 class="mb-1">${p.title}</h6>
+              <span class="badge bg-gray-100 text-secondary">${p.time || '—'}</span>
+            </div>
+
+            <p class="text-sm mb-2">${p.abstract || ""}</p>
+
+            <div class="d-flex align-items-center gap-2">
+              <a class="btn btn-sm btn-outline-info px-2" href="/abstractScoring?id=${p.id}">Grade</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+    return col;
+  }
+
+  // Render cards
+  function renderCards() {
+    todoGrid.innerHTML = "";
+    completedGrid.innerHTML = "";
+
+    presentations.forEach(p => {
+      const card = createCard(p);
+      if (p.status === "done") completedGrid.append(card);
+      else todoGrid.append(card);
     });
-  
-    // Status buttons (All / To Do / Completed)
-    statusButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        statusButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        statusFilter = btn.getAttribute('data-filter'); // all | todo | done
-        applyFilters();
-      });
-    });
-  
-    // Track dropdown
-    trackMenu.addEventListener('click', (e) => {
-      const item = e.target.closest('[data-track]');
-      if (!item) return;
-      trackFilter = (item.getAttribute('data-track') || '').toLowerCase();
-      applyFilters();
-    });
-  
-    // Toggle circle: move card between grids
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest('.status-toggle');
-      if (!btn) return;
-      const col = btn.closest('[data-card]');
-      if (!col) return;
-  
-      const isDone = col.dataset.status === 'done';
-      if (isDone) {
-        col.dataset.status = 'todo';
-        btn.classList.remove('btn-success');
-        btn.classList.add('btn-outline-secondary');
-        btn.setAttribute('aria-pressed', 'false');
-        btn.title = 'Mark as completed';
-        btn.innerHTML = '<i class="far fa-circle"></i>';
-        todoGrid.append(col);
-      } else {
-        col.dataset.status = 'done';
-        btn.classList.remove('btn-outline-secondary');
-        btn.classList.add('btn-success');
-        btn.setAttribute('aria-pressed', 'true');
-        btn.title = 'Move back to To-Do';
-        btn.innerHTML = '<i class="fas fa-check"></i>';
-        completedGrid.append(col);
-      }
-  
-      updateProgress();
-      applyFilters();
-    });
-  
-    // init
+
     updateProgress();
     applyFilters();
-  })();
+  }
+
+  // Filters
+  function matchesQuery(card) {
+    if (!query) return true;
+    return card.dataset.title.includes(query);
+  }
+
+  function matchesStatus(card) {
+    return statusFilter === 'all' || card.dataset.status === statusFilter;
+  }
+
+  function applyFilters() {
+    document.querySelectorAll('[data-card]').forEach(card => {
+      const show = matchesStatus(card) && matchesQuery(card);
+      card.style.display = show ? "" : "none";
+    });
+  }
+
+  // Progress bar
+  function updateProgress() {
+    const cards = Array.from(document.querySelectorAll('[data-card]'));
+    const total = cards.length;
+    const done  = cards.filter(c => c.dataset.status === 'done').length;
+    const pct = total ? Math.round(done / total * 100) : 0;
+
+    document.getElementById('progressBar').style.width = pct + "%";
+    document.getElementById('progressLabel').textContent =
+      `${pct}% complete · ${done}/${total}`;
+  }
+
+  // Status toggle
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.status-toggle');
+    if (!btn) return;
+
+    const col = btn.closest('[data-card]');
+    const id = parseInt(col.dataset.id);
+
+    const p = presentations.find(x => x.id === id);
+    if (!p) return;
+
+    if (col.dataset.status === "done") {
+      col.dataset.status = "todo";
+      p.status = "todo";
+      todoGrid.append(col);
+
+      btn.classList.remove("btn-success");
+      btn.classList.add("btn-outline-secondary");
+      btn.innerHTML = '<i class="far fa-circle"></i>';
+
+    } else {
+      col.dataset.status = "done";
+      p.status = "done";
+      completedGrid.append(col);
+
+      btn.classList.remove("btn-outline-secondary");
+      btn.classList.add("btn-success");
+      btn.innerHTML = '<i class="fas fa-check"></i>';
+    }
+
+    updateProgress();
+    applyFilters();
+  });
+
+  // Search
+  searchInput.addEventListener('input', () => {
+    query = searchInput.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  // Status filter buttons
+  statusButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      statusButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      statusFilter = btn.dataset.filter;
+      applyFilters();
+    });
+  });
+
+  // Load presentations from API
+  async function loadPresentations() {
+    const res = await fetch("/api/v1/presentations");
+    presentations = await res.json();
+
+    // Ensure status exists
+    presentations.forEach(p => {
+      if (!p.status) p.status = "todo"; // default
+    });
+
+    renderCards();
+  }
+
+  // Init
+  loadPresentations();
+})();
