@@ -28,6 +28,7 @@
     card.dataset.type = item.type || '';
     card.dataset.presenters = JSON.stringify(item.presenters || []);
     card.dataset.abstract = item.abstract || '';
+    card.dataset.id = item.id || '';
     card.dataset.img = item.image_url || DEFAULT_IMG;
 
     const timeDisplay = card.dataset.time || '';
@@ -39,7 +40,10 @@
           <div class="flex-grow-1">
             <div class="d-flex justify-content-between align-items-start">
               <h6 class="mb-1">${card.dataset.title}</h6>
-              <span class="badge bg-gray-100 text-secondary">${timeDisplay}</span>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-gray-100 text-secondary">${timeDisplay}</span>
+                <button type="button" class="btn btn-sm btn-outline-primary grade-btn" data-presentation-id="${card.dataset.id}">Grade</button>
+              </div>
             </div>
             <p class="text-sm text-secondary mb-0">
               ${item.abstract ? (item.abstract.length > 100 ? item.abstract.slice(0, 100) + '…' : item.abstract) : ''}
@@ -50,6 +54,96 @@
     `;
     return card;
   }
+
+  // Open the grading modal and populate with basic info
+  function openGradeModal(presentationId, title) {
+    const gm = document.getElementById('gradeModal');
+    if (!gm) return;
+    gm.querySelector('#gPresentationId').value = presentationId || '';
+    gm.querySelector('#gPresentationTitle').textContent = title || '';
+    // reset inputs / set defaults for sliders
+    const orig = gm.querySelector('#gScoreOrig');
+    const clar = gm.querySelector('#gScoreClar');
+    const sign = gm.querySelector('#gScoreSign');
+    if (orig) orig.value = orig.value || 2;
+    if (clar) clar.value = clar.value || 2;
+    if (sign) sign.value = sign.value || 2;
+    gm.querySelector('#gComments').value = '';
+    updateGradeScores();
+
+    const modal = bootstrap.Modal.getOrCreateInstance(gm, { backdrop: true });
+    modal.show();
+  }
+
+  async function submitGradeForm(ev) {
+    ev.preventDefault();
+    const gm = document.getElementById('gradeModal');
+    const presentationId = gm.querySelector('#gPresentationId').value;
+    const criteria_1 = Number(gm.querySelector('#gScoreOrig').value) || 0;
+    const criteria_2 = Number(gm.querySelector('#gScoreClar').value) || 0;
+    const criteria_3 = Number(gm.querySelector('#gScoreSign').value) || 0;
+    const comments = gm.querySelector('#gComments').value || '';
+
+    // get current user id from /me
+    let userId = null;
+    try {
+      const resp = await fetch('/me', { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error('not authenticated');
+      const data = await resp.json();
+      userId = data.user_id;
+    } catch (e) {
+      alert('You must be logged in to submit a grade.');
+      return;
+    }
+
+    const payload = { user_id: userId, presentation_id: presentationId, criteria_1, criteria_2, criteria_3, comments };
+
+    try {
+      const resp = await fetch('/grades/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to submit grade');
+      }
+      // success
+      const modal = bootstrap.Modal.getInstance(gm);
+      if (modal) modal.hide();
+      alert('Grade submitted successfully');
+    } catch (err) {
+      console.error('Grade submit error', err);
+      alert('Could not submit grade: ' + (err.message || err));
+    }
+  }
+
+  function updateGradeScores() {
+    const oEl = document.getElementById('gScoreOrig');
+    const cEl = document.getElementById('gScoreClar');
+    const sEl = document.getElementById('gScoreSign');
+    const totalEl = document.getElementById('gScoreTotal');
+    if (!oEl || !cEl || !sEl || !totalEl) return;
+    const o = +oEl.value;
+    const c = +cEl.value;
+    const s = +sEl.value;
+    const oVal = document.getElementById('gScoreOrigVal');
+    const cVal = document.getElementById('gScoreClarVal');
+    const sVal = document.getElementById('gScoreSignVal');
+    if (oVal) oVal.textContent = o;
+    if (cVal) cVal.textContent = c;
+    if (sVal) sVal.textContent = s;
+    totalEl.textContent = o + c + s;
+  }
+
+  // attach listeners to grade modal sliders when DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    ['gScoreOrig', 'gScoreClar', 'gScoreSign'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateGradeScores);
+    });
+  });
 
   function fillAndShowModal(cardEl) {
     const m = document.getElementById('sessionModal');
@@ -108,11 +202,34 @@
     const container = document.querySelector(containerSelector);
     if (!container) return;
     container.addEventListener('click', (e) => {
-      if (e.target.closest('.dropdown, [data-bs-toggle="dropdown"], button, a')) return;
+      if (e.target.closest('.dropdown, [data-bs-toggle="dropdown"]')) return;
+
+      // grade button click
+      const gradeBtn = e.target.closest('.grade-btn');
+      if (gradeBtn) {
+        const pid = gradeBtn.dataset.presentationId;
+        // find title from closest card
+        const card = gradeBtn.closest('.session-card, .poster-card, .blitz-card');
+        const title = card ? card.dataset.title : '';
+        openGradeModal(pid, title);
+        return;
+      }
+
+      // ignore clicks on links/buttons
+      if (e.target.closest('button, a')) return;
       const card = e.target.closest('.session-card, .poster-card, .blitz-card');
       if (card) fillAndShowModal(card);
     });
   }
+
+  // wire up grade modal submission when present on the page
+  document.addEventListener('DOMContentLoaded', () => {
+    const gm = document.getElementById('gradeModal');
+    if (gm) {
+      const form = gm.querySelector('form');
+      if (form) form.addEventListener('submit', submitGradeForm);
+    }
+  });
 
   async function loadCards({ apiEndpoint, upcomingContainer, pastContainer, cardClass = 'session-card', limit = 5 }) {
     const upEl = document.querySelector(upcomingContainer);
