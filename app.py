@@ -8,6 +8,7 @@ load_dotenv()
 from models import db
 from routes.users import users_bp
 from routes.presentations import presentations_bp
+from routes.block_schedule import block_schedule_bp
 from seed import seed_data, setup_permissions
 from routes.abstract_grades import abstract_grades_bp
 from routes.grades import grades_bp
@@ -186,6 +187,8 @@ app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
 app.register_blueprint(abstract_grades_bp, url_prefix='/api/v1/abstractgrades')
 app.register_blueprint(grades_bp, url_prefix='/grades')
+app.register_blueprint(block_schedule_bp, url_prefix='/api/v1/block-schedule')
+
 
 @app.route('/import_csv', methods=['POST'])
 @organizer_required
@@ -216,18 +219,26 @@ def import_csv():
 
 
 @app.route('/')
-@banned_user_redirect
 def program():
     return render_template('dashboard.html')
+
+@app.route('/schedule')
+@banned_user_redirect
+def schedule():
+
+    #if logged in and organizer, pass true
+    if 'user' in session:
+        user_info = session['user']
+        email = user_info.get('email')
+        db_user = User.query.filter_by(email=email).first()
+        if db_user and db_user.auth == 'organizer':
+            return render_template('schedule.html', is_organizer=True)
+    return render_template('schedule.html', is_organizer=False)
 
 @app.route('/fizzbuzz')
 def fizzbuzz():
     return render_template('fizz-buzz.html')
 
-@app.route('/organizer')
-@banned_user_redirect
-def organizer():
-    return render_template('organizer.html')
 
 @app.route('/dashboard')
 @banned_user_redirect
@@ -240,21 +251,12 @@ def dashboard():
 def abstractGrader():
     return render_template('abstractGrader.html')
 
-@app.route('/schedule')
-@banned_user_redirect
-def schedule():
-    return render_template('organizer.html')
-
 @app.route('/organizer-user-status')
 @banned_user_redirect
 @organizer_required
 def organizer_user_status():
     return render_template('organizer-user-status.html')
 
-@app.route('/attendees')
-@banned_user_redirect
-def attendees():
-    return render_template('organizer.html')
 
 @app.route('/organizer-presentations-status')
 @banned_user_redirect
@@ -396,8 +398,9 @@ def abstractScoring():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        # setup_permissions()
         from models import User
         if User.query.count() == 0:
-            setup_permissions()
+            
             seed_data()
     app.run(debug=True)

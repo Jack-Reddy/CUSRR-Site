@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime
+from datetime import timedelta
 
 db = SQLAlchemy()
 
@@ -20,15 +21,26 @@ class Presentation(db.Model):
     schedule = db.relationship('BlockSchedule', back_populates='presentations')
 
     def to_dict(self):
+        calculated_time = None
+        if self.time:
+            calculated_time = self.time
+        elif self.schedule:
+            if self.num_in_block is not None and self.schedule.sub_length is not None:
+                calculated_time = self.schedule.start_time + timedelta(minutes=self.num_in_block * self.schedule.sub_length)
+            else:
+                calculated_time = self.schedule.start_time
+
         return {
             "id": self.id,
             "title": self.title,
             "abstract": self.abstract,
             "subject": self.subject,
-            "time": self.time if self.time else (self.schedule.start_time + self.num_in_block * self.schedule.sub_length if self.schedule and self.num_in_block is not None and self.schedule.sub_length is not None else self.schedule.start_time if self.schedule else None),
+            "time": calculated_time,
             "room": self.schedule.location if self.schedule else None,
             "type": self.schedule.block_type if self.schedule else None,
-            "presenters": [p.to_dict_basic() for p in self.presenters]
+            "num_in_block": self.num_in_block,
+            "presenters": [p.to_dict_basic() for p in self.presenters],
+            "schedule_id": self.schedule_id
         }
 
 class User(db.Model):

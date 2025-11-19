@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Left Column -->
+  <div class="col-12 col-lg-8">
+
+    <!-- Day Selector -->
+    <div class="mb-3">
+      <label for="day-select" class="form-label fw-bold">Select Day</label>
+      <div class="d-flex gap-2">
+        <select id="day-select" class="form-select">
+          <option>Loading...</option>
+        </select>
+        {% if is_organizer %}
+        <button id="save-order-btn" class="btn btn-primary">Save Order</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Top: Overview -->
+    <div class="row g-3 mb-4" id="schedule-overview"></div>
+
+    <!-- Bottom: Full Details -->
+    <div id="schedule-details" class="vstack gap-3"></div>
+
+  </div>
+
+  <!-- Right Column -->
+  <div class="col-12 col-lg-4">
+    <section id="future-content" class="text-secondary">
+      <div class="card border-0 shadow-xs rounded-4 p-3 text-center">
+        <p class="mb-0">Reserve for generated program at a glance.</p>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+{% if is_organizer %}
+<!-- SortableJS only for organizers -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+{% endif %}
+
+<!-- Your dynamic schedule logic -->
+<script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
+
+{% endblock %}

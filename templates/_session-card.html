@@ -1,0 +1,22 @@
+<div class="card shadow-xs border-0 rounded-4" id="session-{{ session.id }}">
+  <div class="card-body py-3">
+
+    <h5 class="mb-1">{{ session.title }}</h5>
+    <p class="text-sm text-secondary mb-2">
+      {{ session.time }} · {{ session.location }}
+    </p>
+
+    <p>{{ session.description }}</p>
+
+    {% if session.type == "poster" %}
+      <div class="row g-3 mt-3" id="poster-list">
+
+        {% for poster in session.posters %}
+            {% include "_poster-card.html" %}
+        {% endfor %}
+
+      </div>
+    {% endif %}
+
+  </div>
+</div>

@@ -6,9 +6,6 @@
     modalEl.querySelector('#editPresentationTitle').value = presentation.title || '';
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
-    modalEl.querySelector('#editPresentationTime').value = presentation.time || '';
-    modalEl.querySelector('#editPresentationRoom').value = presentation.room || '';
-    modalEl.querySelector('#editPresentationType').value = presentation.type || '';
 
     console.log('Editing presentation:', presentation);
 
