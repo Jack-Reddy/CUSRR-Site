@@ -17,7 +17,8 @@
     const form = document.getElementById('editUserForm');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    // Replace any existing submit handler to avoid duplicate bindings
+    form.onsubmit = async (e) => {
       e.preventDefault();
 
       const formData = new FormData(form);
@@ -30,7 +31,7 @@
         console.error('Failed to submit form:', err);
         alert('Error saving user changes.');
       }
-    });
+    };
   }
 
   window.EditModal = {
