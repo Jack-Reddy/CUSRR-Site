@@ -13,7 +13,7 @@ from seed import seed_data, setup_permissions
 from routes.abstract_grades import abstract_grades_bp
 from routes.grades import grades_bp
 from config import Config
-from models import User
+from models import User, Presentation
 from functools import wraps
 import csv
 from io import TextIOWrapper
@@ -393,7 +393,24 @@ def profile():
 
 @app.route('/abstractScoring')
 def abstractScoring():
-    return render_template('abstractScoring.html')
+    # Get presentation
+    pres_id = request.args.get("id", type=int)
+    presentation = Presentation.query.get_or_404(pres_id)
+
+    # Get current user from session
+    user_id = None
+    if 'user' in session:
+        user_info = session['user']
+        email = user_info.get('email')
+        db_user = User.query.filter_by(email=email).first()
+        if db_user:
+            user_id = db_user.id
+
+    return render_template(
+        "abstractScoring.html",
+        presentation=presentation,
+        user_id=user_id  # pass user_id to template
+    )
 
 if __name__ == '__main__':
     with app.app_context():

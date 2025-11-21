@@ -2,12 +2,11 @@
 
 {% block title %}Abstract Scoring Dashboard{% endblock %}
 
-
 {% block content %}
 <div class="review-app">
   <div class="review-app__page"> 
     <div class="review-app__left">
-      <pre id="txt" class="review-app__comic"></pre>
+      <pre id="txt" class="review-app__comic">{{ presentation.abstract }}</pre>
     </div>
 
     <!-- Right: grading panel -->
@@ -28,7 +27,6 @@
           <label class="review-app__label review-app__row">
             <span>Clarity</span><span id="scoreClarVal">2</span>
           </label>
-          
           <input type="range" class="review-app__range crit" min="0" max="3" value="2" id="scoreClar">
         </div>
 
@@ -41,20 +39,23 @@
 
         <div class="review-app__total">
           <div class="review-app__total-label">Total</div>
-          <div class="review-app__total-value" id="scoreTotal">9</div>
+          <div class="review-app__total-value" id="scoreTotal">6</div>
         </div>
 
         <div class="review-app__actions">
           <a class="btn btn-sm btn-outline-info" href="{{ url_for('abstractGrader') }}">Cancel</a>
-          <a class="btn btn-sm btn-outline-info btn-success">Save Grade</a>
+          <button type="button" class="btn btn-sm btn-outline-info btn-success" id="saveGradeBtn">Save Grade</button>
         </div>
       </form>
     </aside>
   </div>
 </div>
 
+<div id="gradeFormWrapper"
+     data-presentation-id="{{ presentation.id }}"
+     data-user-id="{{ user_id }}">
+</div>
+
 <script src="{{ url_for('static', filename='js/abstractScoring.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/abstractScoring.css') }}">
-
-
 {% endblock %}
