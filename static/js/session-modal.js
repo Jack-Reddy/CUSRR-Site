@@ -29,14 +29,13 @@
     card.dataset.presenters = JSON.stringify(item.presenters || []);
     card.dataset.abstract = item.abstract || '';
     card.dataset.id = item.id || '';
-    card.dataset.img = item.image_url || DEFAULT_IMG;
+    //card.dataset.img = item.image_url || DEFAULT_IMG;
 
     const timeDisplay = card.dataset.time || '';
 
     card.innerHTML = `
       <div class="card-body py-3">
         <div class="d-flex align-items-start gap-3">
-          <img src="${card.dataset.img}" alt="thumb" class="rounded-3" style="width:56px;height:56px;object-fit:cover;">
           <div class="flex-grow-1">
             <div class="d-flex justify-content-between align-items-start">
               <h6 class="mb-1">${card.dataset.title}</h6>
