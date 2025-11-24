@@ -110,14 +110,16 @@ def get_presentations_by_type(category):
     if category_lower not in valid_types:
         return jsonify({"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
 
-    # fix capitalization
-    formatted_type = category_lower.capitalize()
+    # use the block_type field on BlockSchedule (may be stored lowercase)
+    formatted_type = category_lower
 
-    # get the presentations
+    # join the schedule table and filter by its block_type column
+    # order by the effective time: explicit Presentation.time or the BlockSchedule.start_time
     results = (
         Presentation.query
-        .filter(Presentation.type.ilike(formatted_type))
-        .order_by(Presentation.time.asc())
+        .join(Presentation.schedule)
+        .filter(BlockSchedule.block_type.ilike(formatted_type))
+        .order_by(func.coalesce(Presentation.time, BlockSchedule.start_time).asc())
         .all()
     )
 
