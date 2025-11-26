@@ -33,9 +33,22 @@ def create_presentation():
         abstract=data.get('abstract'),
         subject=data.get('subject'),
         time=presentation_time,
-        room=data.get('room'),
-        type=data.get('type')
     )
+
+    # id = db.Column(db.Integer, primary_key=True)
+    # title = db.Column(db.String(120), nullable=False)
+    # abstract = db.Column(db.Text)
+    # subject = db.Column(db.String(100))
+    # time = db.Column(DateTime)
+    # num_in_block = db.Column(db.Integer) # New field to track number of presentations in the same block
+    # schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
+
+    # presenters = db.relationship('User', back_populates='presentation')
+    # grades = db.relationship('Grade', back_populates='presentation', cascade='all, delete')
+    # abstract_grades = db.relationship('AbstractGrade', back_populates='presentation', cascade='all, delete')
+    # schedule = db.relationship('BlockSchedule', back_populates='presentations')
+
+
     db.session.add(new_presentation)
     db.session.commit()
     return jsonify(new_presentation.to_dict()), 201
