@@ -33,9 +33,22 @@ def create_presentation():
         abstract=data.get('abstract'),
         subject=data.get('subject'),
         time=presentation_time,
-        room=data.get('room'),
-        type=data.get('type')
     )
+
+    # id = db.Column(db.Integer, primary_key=True)
+    # title = db.Column(db.String(120), nullable=False)
+    # abstract = db.Column(db.Text)
+    # subject = db.Column(db.String(100))
+    # time = db.Column(DateTime)
+    # num_in_block = db.Column(db.Integer) # New field to track number of presentations in the same block
+    # schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
+
+    # presenters = db.relationship('User', back_populates='presentation')
+    # grades = db.relationship('Grade', back_populates='presentation', cascade='all, delete')
+    # abstract_grades = db.relationship('AbstractGrade', back_populates='presentation', cascade='all, delete')
+    # schedule = db.relationship('BlockSchedule', back_populates='presentations')
+
+
     db.session.add(new_presentation)
     db.session.commit()
     return jsonify(new_presentation.to_dict()), 201
@@ -110,14 +123,16 @@ def get_presentations_by_type(category):
     if category_lower not in valid_types:
         return jsonify({"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
 
-    # fix capitalization
-    formatted_type = category_lower.capitalize()
+    # use the block_type field on BlockSchedule (may be stored lowercase)
+    formatted_type = category_lower
 
-    # get the presentations
+    # join the schedule table and filter by its block_type column
+    # order by the effective time: explicit Presentation.time or the BlockSchedule.start_time
     results = (
         Presentation.query
-        .filter(Presentation.type.ilike(formatted_type))
-        .order_by(Presentation.time.asc())
+        .join(Presentation.schedule)
+        .filter(BlockSchedule.block_type.ilike(formatted_type))
+        .order_by(func.coalesce(Presentation.time, BlockSchedule.start_time).asc())
         .all()
     )
 

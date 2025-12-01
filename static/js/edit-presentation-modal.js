@@ -6,6 +6,9 @@
     modalEl.querySelector('#editPresentationTitle').value = presentation.title || '';
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
+    // populate hidden presentation id so the form includes it explicitly
+    const idInput = modalEl.querySelector('#editPresentationId');
+    if (idInput) idInput.value = presentation.id || '';
 
     console.log('Editing presentation:', presentation);
 
@@ -17,15 +20,21 @@
     const form = document.getElementById('editPresentationForm');
     if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+    // Replace the form with a clone to remove any previously attached listeners.
+    // This prevents multiple submissions being sent when the modal is opened repeatedly.
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+
+    newForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const formData = new FormData(form);
+      // Read data from the cloned form that is currently in the DOM
+      const formData = new FormData(newForm);
       const data = Object.fromEntries(formData.entries());
 
       try {
         await onSubmit(data);
-        bootstrap.Modal.getInstance(form.closest('.modal')).hide();
+        bootstrap.Modal.getInstance(newForm.closest('.modal')).hide();
       } catch (err) {
         console.error('Failed to submit presentation form:', err);
         alert('Error saving presentation changes.');
