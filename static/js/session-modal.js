@@ -167,9 +167,9 @@
       presentersEl.textContent = '';
     }
 
-    const img = m.querySelector('#mImg');
-    if (cardEl.dataset.img) { img.src = cardEl.dataset.img; img.classList.remove('d-none'); }
-    else { img.classList.add('d-none'); }
+    // const img = m.querySelector('#mImg');
+    // if (cardEl.dataset.img) { img.src = cardEl.dataset.img; img.classList.remove('d-none'); }
+    // else { img.classList.add('d-none'); }
 
     const modal = bootstrap.Modal.getOrCreateInstance(m, { backdrop: true });
     modal.show();
