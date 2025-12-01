@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime
 from datetime import timedelta
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -29,13 +30,20 @@ class Presentation(db.Model):
                 calculated_time = self.schedule.start_time + timedelta(minutes=self.num_in_block * self.schedule.sub_length)
             else:
                 calculated_time = self.schedule.start_time
+        # Format datetimes as naive local ISO strings (no timezone suffix)
+        def fmt(dt):
+            if not dt:
+                return None
+            if isinstance(dt, datetime):
+                return dt.strftime('%Y-%m-%dT%H:%M:%S')
+            return str(dt)
 
         return {
             "id": self.id,
             "title": self.title,
             "abstract": self.abstract,
             "subject": self.subject,
-            "time": calculated_time,
+            "time": fmt(calculated_time),
             "room": self.schedule.location if self.schedule else None,
             "type": self.schedule.block_type if self.schedule else None,
             "num_in_block": self.num_in_block,
@@ -154,8 +162,8 @@ class BlockSchedule(db.Model):
         return {
             "id": self.id,
             "day": self.day,
-            "startTime": self.start_time,
-            "endTime": self.end_time,
+            "startTime": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
+            "endTime": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
             "title": self.title,
             "description": self.description,
             "location": self.location,

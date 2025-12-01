@@ -70,9 +70,15 @@ function renderDetails(sessions, detailsContainer, presentations) {
     const session = sessions[i];
 
     // start section and include session metadata
+    const editBlockBtnHtml = (typeof window !== 'undefined' && window.IS_ORGANIZER) ?
+      `<button type="button" class="btn btn-sm btn-outline-primary float-end ms-2" onclick="editBlock(${session.id})">Edit Block</button>` : '';
+
     let html = `
       <section id="session-${session.id}" class="card shadow-xs border-0 rounded-4 p-3 mb-3">
-        <h5 class="fw-bold mb-1">${session.title}</h5>
+        <div class="d-flex align-items-start justify-content-between">
+          <h5 class="fw-bold mb-1">${session.title}</h5>
+          ${editBlockBtnHtml}
+        </div>
         <p class="text-secondary mb-1">${formatTimeRange(session.startTime, session.endTime)}</p>
         ${session.location ? `<p class="text-secondary mb-1">${session.location}</p>` : ""}
         ${session.description ? `<p class="small mb-0">${session.description}</p>` : ""}
@@ -243,3 +249,58 @@ async function initializeScheduleUI() {
 // Run when DOM is ready
 // -----------------------------
 document.addEventListener('DOMContentLoaded', initializeScheduleUI);
+
+// Open block editor for a given session id
+async function editBlock(blockId) {
+  try {
+    const resp = await fetch(`/api/v1/block-schedule/${blockId}`);
+    if (!resp.ok) throw new Error(`Failed to fetch block: ${resp.status}`);
+    const block = await resp.json();
+
+    if (window.EditBlockModal) {
+      window.EditBlockModal.fillAndShowModal(block);
+      window.EditBlockModal.setupFormSubmit(async (data) => {
+          // normalize datetime-local values and map to snake_case keys the backend expects
+          // Keep local time intact: datetime-local inputs are like `YYYY-MM-DDTHH:MM`.
+          function toLocalIsoNoTZ(val) {
+            if (!val) return val;
+            // If already in `YYYY-MM-DDTHH:MM` form, just add seconds
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) return val + ':00';
+            // Otherwise try to build a local datetime string from Date object without converting to UTC
+            const d = new Date(val);
+            if (Number.isNaN(d.getTime())) return val;
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+          }
+
+          if (data.startTime) {
+            data.start_time = toLocalIsoNoTZ(data.startTime);
+            delete data.startTime;
+          }
+          if (data.endTime) {
+            data.end_time = toLocalIsoNoTZ(data.endTime);
+            delete data.endTime;
+          }
+
+        const id = data.id || blockId;
+        const putResp = await fetch(`/api/v1/block-schedule/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!putResp.ok) throw new Error(`Failed to save block: ${putResp.status}`);
+
+        // Reload the current day's schedule
+        const daySelect = document.getElementById('day-select');
+        const overview = document.getElementById('schedule-overview');
+        const details = document.getElementById('schedule-details');
+        await loadForDay(daySelect.value, overview, details);
+      });
+    } else {
+      alert('Block editor not available.');
+    }
+  } catch (err) {
+    console.error('Failed to open block editor', err);
+    alert('Could not load block for editing.');
+  }
+}
