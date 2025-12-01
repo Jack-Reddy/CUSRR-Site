@@ -123,6 +123,11 @@ function renderDetails(sessions, detailsContainer, presentations) {
 
 // Gather current order for all poster lists and POST to API
 async function saveCurrentOrder() {
+
+  if (!window.IS_ORGANIZER) {
+    throw new Error('Not authorized to save order');
+  }
+
   const lists = Array.from(document.querySelectorAll('.poster-list'));
   const orders = [];
   lists.forEach(list => {
