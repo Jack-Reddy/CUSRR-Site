@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
-from models import db, BlockSchedule
 from datetime import datetime
+from website.models import BlockSchedule
+from website import db
 
 
 def parse_local_datetime(val):

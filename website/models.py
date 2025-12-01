@@ -1,9 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime
-from datetime import timedelta
-from datetime import datetime
+from datetime import timedelta, datetime
+from website import db
 
-db = SQLAlchemy()
+# db = SQLAlchemy()
 
 class Presentation(db.Model):
     __tablename__ = "presentations"
