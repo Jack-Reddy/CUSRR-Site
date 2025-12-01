@@ -1,9 +1,9 @@
 from flask import Blueprint, jsonify, request, render_template
-from models import BlockSchedule, db, Presentation
+from website.models import BlockSchedule, Presentation, User
 from flask import session
-from models import User
 from datetime import datetime, timedelta
 from sqlalchemy import func
+from website import db
 
 presentations_bp = Blueprint('presentations', __name__)
 
