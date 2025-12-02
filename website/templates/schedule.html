@@ -40,12 +40,24 @@
 
 </div>
 
+{% include 'edit_block_modal.html' %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+
 {% if is_organizer %}
 <!-- SortableJS only for organizers -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+  // Expose organizer flag to client-side scripts
+  window.IS_ORGANIZER = 'true';
+</script>
 {% endif %}
 
 <!-- Your dynamic schedule logic -->
 <script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
+<script src="{{url_for('static', filename='js/edit-block-modal.js')}}"></script>
 
 {% endblock %}
