@@ -1,13 +1,10 @@
+# pylint: disable=import-outside-toplevel
 from flask import Flask, render_template, flash
 from flask import session, redirect, url_for, jsonify, request
 import os
 from flask_sqlalchemy import SQLAlchemy
 import requests
 from dotenv import load_dotenv
-
-
-# from models import User, Presentation
-
 from functools import wraps
 
 
@@ -141,7 +138,7 @@ def create_app():
             if not db_user:
                 return redirect(url_for('signup'))
 
-            if db_user.auth == 'presenter' or db_user.auth == 'organizer':
+            if db_user.auth in ('presenter', 'organizer'):
                 return view(*args, **kwargs)
 
             # not permitted: return 403 for API/XHR, or redirect to dashboard
@@ -155,7 +152,9 @@ def create_app():
         return wrapped
 
     @app.context_processor
-    def inject_permissions():  # helper so unauthed users cannot access links they shouldn't be able to get to when refreshing quickly
+    def inject_permissions():  
+        # helper so unauthed users cannot access links
+        # they shouldn't be able to get to when refreshing quickly
         user_info = session.get('user')
         email = user_info.get('email') if user_info else None
 
