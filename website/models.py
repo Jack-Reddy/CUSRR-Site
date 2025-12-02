@@ -5,6 +5,7 @@ from website import db
 
 # db = SQLAlchemy()
 
+
 class Presentation(db.Model):
     __tablename__ = "presentations"
 
@@ -13,12 +14,19 @@ class Presentation(db.Model):
     abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
     time = db.Column(DateTime)
-    num_in_block = db.Column(db.Integer) # New field to track number of presentations in the same block
+    # New field to track number of presentations in the same block
+    num_in_block = db.Column(db.Integer)
     schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
 
     presenters = db.relationship('User', back_populates='presentation')
-    grades = db.relationship('Grade', back_populates='presentation', cascade='all, delete')
-    abstract_grades = db.relationship('AbstractGrade', back_populates='presentation', cascade='all, delete')
+    grades = db.relationship(
+        'Grade',
+        back_populates='presentation',
+        cascade='all, delete')
+    abstract_grades = db.relationship(
+        'AbstractGrade',
+        back_populates='presentation',
+        cascade='all, delete')
     schedule = db.relationship('BlockSchedule', back_populates='presentations')
 
     def to_dict(self):
@@ -27,10 +35,12 @@ class Presentation(db.Model):
             calculated_time = self.time
         elif self.schedule:
             if self.num_in_block is not None and self.schedule.sub_length is not None:
-                calculated_time = self.schedule.start_time + timedelta(minutes=self.num_in_block * self.schedule.sub_length)
+                calculated_time = self.schedule.start_time + \
+                    timedelta(minutes=self.num_in_block * self.schedule.sub_length)
             else:
                 calculated_time = self.schedule.start_time
         # Format datetimes as naive local ISO strings (no timezone suffix)
+
         def fmt(dt):
             if not dt:
                 return None
@@ -51,6 +61,7 @@ class Presentation(db.Model):
             "schedule_id": self.schedule_id
         }
 
+
 class User(db.Model):
     __tablename__ = "users"
 
@@ -64,23 +75,28 @@ class User(db.Model):
 
     # Relationship to Presentation
     presentation = db.relationship('Presentation', back_populates='presenters')
-    grades_given = db.relationship('Grade', back_populates='grader', cascade='all, delete')
-    abstract_grades_given = db.relationship('AbstractGrade', back_populates='grader', cascade='all, delete')
-
-    
+    grades_given = db.relationship(
+        'Grade',
+        back_populates='grader',
+        cascade='all, delete')
+    abstract_grades_given = db.relationship(
+        'AbstractGrade',
+        back_populates='grader',
+        cascade='all, delete')
 
     def to_dict(self):
         return {
             "id": self.id,
             "firstname": self.firstname,
             "lastname": self.lastname,
-            "name": f"{self.firstname} {self.lastname}",
+            "name": f"{
+                self.firstname} {
+                self.lastname}",
             "email": self.email,
             "activity": self.activity,
             "presentation": self.presentation.title if self.presentation else None,
-            "presentation_id" : self.presentation_id,
-            "auth": self.auth
-        }
+            "presentation_id": self.presentation_id,
+            "auth": self.auth}
 
     def to_dict_basic(self):
         return {
@@ -90,12 +106,16 @@ class User(db.Model):
             "email": self.email
         }
 
+
 class Grade(db.Model):
     __tablename__ = "grades"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    presentation_id = db.Column(db.Integer, db.ForeignKey('presentations.id'), nullable=False)
+    presentation_id = db.Column(
+        db.Integer,
+        db.ForeignKey('presentations.id'),
+        nullable=False)
 
     criteria_1 = db.Column(db.Integer, nullable=False)
     criteria_2 = db.Column(db.Integer, nullable=False)
@@ -108,7 +128,9 @@ class Grade(db.Model):
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "grader_name": f"{self.grader.firstname} {self.grader.lastname}" if self.grader else None,
+            "grader_name": f"{
+                self.grader.firstname} {
+                self.grader.lastname}" if self.grader else None,
             "presentation_id": self.presentation_id,
             "presentation_title": self.presentation.title if self.presentation else None,
             "criteria_1": self.criteria_1,
@@ -122,26 +144,34 @@ class AbstractGrade(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    presentation_id = db.Column(db.Integer, db.ForeignKey('presentations.id'), nullable=False)
+    presentation_id = db.Column(
+        db.Integer,
+        db.ForeignKey('presentations.id'),
+        nullable=False)
 
     criteria_1 = db.Column(db.Float, nullable=False)
     criteria_2 = db.Column(db.Float, nullable=False)
     criteria_3 = db.Column(db.Float, nullable=False)
 
     grader = db.relationship('User', back_populates='abstract_grades_given')
-    presentation = db.relationship('Presentation', back_populates='abstract_grades')
+    presentation = db.relationship(
+        'Presentation',
+        back_populates='abstract_grades')
 
     def to_dict(self):
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "grader_name": f"{self.grader.firstname} {self.grader.lastname}" if self.grader else None,
+            "grader_name": f"{
+                self.grader.firstname} {
+                self.grader.lastname}" if self.grader else None,
             "presentation_id": self.presentation_id,
             "presentation_title": self.presentation.title if self.presentation else None,
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
         }
+
 
 class BlockSchedule(db.Model):
     __tablename__ = "blockSchedules"
@@ -156,7 +186,10 @@ class BlockSchedule(db.Model):
     block_type = db.Column(db.String(50))
     sub_length = db.Column(db.Integer)
 
-    presentations = db.relationship('Presentation', back_populates='schedule', cascade='save-update')
+    presentations = db.relationship(
+        'Presentation',
+        back_populates='schedule',
+        cascade='save-update')
 
     def to_dict(self):
         return {
@@ -167,7 +200,9 @@ class BlockSchedule(db.Model):
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "length": (self.end_time - self.start_time).total_seconds() / 60,
+            "length": (
+                self.end_time -
+                self.start_time).total_seconds() /
+            60,
             "type": self.block_type,
-            "sub_length": self.sub_length
-        }
+            "sub_length": self.sub_length}

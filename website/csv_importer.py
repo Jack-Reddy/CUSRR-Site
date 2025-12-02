@@ -2,6 +2,7 @@ import csv
 from io import TextIOWrapper
 from .models import User, db
 
+
 def import_users_from_csv(file):
     warnings = []   # collect row-level issues
 
@@ -53,12 +54,20 @@ def import_users_from_csv(file):
         db.session.add(user)
         added += 1
 
-    
     if duplicates:
-        warnings.append(f"Duplicate emails found on rows: {', '.join(map(str, duplicates))}. These rows were skipped.")
+        warnings.append(
+            f"Duplicate emails found on rows: {
+                ', '.join(
+                    map(
+                        str,
+                        duplicates))}. These rows were skipped.")
 
     if bad_rows:
-        warnings.append(f"Invalid or missing data on rows: {', '.join(map(str, bad_rows))}. These rows were skipped.")
+        warnings.append(
+            f"Invalid or missing data on rows: {
+                ', '.join(
+                    map(
+                        str,
+                        bad_rows))}. These rows were skipped.")
     db.session.commit()
     return added, warnings
-

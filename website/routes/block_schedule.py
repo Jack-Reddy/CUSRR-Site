@@ -19,7 +19,9 @@ def parse_local_datetime(val):
                 continue
     return None
 
+
 block_schedule_bp = Blueprint('block_schedule', __name__)
+
 
 # GET all blocks
 @block_schedule_bp.route('/', methods=['GET'])
@@ -27,18 +29,21 @@ def get_schedules():
     schedules = BlockSchedule.query.all()
     return jsonify([s.to_dict() for s in schedules])
 
+
 # GET one block by ID
 @block_schedule_bp.route('/<int:id>', methods=['GET'])
 def get_schedule(id):
     schedule = BlockSchedule.query.get_or_404(id)
     return jsonify(schedule.to_dict())
 
+
 # POST create new block
 @block_schedule_bp.route('/', methods=['POST'])
 def create_schedule():
     data = request.get_json()
 
-    # Accept either camelCase or snake_case from client; parse into naive local datetimes
+    # Accept either camelCase or snake_case from client; parse into naive
+    # local datetimes
     start_raw = data.get('start_time') or data.get('startTime')
     end_raw = data.get('end_time') or data.get('endTime')
     start_dt = parse_local_datetime(start_raw)
@@ -59,6 +64,7 @@ def create_schedule():
     db.session.commit()
 
     return jsonify(new_schedule.to_dict()), 201
+
 
 # PUT update existing block
 @block_schedule_bp.route('/<int:id>', methods=['PUT'])
@@ -84,11 +90,14 @@ def update_schedule(id):
     schedule.title = data.get('title', schedule.title)
     schedule.description = data.get('description', schedule.description)
     schedule.location = data.get('location', schedule.location)
-    schedule.block_type = data.get('block_type', data.get('type', schedule.block_type))
+    schedule.block_type = data.get(
+        'block_type', data.get(
+            'type', schedule.block_type))
     schedule.sub_length = data.get('sub_length', schedule.sub_length)
 
     db.session.commit()
     return jsonify(schedule.to_dict())
+
 
 # DELETE block
 @block_schedule_bp.route('/<int:id>', methods=['DELETE'])
@@ -98,11 +107,15 @@ def delete_schedule(id):
     db.session.commit()
     return jsonify({"message": "Schedule deleted"})
 
+
 # GET schedules by day
 @block_schedule_bp.route('/day/<string:day>', methods=['GET'])
 def get_schedules_by_day(day):
-    schedules = BlockSchedule.query.filter_by(day=day).order_by(BlockSchedule.start_time).all()
+    schedules = BlockSchedule.query.filter_by(
+        day=day).order_by(
+        BlockSchedule.start_time).all()
     return jsonify([s.to_dict() for s in schedules])
+
 
 # GET Unique days
 @block_schedule_bp.route('/days', methods=['GET'])
