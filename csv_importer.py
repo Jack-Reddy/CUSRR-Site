@@ -1,6 +1,6 @@
 import csv
 from io import TextIOWrapper
-from .models import User, db
+from models import User, db
 
 def import_users_from_csv(file):
     warnings = []   # collect row-level issues

@@ -1,7 +1,6 @@
 from datetime import datetime
-from .models import User, Presentation, BlockSchedule
-from .csv_importer import import_users_from_csv
-from website import db
+from models import db, User, Presentation, BlockSchedule
+from csv_importer import import_users_from_csv
 
 def setup_permissions():
     """Import permissions from a CSV file named 'permissions.csv'."""

@@ -1,7 +1,3 @@
-function truncate(str, n) {
-  return str.length > n ? str.slice(0, n) + "..." : str;
-}
-
 (function () {
   const todoGrid = document.getElementById('todoGrid');
   const completedGrid = document.getElementById('completedGrid');
@@ -42,8 +38,7 @@ function truncate(str, n) {
               <span class="badge bg-gray-100 text-secondary">${p.time || '—'}</span>
             </div>
 
-           <p class="text-sm mb-2">${ truncate(p.abstract || "", 120) }</p>
-
+            <p class="text-sm mb-2">${p.abstract || ""}</p>
 
             <div class="d-flex align-items-center gap-2">
               <a class="btn btn-sm btn-outline-info px-2" href="/abstractScoring?id=${p.id}">Grade</a>

@@ -1,7 +1,5 @@
 from flask import Blueprint, jsonify, request
-from website.models import Grade, Presentation
-from website import db
-from sqlalchemy import func, desc
+from models import db, Grade
 
 grades_bp = Blueprint('grades', __name__)
 
@@ -59,7 +57,8 @@ def delete_grade(id):
     return jsonify({"message": "Grade deleted"})
 
 
-
+from sqlalchemy import func, desc
+from models import db, Grade, Presentation
 
 #route that returns average score for each presentation, sorted high to low
 @grades_bp.route('/averages', methods=['GET'])

@@ -1,23 +1,5 @@
 from flask import Blueprint, jsonify, request
-from datetime import datetime
-from website.models import BlockSchedule
-from website import db
-
-
-def parse_local_datetime(val):
-    """Parse a local datetime string (no timezone) into a naive datetime.
-    Accepts 'YYYY-MM-DDTHH:MM:SS' or 'YYYY-MM-DDTHH:MM'."""
-    if not val:
-        return None
-    if isinstance(val, datetime):
-        return val
-    if isinstance(val, str):
-        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
-            try:
-                return datetime.strptime(val, fmt)
-            except ValueError:
-                continue
-    return None
+from models import db, BlockSchedule
 
 block_schedule_bp = Blueprint('block_schedule', __name__)
 
@@ -38,21 +20,13 @@ def get_schedule(id):
 def create_schedule():
     data = request.get_json()
 
-    # Accept either camelCase or snake_case from client; parse into naive local datetimes
-    start_raw = data.get('start_time') or data.get('startTime')
-    end_raw = data.get('end_time') or data.get('endTime')
-    start_dt = parse_local_datetime(start_raw)
-    end_dt = parse_local_datetime(end_raw)
-
     new_schedule = BlockSchedule(
         day=data['day'],
-        start_time=start_dt,
-        end_time=end_dt,
+        startTime=data['startTime'],
+        endTime=data['endTime'],
         title=data['title'],
         description=data.get('description'),
-        location=data.get('location'),
-        block_type=data.get('block_type') or data.get('type'),
-        sub_length=data.get('sub_length')
+        location=data.get('location')
     )
 
     db.session.add(new_schedule)
@@ -67,25 +41,11 @@ def update_schedule(id):
     data = request.get_json()
 
     schedule.day = data.get('day', schedule.day)
-
-    # parse datetimes if provided (accept camelCase or snake_case)
-    if 'start_time' in data or 'startTime' in data:
-        start_raw = data.get('start_time') or data.get('startTime')
-        parsed = parse_local_datetime(start_raw)
-        if parsed:
-            schedule.start_time = parsed
-
-    if 'end_time' in data or 'endTime' in data:
-        end_raw = data.get('end_time') or data.get('endTime')
-        parsed = parse_local_datetime(end_raw)
-        if parsed:
-            schedule.end_time = parsed
-
+    schedule.startTime = data.get('startTime', schedule.startTime)
+    schedule.endTime = data.get('endTime', schedule.endTime)
     schedule.title = data.get('title', schedule.title)
     schedule.description = data.get('description', schedule.description)
     schedule.location = data.get('location', schedule.location)
-    schedule.block_type = data.get('block_type', data.get('type', schedule.block_type))
-    schedule.sub_length = data.get('sub_length', schedule.sub_length)
 
     db.session.commit()
     return jsonify(schedule.to_dict())
@@ -101,7 +61,7 @@ def delete_schedule(id):
 # GET schedules by day
 @block_schedule_bp.route('/day/<string:day>', methods=['GET'])
 def get_schedules_by_day(day):
-    schedules = BlockSchedule.query.filter_by(day=day).order_by(BlockSchedule.start_time).all()
+    schedules = BlockSchedule.query.filter_by(day=day).all()
     return jsonify([s.to_dict() for s in schedules])
 
 # GET Unique days

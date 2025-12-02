@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, desc
-from website.models import AbstractGrade, Presentation
-from website import db
+from models import db, AbstractGrade, Presentation
 
 abstract_grades_bp = Blueprint('abstract_grades', __name__)
 
