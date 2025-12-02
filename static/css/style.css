@@ -112,12 +112,3 @@ html, body { overflow-x: hidden; }
 #user-container table.table-bordered td {
   border: 1px solid black !important;
 }
-
-  .card-image {
-    height: 220px;            /* Set the same height for all images */
-  }
-  .card-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;        /* Crop to fit nicely */
-  }

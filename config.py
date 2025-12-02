@@ -1,6 +1,5 @@
 import os
 
-
 class Config:
     SECRET_KEY = os.environ.get('FLASK_SECRET') or 'dev_secret_key'
 
@@ -12,7 +11,7 @@ class Config:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
     # Fallback to local SQLite file
-    # SQLALCHEMY_DATABASE_URI = DATABASE_URL or "sqlite:///app.db"
+    #SQLALCHEMY_DATABASE_URI = DATABASE_URL or "sqlite:///app.db"
 
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
 

@@ -1,12 +1,11 @@
 from flask import Blueprint, jsonify, request, render_template
-from website.models import BlockSchedule, Presentation, User
+from models import BlockSchedule, db, Presentation
 from flask import session
+from models import User
 from datetime import datetime, timedelta
 from sqlalchemy import func
-from website import db
 
 presentations_bp = Blueprint('presentations', __name__)
-
 
 # GET all presentations
 @presentations_bp.route('/', methods=['GET'])
@@ -14,13 +13,11 @@ def get_presentations():
     presentations = Presentation.query.all()
     return jsonify([p.to_dict() for p in presentations])
 
-
 # GET one presentation
 @presentations_bp.route('/<int:id>', methods=['GET'])
 def get_presentation(id):
     presentation = Presentation.query.get_or_404(id)
     return jsonify(presentation.to_dict())
-
 
 # POST create presentation
 @presentations_bp.route('/', methods=['POST'])
@@ -30,21 +27,18 @@ def create_presentation():
     try:
         presentation_time = datetime.fromisoformat(time_str)
     except ValueError:
-        return jsonify(
-            {"error": "Invalid datetime format. Use ISO 8601."}), 400
+        return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
         subject=data.get('subject'),
         time=presentation_time,
-        num_in_block=data.get('num_in_block'),
-        schedule_id=data.get('schedule_id')
+        room=data.get('room'),
+        type=data.get('type')
     )
-
     db.session.add(new_presentation)
     db.session.commit()
     return jsonify(new_presentation.to_dict()), 201
-
 
 # PUT update presentation
 @presentations_bp.route('/<int:id>', methods=['PUT'])
@@ -56,14 +50,12 @@ def update_presentation(id):
         try:
             presentation_time = datetime.fromisoformat(time_str)
         except ValueError:
-            return jsonify(
-                {"error": "Invalid datetime format. Use ISO 8601."}), 400
+            return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
     db.session.commit()
     return jsonify(presentation.to_dict())
-
 
 # DELETE presentation
 @presentations_bp.route('/<int:id>', methods=['DELETE'])
@@ -73,50 +65,41 @@ def delete_presentation(id):
     db.session.commit()
     return jsonify({"message": "Presentation deleted"})
 
-
-# GET recent presentations
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():
     """Return upcoming presentations sorted by Presentation.time first, then BlockSchedule.start_time."""
     now = datetime.now()
 
-    # Fetch candidates where either the explicit time or the block start time
-    # is in the future
+    # Fetch candidates where either the explicit time or the block start time is in the future
     candidates = (
-        Presentation.query .join(
-            Presentation.schedule) .filter(
-            func.coalesce(
-                Presentation.time,
-                BlockSchedule.start_time) >= now) .all())
+        Presentation.query
+        .join(Presentation.schedule)
+        .filter(func.coalesce(Presentation.time, BlockSchedule.start_time) >= now)
+        .all()
+    )
 
     def effective_time(pres):
         # If presentation has explicit time, use it
         if pres.time:
             return pres.time
-        # Otherwise, attempt to compute from schedule start + num_in_block *
-        # sub_length (in minutes)
+        # Otherwise, attempt to compute from schedule start + num_in_block * sub_length (in minutes)
         sched = pres.schedule
         if sched and sched.start_time:
             num = pres.num_in_block if pres.num_in_block is not None else 0
             sub = sched.sub_length if sched.sub_length is not None else 0
             try:
-                return sched.start_time + \
-                    timedelta(minutes=(int(num) * int(sub)))
+                return sched.start_time + timedelta(minutes=(int(num) * int(sub)))
             except Exception:
                 return sched.start_time
         return None
 
-    # Attach effective times and sort in Python to ensure correct ordering
-    # even when computed
-    decorated = [(pres, effective_time(pres) or datetime.max)
-                 for pres in candidates]
+    # Attach effective times and sort in Python to ensure correct ordering even when computed
+    decorated = [(pres, effective_time(pres) or datetime.max) for pres in candidates]
     decorated.sort(key=lambda t: t[1])
     ordered = [p for p, _ in decorated]
 
     return jsonify([p.to_dict() for p in ordered])
 
-
-# GET presentations by type
 @presentations_bp.route('/type/<string:category>', methods=['GET'])
 def get_presentations_by_type(category):
     """Return all presentations of a given type (Poster, Blitz, Presentation)."""
@@ -125,39 +108,33 @@ def get_presentations_by_type(category):
     # normalize input
     category_lower = category.strip().lower()
     if category_lower not in valid_types:
-        return jsonify(
-            {"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
+        return jsonify({"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
 
-    # use the block_type field on BlockSchedule (may be stored lowercase)
-    formatted_type = category_lower
+    # fix capitalization
+    formatted_type = category_lower.capitalize()
 
-    # join the schedule table and filter by its block_type column
-    # order by the effective time: explicit Presentation.time or the
-    # BlockSchedule.start_time
+    # get the presentations
     results = (
-        Presentation.query .join(
-            Presentation.schedule) .filter(
-            BlockSchedule.block_type.ilike(formatted_type)) .order_by(
-                func.coalesce(
-                    Presentation.time,
-                    BlockSchedule.start_time).asc()) .all())
+        Presentation.query
+        .filter(Presentation.type.ilike(formatted_type))
+        .order_by(Presentation.time.asc())
+        .all()
+    )
 
     return jsonify([p.to_dict() for p in results])
 
-
-# GET presentations by day
 @presentations_bp.route("/day/<string:day>")
 def get_presentations_by_day(day):
     blocks = BlockSchedule.query.filter_by(day=day, block_type='poster').all()
     result = []
     for block in blocks:
-        # Order presentations by `num_in_block` if set, otherwise fallback to
-        # id
+        # Order presentations by `num_in_block` if set, otherwise fallback to id
         presentations = (
-            Presentation.query .filter_by(
-                schedule_id=block.id) .order_by(
-                Presentation.num_in_block.asc().nullsfirst(),
-                Presentation.id.asc()) .all())
+            Presentation.query
+            .filter_by(schedule_id=block.id)
+            .order_by(Presentation.num_in_block.asc().nullsfirst(), Presentation.id.asc())
+            .all()
+        )
         result.append({
             "block": block.to_dict(),
             "presentations": [p.to_dict() for p in presentations]
@@ -165,7 +142,6 @@ def get_presentations_by_day(day):
     return jsonify(result)
 
 
-# POST update presentations order in block
 @presentations_bp.route('/order', methods=['POST'])
 def update_presentations_order():
     """Accepts JSON: { orders: [{ presentation_id, schedule_id, num_in_block }, ...] }
@@ -174,22 +150,18 @@ def update_presentations_order():
     # Organizer-only check (inline to avoid circular imports)
     user_info = session.get('user')
     if not user_info:
-        return jsonify(
-            {"error": "forbidden", "reason": "organizer_required"}), 403
+        return jsonify({"error": "forbidden", "reason": "organizer_required"}), 403
     email = user_info.get('email')
     if not email:
-        return jsonify(
-            {"error": "forbidden", "reason": "organizer_required"}), 403
+        return jsonify({"error": "forbidden", "reason": "organizer_required"}), 403
     db_user = User.query.filter_by(email=email).first()
     if not db_user or db_user.auth != 'organizer':
-        return jsonify(
-            {"error": "forbidden", "reason": "organizer_required"}), 403
+        return jsonify({"error": "forbidden", "reason": "organizer_required"}), 403
 
     data = request.get_json() or {}
     orders = data.get('orders')
     if not orders or not isinstance(orders, list):
-        return jsonify(
-            {"error": "Invalid payload; expected 'orders' list."}), 400
+        return jsonify({"error": "Invalid payload; expected 'orders' list."}), 400
 
     updated = []
     for item in orders:
@@ -207,7 +179,6 @@ def update_presentations_order():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return jsonify(
-            {"error": "Failed to save order", "details": str(e)}), 500
+        return jsonify({"error": "Failed to save order", "details": str(e)}), 500
 
     return jsonify({"ok": True, "updated": updated})

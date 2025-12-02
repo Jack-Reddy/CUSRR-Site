@@ -1,10 +1,7 @@
 from flask import Blueprint, jsonify, request
-from website.models import Grade, Presentation
-from website import db
-from sqlalchemy import func, desc
+from models import db, Grade
 
 grades_bp = Blueprint('grades', __name__)
-
 
 # GET all grades
 @grades_bp.route('/', methods=['GET'])
@@ -12,13 +9,11 @@ def get_grades():
     grades = Grade.query.all()
     return jsonify([g.to_dict() for g in grades])
 
-
 # GET one grade by ID
 @grades_bp.route('/<int:id>', methods=['GET'])
 def get_grade(id):
     grade = Grade.query.get_or_404(id)
     return jsonify(grade.to_dict())
-
 
 # POST create new grade
 @grades_bp.route('/', methods=['POST'])
@@ -38,7 +33,6 @@ def create_grade():
 
     return jsonify(new_grade.to_dict()), 201
 
-
 # PUT update existing grade
 @grades_bp.route('/<int:id>', methods=['PUT'])
 def update_grade(id):
@@ -54,7 +48,6 @@ def update_grade(id):
     db.session.commit()
     return jsonify(grade.to_dict())
 
-
 # DELETE grade
 @grades_bp.route('/<int:id>', methods=['DELETE'])
 def delete_grade(id):
@@ -64,21 +57,23 @@ def delete_grade(id):
     return jsonify({"message": "Grade deleted"})
 
 
-# route that returns average score for each presentation, sorted high to low
+from sqlalchemy import func, desc
+from models import db, Grade, Presentation
+
+#route that returns average score for each presentation, sorted high to low
 @grades_bp.route('/averages', methods=['GET'])
 def get_average_grades_by_presentation():
     # Aggregate average grade per presentation, sorted descending
     averages = (
         db.session.query(
             Grade.presentation_id,
-            func.avg(
-                Grade.criteria_1 +
-                Grade.criteria_2 +
-                Grade.criteria_3).label('average_score'),
-            func.count(
-                Grade.id).label('num_grades')) .group_by(
-                    Grade.presentation_id) .order_by(
-                        desc('average_score')) .all())
+            func.avg(Grade.criteria_1 + Grade.criteria_2 + Grade.criteria_3).label('average_score'),
+            func.count(Grade.id).label('num_grades')
+        )
+        .group_by(Grade.presentation_id)
+        .order_by(desc('average_score'))
+        .all()
+    )
 
     # Attach presentation info
     results = []
