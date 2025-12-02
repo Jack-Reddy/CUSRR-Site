@@ -1,7 +1,9 @@
 from flask import Blueprint, jsonify, request
-from models import db, User
+from website.models import User
+from website import db
 
 users_bp = Blueprint('users', __name__)
+
 
 # GET all users
 @users_bp.route('/', methods=['GET'])
@@ -9,11 +11,13 @@ def get_users():
     users = User.query.all()
     return jsonify([u.to_dict() for u in users])
 
+
 # GET one user
 @users_bp.route('/<int:id>', methods=['GET'])
 def get_user(id):
     user = User.query.get_or_404(id)
     return jsonify(user.to_dict())
+
 
 # POST create user
 @users_bp.route('/', methods=['POST'])
@@ -30,6 +34,7 @@ def create_user():
     db.session.add(new_user)
     db.session.commit()
     return jsonify(new_user.to_dict()), 201
+
 
 # PUT update user
 @users_bp.route('/<int:id>', methods=['PUT'])

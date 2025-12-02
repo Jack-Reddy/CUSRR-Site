@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, desc
-from models import db, AbstractGrade, Presentation
+from website.models import AbstractGrade, Presentation
+from website import db
 
 abstract_grades_bp = Blueprint('abstract_grades', __name__)
 
@@ -74,13 +75,14 @@ def get_average_abstract_grades_by_presentation():
     averages = (
         db.session.query(
             AbstractGrade.presentation_id,
-            func.avg(AbstractGrade.criteria_1 + AbstractGrade.criteria_2 + AbstractGrade.criteria_3).label('average_score'),
-            func.count(AbstractGrade.id).label('num_grades')
-        )
-        .group_by(AbstractGrade.presentation_id)
-        .order_by(desc('average_score'))
-        .all()
-    )
+            func.avg(
+                AbstractGrade.criteria_1 +
+                AbstractGrade.criteria_2 +
+                AbstractGrade.criteria_3).label('average_score'),
+            func.count(
+                AbstractGrade.id).label('num_grades')) .group_by(
+                    AbstractGrade.presentation_id) .order_by(
+                        desc('average_score')) .all())
 
     results = []
     for avg in averages:

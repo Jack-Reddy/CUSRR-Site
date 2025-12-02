@@ -20,7 +20,8 @@ def init_oauth(app):
         access_token_url='https://accounts.google.com/o/oauth2/token',
         access_token_params=None,
 
-        # metadata (use Google's OpenID Connect discovery so Authlib can retrieve jwks_uri and other metadata required for OIDC)
+        # metadata (use Google's OpenID Connect discovery so Authlib can
+        # retrieve jwks_uri and other metadata required for OIDC)
         server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
 
         # login page
@@ -30,5 +31,3 @@ def init_oauth(app):
         api_base_url='https://www.googleapis.com/oauth2/v1/',
         client_kwargs={'scope': 'openid email profile'},
     )
-
-
