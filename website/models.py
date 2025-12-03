@@ -219,11 +219,11 @@ class AbstractGrade(db.Model):
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "grader_name": f"{
-                self.grader.firstname} {
-                self.grader.lastname}" if self.grader else None,
+            "grader_name": f'''{self.grader.firstname} {self.grader.lastname}'''
+            if self.grader else None,
             "presentation_id": self.presentation_id,
-            "presentation_title": self.presentation.title if self.presentation else None,
+            "presentation_title": self.presentation.title 
+            if self.presentation else None,
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,

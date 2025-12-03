@@ -86,7 +86,6 @@ def get_recent_presentations():
     """
     now = datetime.now()
 
-    # 
     candidates = (
         Presentation.query .join(
             Presentation.schedule) .filter(
@@ -151,6 +150,10 @@ def get_presentations_by_type(category):
 
 @presentations_bp.route("/day/<string:day>")
 def get_presentations_by_day(day):
+    '''
+    Get all presentations for a specific day, grouped by poster blocks.
+    :param day: The day to filter presentations by (e.g., "Day 1")
+    '''
     blocks = BlockSchedule.query.filter_by(day=day, block_type='poster').all()
     result = []
     for block in blocks:
@@ -207,7 +210,7 @@ def update_presentations_order():
 
     try:
         db.session.commit()
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         db.session.rollback()
         return jsonify(
             {"error": "Failed to save order", "details": str(e)}), 500

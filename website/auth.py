@@ -43,12 +43,11 @@ def init_oauth(app):
     )
 
 
-def init_role_auth(app, db, user):
+def init_role_auth(app, user):
     '''
     Initialize role-based authorization decorators.
     Parameters:
         app - Flask application instance
-        db - SQLAlchemy database instance
         User - User model class
     Returns:
         Tuple of decorators:

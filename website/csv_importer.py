@@ -15,8 +15,8 @@ def import_users_from_csv(file):
     duplicates = []
     bad_rows = []
 
-    csv_data = TextIOWrapper(file, encoding='utf-8', errors='replace')
-    reader = csv.DictReader(csv_data)
+    reader = csv.DictReader(
+        TextIOWrapper(file, encoding='utf-8', errors='replace'))
 
     required = {"firstname", "lastname", "email"}
     fieldnames = reader.fieldnames or []

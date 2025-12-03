@@ -2,11 +2,12 @@
 Gerades API routes for the grade data model in the Flask app.
 Provides CRUD operations and average score calculations.
 '''
-
+from sqlalchemy import func, desc
 from flask import Blueprint, jsonify, request
 from website.models import Grade, Presentation
 from website import db
-from sqlalchemy import func, desc
+from utils import format_average_grades
+
 
 grades_bp = Blueprint('grades', __name__)
 
@@ -87,14 +88,4 @@ def get_average_grades_by_presentation():
                         desc('average_score')) .all())
 
     # Attach presentation info
-    results = []
-    for avg in averages:
-        presentation = Presentation.query.get(avg.presentation_id)
-        results.append({
-            "presentation_id": avg.presentation_id,
-            "presentation_title": presentation.title if presentation else None,
-            "average_score": round(avg.average_score, 2),
-            "num_grades": avg.num_grades
-        })
-
-    return jsonify(results)
+    return format_average_grades(averages)

@@ -1,11 +1,15 @@
+# pylint: disable=import-outside-toplevel
+'''
+Seed initial data into the database for testing and development.
+'''
 from datetime import datetime
-
 from website import db
 
 
 def setup_permissions():
-    from .csv_importer import import_users_from_csv
     """Import permissions from a CSV file named 'permissions.csv'."""
+    from .csv_importer import import_users_from_csv
+
     try:
         with open('permissions.csv', 'rb') as file:
             added, warnings = import_users_from_csv(file)
@@ -17,7 +21,9 @@ def setup_permissions():
 
 
 def seed_data():
-
+    '''
+    Seed initial schedule, presentations, and users into the database.
+    '''
     from .models import User, Presentation, BlockSchedule
 
     print("Seeding schedule...")

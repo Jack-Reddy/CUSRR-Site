@@ -246,7 +246,6 @@ def create_app():
         if db_user:
             # User exists, redirect to dashboard
             return redirect(url_for('dashboard'))
-        
         # User doesn't exist, redirect to signup page
         return redirect(url_for('signup'))
 
