@@ -33,8 +33,164 @@ def create_app():
     from .routes.abstract_grades import abstract_grades_bp
     from .routes.grades import grades_bp
 
-    # Initialize role-based auth (decorators + context processor)
-    auth.init_role_auth(app, db, User)
+    def organizer_required(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user_info = session.get('user')
+            if not user_info:
+                return redirect(url_for('google_login'))
+
+            email = user_info.get('email')
+            if not email:
+                return redirect(url_for('google_login'))
+
+            db_user = User.query.filter_by(email=email).first()
+            if not db_user:
+                return redirect(url_for('signup'))
+
+            if db_user.auth == 'organizer':
+                return view(*args, **kwargs)
+
+            # not permitted: return 403 for API/XHR, or redirect to dashboard
+            wants_json = request.is_json or request.headers.get(
+                'X-Requested-With') == 'XMLHttpRequest'
+            if wants_json:
+                return jsonify(
+                    {'error': 'forbidden', 'reason': 'organizer_required'}), 403
+            # redirect to dashboard
+            return redirect(url_for('dashboard'))
+        return wrapped
+
+    def abstract_grader_required(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user_info = session.get('user')
+            if not user_info:
+                return redirect(url_for('google_login'))
+
+            email = user_info.get('email')
+            if not email:
+                return redirect(url_for('google_login'))
+
+            db_user = User.query.filter_by(email=email).first()
+            if not db_user:
+                return redirect(url_for('signup'))
+
+            roles = []
+            if db_user.auth:
+                roles = [r.strip().lower()
+                         for r in str(db_user.auth).split(',') if r.strip()]
+
+            if 'organizer' in roles or 'abstract-grader' in roles:
+                return view(*args, **kwargs)
+
+            # not permitted: return 403 for API/XHR, or redirect to dashboard
+            wants_json = request.is_json or request.headers.get(
+                'X-Requested-With') == 'XMLHttpRequest'
+            if wants_json:
+                return jsonify(
+                    {'error': 'forbidden', 'reason': 'abstract_grader_required'}), 403
+            return redirect(url_for('dashboard'))
+
+        return wrapped
+
+    def banned_user_redirect(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user_info = session.get('user')
+            if not user_info:
+                # If no user session, let them continue or redirect elsewhere
+                return view(*args, **kwargs)
+
+            email = user_info.get('email')
+            if not email:
+                return view(*args, **kwargs)
+
+            db_user = User.query.filter_by(email=email).first()
+            if not db_user:
+                return view(*args, **kwargs)
+
+            roles = []
+            if db_user.auth:
+                roles = [r.strip().lower()
+                         for r in str(db_user.auth).split(',') if r.strip()]
+
+            if 'banned' in roles:
+                return redirect(url_for('fizzbuzz'))
+
+            # user is not banned, continue to the original view
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    def presenter_required(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user_info = session.get('user')
+            if not user_info:
+                return redirect(url_for('google_login'))
+
+            email = user_info.get('email')
+            if not email:
+                return redirect(url_for('google_login'))
+
+            db_user = User.query.filter_by(email=email).first()
+            if not db_user:
+                return redirect(url_for('signup'))
+
+            if db_user.auth in ('presenter', 'organizer'):
+                return view(*args, **kwargs)
+
+            # not permitted: return 403 for API/XHR, or redirect to dashboard
+            wants_json = request.is_json or request.headers.get(
+                'X-Requested-With') == 'XMLHttpRequest'
+            if wants_json:
+                return jsonify(
+                    {'error': 'forbidden', 'reason': 'presenter_required'}), 403
+            # redirect to dashboard
+            return redirect(url_for('dashboard'))
+        return wrapped
+
+    @app.context_processor
+    def inject_permissions():  
+        # helper so unauthed users cannot access links
+        # they shouldn't be able to get to when refreshing quickly
+        user_info = session.get('user')
+        email = user_info.get('email') if user_info else None
+
+        db_user = None
+        roles = []
+
+        if email:
+            db_user = User.query.filter_by(email=email).first()
+            if db_user and db_user.auth:
+                roles = [r.strip().lower()
+                         for r in str(db_user.auth).split(',') if r.strip()]
+
+        is_authenticated = bool(user_info)  # Google auth?
+        is_organizer = 'organizer' in roles
+        is_presenter = 'presenter' in roles
+
+        allowed_programs = set()
+        if is_presenter or is_organizer:  # show presentations info
+            allowed_programs.update(['poster', 'presentation', 'blitz'])
+
+        user_name = None
+        user_picture = None
+        if user_info:
+            user_name = user_info.get('name') or user_info.get('email')
+            user_picture = user_info.get('picture')
+
+        return dict(
+            db_user=db_user,
+            roles=roles,
+            is_organizer=is_organizer,
+            is_presenter=is_presenter,
+            allowed_programs=allowed_programs,
+            is_authenticated=is_authenticated,
+            user_name=user_name,
+            user_picture=user_picture,
+        )
 
     app.config.from_object(Config)
     db.init_app(app)
@@ -52,7 +208,7 @@ def create_app():
         url_prefix='/api/v1/block-schedule')
 
     @app.route('/import_csv', methods=['POST'])
-    @auth.organizer_required
+    @organizer_required
     def import_csv():
         file = request.files.get('csv_file')
         if not file:
@@ -82,7 +238,7 @@ def create_app():
         return render_template('dashboard.html')
 
     @app.route('/schedule')
-    @auth.banned_user_redirect
+    @banned_user_redirect
     def schedule():
 
         # if logged in and organizer, pass true
@@ -99,25 +255,25 @@ def create_app():
         return render_template('fizz-buzz.html')
 
     @app.route('/dashboard')
-    @auth.banned_user_redirect
+    @banned_user_redirect
     def dashboard():
         return render_template('dashboard.html')
 
     @app.route('/abstractGrader')
-    @auth.banned_user_redirect
-    @auth.abstract_grader_required
+    @banned_user_redirect
+    @abstract_grader_required
     def abstractGrader():
         return render_template('abstractGrader.html')
 
     @app.route('/organizer-user-status')
-    @auth.banned_user_redirect
-    @auth.organizer_required
+    @banned_user_redirect
+    @organizer_required
     def organizer_user_status():
         return render_template('organizer-user-status.html')
 
     @app.route('/organizer-presentations-status')
-    @auth.banned_user_redirect
-    @auth.organizer_required
+    @banned_user_redirect
+    @organizer_required
     def organizer_presentations():
         return render_template('organizer-presentations-status.html')
 
