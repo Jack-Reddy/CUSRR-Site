@@ -1,3 +1,8 @@
+'''
+Abstract grades routes for the Flask app.
+Provides CRUD operations and average score calculations.
+'''
+
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, desc
 from website.models import AbstractGrade, Presentation
@@ -6,23 +11,23 @@ from website import db
 abstract_grades_bp = Blueprint('abstract_grades', __name__)
 
 
-# GET all abstract grades
 @abstract_grades_bp.route('/', methods=['GET'])
 def get_abstract_grades():
+    # GET all abstract grades
     grades = AbstractGrade.query.all()
     return jsonify([g.to_dict() for g in grades])
 
 
-# GET one abstract grade by ID
 @abstract_grades_bp.route('/<int:id>', methods=['GET'])
 def get_abstract_grade(id):
+    # GET one abstract grade by ID
     grade = AbstractGrade.query.get_or_404(id)
     return jsonify(grade.to_dict())
 
 
-# POST create new abstract grade
 @abstract_grades_bp.route('/', methods=['POST'])
 def create_abstract_grade():
+    # POST create new abstract grade
     data = request.get_json()
 
     new_grade = AbstractGrade(
@@ -39,9 +44,9 @@ def create_abstract_grade():
     return jsonify(new_grade.to_dict()), 201
 
 
-# PUT update existing abstract grade
 @abstract_grades_bp.route('/<int:id>', methods=['PUT'])
 def update_abstract_grade(id):
+    # PUT update existing abstract grade
     grade = AbstractGrade.query.get_or_404(id)
     data = request.get_json()
 
@@ -55,16 +60,15 @@ def update_abstract_grade(id):
     return jsonify(grade.to_dict())
 
 
-# DELETE abstract grade
 @abstract_grades_bp.route('/<int:id>', methods=['DELETE'])
 def delete_abstract_grade(id):
+    # DELETE abstract grade
     grade = AbstractGrade.query.get_or_404(id)
     db.session.delete(grade)
     db.session.commit()
     return jsonify({"message": "Abstract grade deleted"})
 
 
-# route that returns average score for each presentation, sorted high to low
 @abstract_grades_bp.route('/averages', methods=['GET'])
 def get_average_abstract_grades_by_presentation():
     """
@@ -75,13 +79,14 @@ def get_average_abstract_grades_by_presentation():
     averages = (
         db.session.query(
             AbstractGrade.presentation_id,
-            func.avg(AbstractGrade.criteria_1 + AbstractGrade.criteria_2 + AbstractGrade.criteria_3).label('average_score'),
-            func.count(AbstractGrade.id).label('num_grades')
-        )
-        .group_by(AbstractGrade.presentation_id)
-        .order_by(desc('average_score'))
-        .all()
-    )
+            func.avg(
+                AbstractGrade.criteria_1 +
+                AbstractGrade.criteria_2 +
+                AbstractGrade.criteria_3).label('average_score'),
+            func.count(
+                AbstractGrade.id).label('num_grades')) .group_by(
+                    AbstractGrade.presentation_id) .order_by(
+                        desc('average_score')) .all())
 
     results = []
     for avg in averages:

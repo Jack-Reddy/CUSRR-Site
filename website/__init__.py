@@ -129,7 +129,7 @@ def create_app():
     @app.route('/abstractGrader')
     @auth.banned_user_redirect
     @auth.abstract_grader_required
-    def abstractGrader():
+    def abstract_grader():
         '''
         Render the abstract grader page.
         Permissions: Abstract Grader required.
@@ -246,9 +246,9 @@ def create_app():
         if db_user:
             # User exists, redirect to dashboard
             return redirect(url_for('dashboard'))
-        else:
-            # User doesn't exist, redirect to signup page
-            return redirect(url_for('signup'))
+       
+        # User doesn't exist, redirect to signup page
+        return redirect(url_for('signup'))
 
     @app.route('/google/logout')
     def google_logout():

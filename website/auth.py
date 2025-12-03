@@ -43,7 +43,7 @@ def init_oauth(app):
     )
 
 
-def init_role_auth(app, db, User):
+def init_role_auth(app, db, user):
     '''
     Initialize role-based authorization decorators.
     Parameters:
@@ -72,7 +72,7 @@ def init_role_auth(app, db, User):
             if not email:
                 return redirect(url_for('google_login'))
 
-            db_user = User.query.filter_by(email=email).first()
+            db_user = user.query.filter_by(email=email).first()
             if not db_user:
                 return redirect(url_for('signup'))
 
@@ -100,7 +100,7 @@ def init_role_auth(app, db, User):
             if not email:
                 return redirect(url_for('google_login'))
 
-            db_user = User.query.filter_by(email=email).first()
+            db_user = user.query.filter_by(email=email).first()
             if not db_user:
                 return redirect(url_for('signup'))
 
@@ -133,7 +133,7 @@ def init_role_auth(app, db, User):
             if not email:
                 return view(*args, **kwargs)
 
-            db_user = User.query.filter_by(email=email).first()
+            db_user = user.query.filter_by(email=email).first()
             if not db_user:
                 return view(*args, **kwargs)
 
@@ -161,7 +161,7 @@ def init_role_auth(app, db, User):
             if not email:
                 return redirect(url_for('google_login'))
 
-            db_user = User.query.filter_by(email=email).first()
+            db_user = user.query.filter_by(email=email).first()
             if not db_user:
                 return redirect(url_for('signup'))
 
@@ -187,7 +187,7 @@ def init_role_auth(app, db, User):
         roles = []
 
         if email:
-            db_user = User.query.filter_by(email=email).first()
+            db_user = user.query.filter_by(email=email).first()
             if db_user and db_user.auth:
                 roles = [r.strip().lower()
                          for r in str(db_user.auth).split(',') if r.strip()]
@@ -206,16 +206,16 @@ def init_role_auth(app, db, User):
             user_name = user_info.get('name') or user_info.get('email')
             user_picture = user_info.get('picture')
 
-        return dict(
-            db_user=db_user,
-            roles=roles,
-            is_organizer=is_organizer,
-            is_presenter=is_presenter,
-            allowed_programs=allowed_programs,
-            is_authenticated=is_authenticated,
-            user_name=user_name,
-            user_picture=user_picture,
-        )
+        return{
+            "db_user": db_user,
+            "roles": roles,
+            "is_organizer": is_organizer,
+            "is_presenter": is_presenter,
+            "allowed_programs": allowed_programs,
+            "is_authenticated": is_authenticated,
+            "user_name": user_name,
+            "user_picture": user_picture,
+        }
 
     return (organizer_required,
             abstract_grader_required,

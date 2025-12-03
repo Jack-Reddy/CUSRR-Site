@@ -119,9 +119,7 @@ class User(db.Model):
             "id": self.id,
             "firstname": self.firstname,
             "lastname": self.lastname,
-            "name": f"{
-                self.firstname} {
-                self.lastname}",
+            "name": f"{self.firstname} {self.lastname}",
             "email": self.email,
             "activity": self.activity,
             "presentation": self.presentation.title if self.presentation else None,

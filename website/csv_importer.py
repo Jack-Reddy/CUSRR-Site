@@ -62,18 +62,16 @@ def import_users_from_csv(file):
 
     if duplicates:
         warnings.append(
-            f"Duplicate emails found on rows: {
-                ', '.join(
+            f'''Duplicate emails found on rows: {', '.join(
                     map(
                         str,
-                        duplicates))}. These rows were skipped.")
+                        duplicates))}. These rows were skipped.''')
 
     if bad_rows:
         warnings.append(
-            f"Invalid or missing data on rows: {
-                ', '.join(
+            f'''Invalid or missing data on rows: {', '.join(
                     map(
                         str,
-                        bad_rows))}. These rows were skipped.")
+                        bad_rows))}. These rows were skipped.''')
     db.session.commit()
     return added, warnings
