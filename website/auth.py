@@ -1,13 +1,21 @@
-from authlib.integrations.flask_client import OAuth
-import os
-from flask import session, redirect, url_for, jsonify, request
+
+'''
+Authentication and role-based authorization for the Flask app.
+Uses OAuth2 with Google as the identity provider.
+'''
 from functools import wraps
+import os
+from authlib.integrations.flask_client import OAuth
+from flask import session, redirect, url_for, jsonify, request
 
 oauth = OAuth()
 
 
 def init_oauth(app):
-
+    '''
+    Initialize OAuth with Google as the identity provider.
+    Parameters: app - Flask application instance
+    '''
     if not getattr(app, 'secret_key', None):
         app.secret_key = os.environ.get('APP_SECRET_KEY')
 
@@ -22,7 +30,8 @@ def init_oauth(app):
         access_token_url='https://accounts.google.com/o/oauth2/token',
         access_token_params=None,
 
-        # metadata (use Google's OpenID Connect discovery so Authlib can retrieve jwks_uri and other metadata required for OIDC)
+        # metadata (use Google's OpenID Connect discovery so Authlib can
+        # retrieve jwks_uri and other metadata required for OIDC)
         server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
 
         # login page
@@ -34,9 +43,25 @@ def init_oauth(app):
     )
 
 
-
 def init_role_auth(app, db, User):
+    '''
+    Initialize role-based authorization decorators.
+    Parameters:
+        app - Flask application instance
+        db - SQLAlchemy database instance
+        User - User model class
+    Returns:
+        Tuple of decorators:
+        (organizer_required, abstract_grader_required,
+         banned_user_redirect, presenter_required)
+    '''
+
     def organizer_required(view):
+        '''
+        Decorator to require organizer role for a view.
+        Redirects to login/signup if not authenticated.
+        Returns 403 JSON error for AJAX requests if not authorized.
+        '''
         @wraps(view)
         def wrapped(*args, **kwargs):
             user_info = session.get('user')
@@ -54,14 +79,17 @@ def init_role_auth(app, db, User):
             if db_user.auth == 'organizer':
                 return view(*args, **kwargs)
 
-            wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            wants_json = request.is_json or request.headers.get(
+                'X-Requested-With') == 'XMLHttpRequest'
             if wants_json:
-                return jsonify({'error': 'forbidden', 'reason': 'organizer_required'}), 403
+                return jsonify(
+                    {'error': 'forbidden', 'reason': 'organizer_required'}), 403
             return redirect(url_for('dashboard'))
 
         return wrapped
 
     def abstract_grader_required(view):
+        ''' Decorator to require abstract grader or organizer role for a view. '''
         @wraps(view)
         def wrapped(*args, **kwargs):
             user_info = session.get('user')
@@ -78,19 +106,23 @@ def init_role_auth(app, db, User):
 
             roles = []
             if db_user.auth:
-                roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
+                roles = [r.strip().lower()
+                         for r in str(db_user.auth).split(',') if r.strip()]
 
             if 'organizer' in roles or 'abstract-grader' in roles:
                 return view(*args, **kwargs)
 
-            wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            wants_json = request.is_json or request.headers.get(
+                'X-Requested-With') == 'XMLHttpRequest'
             if wants_json:
-                return jsonify({'error': 'forbidden', 'reason': 'abstract_grader_required'}), 403
+                return jsonify(
+                    {'error': 'forbidden', 'reason': 'abstract_grader_required'}), 403
             return redirect(url_for('dashboard'))
 
         return wrapped
 
     def banned_user_redirect(view):
+        ''' Decorator to redirect banned users to a specific page. '''
         @wraps(view)
         def wrapped(*args, **kwargs):
             user_info = session.get('user')
@@ -107,7 +139,8 @@ def init_role_auth(app, db, User):
 
             roles = []
             if db_user.auth:
-                roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
+                roles = [r.strip().lower()
+                         for r in str(db_user.auth).split(',') if r.strip()]
 
             if 'banned' in roles:
                 return redirect(url_for('fizzbuzz'))
@@ -117,6 +150,7 @@ def init_role_auth(app, db, User):
         return wrapped
 
     def presenter_required(view):
+        ''' Decorator to require presenter or organizer role for a view. '''
         @wraps(view)
         def wrapped(*args, **kwargs):
             user_info = session.get('user')
@@ -134,15 +168,18 @@ def init_role_auth(app, db, User):
             if db_user.auth in ('presenter', 'organizer'):
                 return view(*args, **kwargs)
 
-            wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            wants_json = request.is_json or request.headers.get(
+                'X-Requested-With') == 'XMLHttpRequest'
             if wants_json:
-                return jsonify({'error': 'forbidden', 'reason': 'presenter_required'}), 403
+                return jsonify(
+                    {'error': 'forbidden', 'reason': 'presenter_required'}), 403
             return redirect(url_for('dashboard'))
 
         return wrapped
 
     @app.context_processor
     def inject_permissions():
+        ''' Inject user permissions and roles into templates.'''
         user_info = session.get('user')
         email = user_info.get('email') if user_info else None
 
@@ -152,7 +189,8 @@ def init_role_auth(app, db, User):
         if email:
             db_user = User.query.filter_by(email=email).first()
             if db_user and db_user.auth:
-                roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
+                roles = [r.strip().lower()
+                         for r in str(db_user.auth).split(',') if r.strip()]
 
         is_authenticated = bool(user_info)
         is_organizer = 'organizer' in roles
@@ -179,8 +217,7 @@ def init_role_auth(app, db, User):
             user_picture=user_picture,
         )
 
-    # expose decorators on module for convenient use
-    globals()['organizer_required'] = organizer_required
-    globals()['abstract_grader_required'] = abstract_grader_required
-    globals()['banned_user_redirect'] = banned_user_redirect
-    globals()['presenter_required'] = presenter_required
+    return (organizer_required,
+            abstract_grader_required,
+            banned_user_redirect,
+            presenter_required)

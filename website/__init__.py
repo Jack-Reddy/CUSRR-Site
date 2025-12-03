@@ -9,7 +9,6 @@ from flask import Flask, render_template, flash
 from flask import session, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-from functools import wraps
 
 load_dotenv()
 db = SQLAlchemy()
@@ -55,7 +54,10 @@ def create_app():
         url_prefix='/api/v1/abstractgrades')
     app.register_blueprint(grades_bp, url_prefix='/api/v1/grades')
 
-    auth.init_role_auth(app, db, User)
+    (auth.organizer_required,
+    auth.abstract_grader_required,
+    auth.banned_user_redirect,
+    auth.presenter_required) = auth.init_role_auth(app, db, User)
 
     @app.route('/import_csv', methods=['POST'])
     @auth.organizer_required
@@ -318,9 +320,9 @@ def create_app():
         '''
         return render_template('profile.html')
 
-    @app.route('/abstractScoring')
+    @app.route('/abstract_scoring')
     @auth.abstract_grader_required
-    def abstractScoring():
+    def abstract_scoring():
         '''
         Render the abstract scoring page.
         Permissions: Abstract Grader required.
