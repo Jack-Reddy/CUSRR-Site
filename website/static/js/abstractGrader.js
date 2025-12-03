@@ -14,47 +14,47 @@ function truncate(str, n) {
 
   function createCard(p) {
     const col = document.createElement('div');
-    col.className = "col abstract-card";
+    col.className = "col";               // <- remove abstract-card from the column
     col.dataset.card = "";
     col.dataset.status = p.status;
-    col.dataset.id = p.id; // for toggling
+    col.dataset.id = p.id;
     col.dataset.title = p.title.toLowerCase();
-
+  
     col.innerHTML = `
-      <div class="card shadow-xs border-0 rounded-4 h-100">
-        <div class="card-body d-flex gap-3 align-items-center">
-
-          <div class="d-flex flex-column align-items-center pt-1">
-            ${p.status === "done"
-              ? `<span class="btn btn-success rounded-circle p-0" style="width:36px;height:36px">
-                   <i class="fas fa-check"></i>
-                 </span>`
-              : `<button class="btn btn-outline-secondary rounded-circle p-0 status-toggle"
-                   style="width:36px;height:36px" aria-pressed="false" title="Mark as completed">
-                   <i class="far fa-circle"></i>
-                 </button>`
-            }
-          </div>
-
-          <div class="flex-grow-1 ms-3">
-            <div class="d-flex justify-content-between align-items-start">
-              <h6 class="mb-1">${p.title}</h6>
-              <span class="badge bg-gray-100 text-secondary">${p.time || '—'}</span>
+        <div class="card abstract-card shadow-xs border-0 rounded-4 h-100">
+          <div class="card-body d-flex gap-3 align-items-center">
+  
+            <div class="d-flex flex-column align-items-center pt-1">
+              ${p.status === "done"
+                ? `<span class="btn btn-success rounded-circle p-0" style="width:36px;height:36px">
+                     <i class="fas fa-check"></i>
+                   </span>`
+                : `<button class="btn btn-outline-secondary rounded-circle p-0 status-toggle"
+                     style="width:36px;height:36px" aria-pressed="false" title="Mark as completed">
+                     <i class="far fa-circle"></i>
+                   </button>`
+              }
             </div>
-
-           <p class="text-sm mb-2">${ truncate(p.abstract || "", 120) }</p>
-
-
-            <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-sm btn-outline-info px-2" href="/abstractScoring?id=${p.id}">Grade</a>
+  
+            <div class="flex-grow-1 ms-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <h6 class="mb-1">${p.title}</h6>
+                <span class="badge bg-gray-100 text-secondary">${p.time || '—'}</span>
+              </div>
+  
+              <p class="text-sm mb-2">${ truncate(p.abstract || "", 120) }</p>
+  
+              <div class="d-flex align-items-center gap-2">
+                <a class="btn btn-sm btn-outline-info px-2" href="/abstractScoring?id=${p.id}">Grade</a>
+              </div>
             </div>
+  
           </div>
-
         </div>
-      </div>
-    `;
+      `;
     return col;
   }
+  
 
   // Render cards
   function renderCards() {

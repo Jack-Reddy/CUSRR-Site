@@ -1,4 +1,26 @@
-.opacity-85 { opacity: .85; }
-.card .badge.bg-gray-100 { background: #f6f9fc !important; }
-.move-on-hover:hover { transform: translateY(-2px); transition: .2s ease; }
-.abstract-card .flex-grow-1 {min-width: 0;}
+.abstract-card {
+transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.abstract-card:hover {
+transform: translateY(-4px);
+box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.abstract-card .card-body {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 1rem;
+padding: 1rem;
+}
+.abstract-card h6 {
+margin-bottom: 0.25rem;
+font-weight: 600;
+}
+.abstract-card .badge {
+font-size: 0.75rem;
+padding: 0.35em 0.6em;
+}
+.status-toggle {
+min-width: 36px;
+min-height: 36px;
+}
