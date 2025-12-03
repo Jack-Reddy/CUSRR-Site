@@ -13,21 +13,21 @@ abstract_grades_bp = Blueprint('abstract_grades', __name__)
 
 @abstract_grades_bp.route('/', methods=['GET'])
 def get_abstract_grades():
-    # GET all abstract grades
+    ''' GET all abstract grades '''
     grades = AbstractGrade.query.all()
     return jsonify([g.to_dict() for g in grades])
 
 
-@abstract_grades_bp.route('/<int:id>', methods=['GET'])
-def get_abstract_grade(id):
-    # GET one abstract grade by ID
-    grade = AbstractGrade.query.get_or_404(id)
+@abstract_grades_bp.route('/<int:abstract_grade_id>', methods=['GET'])
+def get_abstract_grade(abstract_grade_id):
+    '''GET one abstract grade by ID '''
+    grade = AbstractGrade.query.get_or_404(abstract_grade_id)
     return jsonify(grade.to_dict())
 
 
 @abstract_grades_bp.route('/', methods=['POST'])
 def create_abstract_grade():
-    # POST create new abstract grade
+    ''' POST create new abstract grade '''
     data = request.get_json()
 
     new_grade = AbstractGrade(
@@ -44,10 +44,10 @@ def create_abstract_grade():
     return jsonify(new_grade.to_dict()), 201
 
 
-@abstract_grades_bp.route('/<int:id>', methods=['PUT'])
-def update_abstract_grade(id):
-    # PUT update existing abstract grade
-    grade = AbstractGrade.query.get_or_404(id)
+@abstract_grades_bp.route('/<int:abstract_grade_id>', methods=['PUT'])
+def update_abstract_grade(abstract_grade_id):
+    ''' PUT update existing abstract grade '''
+    grade = AbstractGrade.query.get_or_404(abstract_grade_id)
     data = request.get_json()
 
     grade.user_id = data.get('user_id', grade.user_id)
@@ -60,10 +60,10 @@ def update_abstract_grade(id):
     return jsonify(grade.to_dict())
 
 
-@abstract_grades_bp.route('/<int:id>', methods=['DELETE'])
-def delete_abstract_grade(id):
-    # DELETE abstract grade
-    grade = AbstractGrade.query.get_or_404(id)
+@abstract_grades_bp.route('/<int:abstract_grade_id>', methods=['DELETE'])
+def delete_abstract_grade(abstract_grade_id):
+    ''' DELETE abstract grade '''
+    grade = AbstractGrade.query.get_or_404(abstract_grade_id)
     db.session.delete(grade)
     db.session.commit()
     return jsonify({"message": "Abstract grade deleted"})
@@ -75,18 +75,20 @@ def get_average_abstract_grades_by_presentation():
     Returns the average total score (criteria_1 + criteria_2 + criteria_3)
     for each presentation, sorted from highest to lowest average.
     """
-
     averages = (
         db.session.query(
             AbstractGrade.presentation_id,
             func.avg(
                 AbstractGrade.criteria_1 +
                 AbstractGrade.criteria_2 +
-                AbstractGrade.criteria_3).label('average_score'),
-            func.count(
-                AbstractGrade.id).label('num_grades')) .group_by(
-                    AbstractGrade.presentation_id) .order_by(
-                        desc('average_score')) .all())
+                AbstractGrade.criteria_3
+            ).label('average_score'),
+            func.count(AbstractGrade.id).label('num_grades')
+        )
+        .group_by(AbstractGrade.presentation_id)
+        .order_by(desc('average_score'))
+        .all()
+    )
 
     results = []
     for avg in averages:

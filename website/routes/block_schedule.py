@@ -2,9 +2,8 @@
 Block Schedule API routes.
 Provides CRUD operations and querying by day.
 '''
-
-from flask import Blueprint, jsonify, request
 from datetime import datetime
+from flask import Blueprint, jsonify, request
 from website.models import BlockSchedule
 from website import db
 
@@ -30,21 +29,21 @@ block_schedule_bp = Blueprint('block_schedule', __name__)
 
 @block_schedule_bp.route('/', methods=['GET'])
 def get_schedules():
-    # GET all blocks
+    ''' GET all blocks '''
     schedules = BlockSchedule.query.all()
     return jsonify([s.to_dict() for s in schedules])
 
 
-@block_schedule_bp.route('/<int:id>', methods=['GET'])
-def get_schedule(id):
-    # GET one block by ID
-    schedule = BlockSchedule.query.get_or_404(id)
+@block_schedule_bp.route('/<int:block_id>', methods=['GET'])
+def get_schedule(block_id):
+    ''' GET one block by ID '''
+    schedule = BlockSchedule.query.get_or_404(block_id)
     return jsonify(schedule.to_dict())
 
 
 @block_schedule_bp.route('/', methods=['POST'])
 def create_schedule():
-    # POST create new block
+    ''' POST create new block '''
     data = request.get_json()
 
     # Accept either camelCase or snake_case from client; parse into naive
@@ -71,10 +70,10 @@ def create_schedule():
     return jsonify(new_schedule.to_dict()), 201
 
 
-@block_schedule_bp.route('/<int:id>', methods=['PUT'])
-def update_schedule(id):
-    # PUT update existing block
-    schedule = BlockSchedule.query.get_or_404(id)
+@block_schedule_bp.route('/<int:block_id>', methods=['PUT'])
+def update_schedule(block_id):
+    ''' PUT update existing block '''
+    schedule = BlockSchedule.query.get_or_404(block_id)
     data = request.get_json()
 
     schedule.day = data.get('day', schedule.day)
@@ -104,10 +103,10 @@ def update_schedule(id):
     return jsonify(schedule.to_dict())
 
 
-@block_schedule_bp.route('/<int:id>', methods=['DELETE'])
-def delete_schedule(id):
-    # DELETE block
-    schedule = BlockSchedule.query.get_or_404(id)
+@block_schedule_bp.route('/<int:block_id>', methods=['DELETE'])
+def delete_schedule(block_id):
+    ''' DELETE block '''
+    schedule = BlockSchedule.query.get_or_404(block_id)
     db.session.delete(schedule)
     db.session.commit()
     return jsonify({"message": "Schedule deleted"})
@@ -115,7 +114,7 @@ def delete_schedule(id):
 
 @block_schedule_bp.route('/day/<string:day>', methods=['GET'])
 def get_schedules_by_day(day):
-    # GET schedules by day
+    ''' GET schedules by day '''
     schedules = BlockSchedule.query.filter_by(
         day=day).order_by(
         BlockSchedule.start_time).all()
@@ -124,7 +123,7 @@ def get_schedules_by_day(day):
 
 @block_schedule_bp.route('/days', methods=['GET'])
 def get_unique_days():
-    # GET unique days
+    ''' GET unique days '''
     days = db.session.query(BlockSchedule.day).distinct().all()
     unique_days = [day[0] for day in days]
     return jsonify(unique_days)

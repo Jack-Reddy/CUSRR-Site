@@ -1,10 +1,10 @@
 from datetime import datetime
-from .models import User, Presentation, BlockSchedule
-from .csv_importer import import_users_from_csv
+
 from website import db
 
 
 def setup_permissions():
+    from .csv_importer import import_users_from_csv
     """Import permissions from a CSV file named 'permissions.csv'."""
     try:
         with open('permissions.csv', 'rb') as file:
@@ -17,6 +17,9 @@ def setup_permissions():
 
 
 def seed_data():
+
+    from .models import User, Presentation, BlockSchedule
+
     print("Seeding schedule...")
 
     # Avoid duplicating schedules

@@ -13,21 +13,21 @@ grades_bp = Blueprint('grades', __name__)
 
 @grades_bp.route('/', methods=['GET'])
 def get_grades():
-    # GET all grades
+    ''' GET all grades '''
     grades = Grade.query.all()
     return jsonify([g.to_dict() for g in grades])
 
 
-@grades_bp.route('/<int:id>', methods=['GET'])
-def get_grade(id):
-    # GET one grade by ID
-    grade = Grade.query.get_or_404(id)
+@grades_bp.route('/<int:grade_id>', methods=['GET'])
+def get_grade(grade_id):
+    ''' GET one grade by ID '''
+    grade = Grade.query.get_or_404(grade_id)
     return jsonify(grade.to_dict())
 
 
 @grades_bp.route('/', methods=['POST'])
 def create_grade():
-    # POST create new grade
+    ''' POST create new grade '''
     data = request.get_json()
 
     new_grade = Grade(
@@ -44,10 +44,10 @@ def create_grade():
     return jsonify(new_grade.to_dict()), 201
 
 
-@grades_bp.route('/<int:id>', methods=['PUT'])
-def update_grade(id):
-    # PUT update existing grade
-    grade = Grade.query.get_or_404(id)
+@grades_bp.route('/<int:grade_id>', methods=['PUT'])
+def update_grade(grade_id):
+    ''' PUT update existing grade '''
+    grade = Grade.query.get_or_404(grade_id)
     data = request.get_json()
 
     grade.user_id = data.get('user_id', grade.user_id)
@@ -60,10 +60,10 @@ def update_grade(id):
     return jsonify(grade.to_dict())
 
 
-@grades_bp.route('/<int:id>', methods=['DELETE'])
-def delete_grade(id):
-    # DELETE grade
-    grade = Grade.query.get_or_404(id)
+@grades_bp.route('/<int:grade_id>', methods=['DELETE'])
+def delete_grade(grade_id):
+    ''' DELETE grade '''
+    grade = Grade.query.get_or_404(grade_id)
     db.session.delete(grade)
     db.session.commit()
     return jsonify({"message": "Grade deleted"})
@@ -71,8 +71,9 @@ def delete_grade(id):
 
 @grades_bp.route('/averages', methods=['GET'])
 def get_average_grades_by_presentation():
-    # route that returns average score for each presentation, sorted high to low
-    # Aggregate average grade per presentation, sorted descending
+    ''' GET average grades by presentation
+    route that returns average score for each presentation, sorted high to low
+       '''
     averages = (
         db.session.query(
             Grade.presentation_id,

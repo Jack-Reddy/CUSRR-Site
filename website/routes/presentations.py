@@ -3,9 +3,8 @@ API endpoints for managing presentations.
 
 '''
 from datetime import datetime, timedelta
-from flask import Blueprint, jsonify, request, render_template
+from flask import Blueprint, jsonify, request, session
 from website.models import BlockSchedule, Presentation, User
-from flask import session
 from sqlalchemy import func
 from website import db
 
@@ -16,17 +15,17 @@ presentations_bp = Blueprint('presentations', __name__)
 
 @presentations_bp.route('/', methods=['GET'])
 def get_presentations():
-    # GET all presentations
+    ''' GET all presentations '''
     presentations = Presentation.query.all()
     return jsonify([p.to_dict() for p in presentations])
 
 
 
 
-@presentations_bp.route('/<int:id>', methods=['GET'])
-def get_presentation(id):
-    # GET one presentation
-    presentation = Presentation.query.get_or_404(id)
+@presentations_bp.route('/<int:presentation_id>', methods=['GET'])
+def get_presentation(presentation_id):
+    ''' GET one presentation '''
+    presentation = Presentation.query.get_or_404(presentation_id)
     return jsonify(presentation.to_dict())
 
 
@@ -34,7 +33,7 @@ def get_presentation(id):
 
 @presentations_bp.route('/', methods=['POST'])
 def create_presentation():
-    # POST create presentation
+    ''' POST create presentation '''
     data = request.get_json()
     time_str = data.get('time')
     try:
@@ -56,18 +55,11 @@ def create_presentation():
 
 
 
-@presentations_bp.route('/<int:id>', methods=['PUT'])
-def update_presentation(id):
-    # PUT update presentation
-    presentation = Presentation.query.get_or_404(id)
+@presentations_bp.route('/<int:presentation_id>', methods=['PUT'])
+def update_presentation(presentation_id):
+    ''' PUT update presentation '''
+    presentation = Presentation.query.get_or_404(presentation_id)
     data = request.get_json()
-    time_str = data.get('time')
-    if time_str:
-        try:
-            presentation_time = datetime.fromisoformat(time_str)
-        except ValueError:
-            return jsonify(
-                {"error": "Invalid datetime format. Use ISO 8601."}), 400
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
@@ -76,10 +68,10 @@ def update_presentation(id):
 
 
 
-@presentations_bp.route('/<int:id>', methods=['DELETE'])
-def delete_presentation(id):
-    # DELETE presentation
-    presentation = Presentation.query.get_or_404(id)
+@presentations_bp.route('/<int:presentation_id>', methods=['DELETE'])
+def delete_presentation(presentation_id):
+    ''' DELETE presentation '''
+    presentation = Presentation.query.get_or_404(presentation_id)
     db.session.delete(presentation)
     db.session.commit()
     return jsonify({"message": "Presentation deleted"})
@@ -87,11 +79,14 @@ def delete_presentation(id):
 
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():
-    """Return upcoming presentations sorted by Presentation.time first, then BlockSchedule.start_time."""
+    """Return upcoming presentations sorted by Presentation.time first, 
+    then BlockSchedule.start_time.
+    Fetch candidates where either the explicit time or the block start time
+    is in the future
+    """
     now = datetime.now()
 
-    # Fetch candidates where either the explicit time or the block start time
-    # is in the future
+    # 
     candidates = (
         Presentation.query .join(
             Presentation.schedule) .filter(
@@ -100,7 +95,7 @@ def get_recent_presentations():
                 BlockSchedule.start_time) >= now) .all())
 
     def effective_time(pres):
-        # If presentation has explicit time, use it
+        '''If presentation has explicit time, use it'''
         if pres.time:
             return pres.time
         # Otherwise, attempt to compute from schedule start + num_in_block *
@@ -112,7 +107,7 @@ def get_recent_presentations():
             try:
                 return sched.start_time + \
                     timedelta(minutes=(int(num) * int(sub)))
-            except Exception:
+            except (TypeError, ValueError):
                 return sched.start_time
         return None
 
