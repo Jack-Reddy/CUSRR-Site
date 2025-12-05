@@ -6,7 +6,7 @@ from sqlalchemy import func, desc
 from flask import Blueprint, jsonify, request
 from website.models import Grade, Presentation
 from website import db
-from utils import format_average_grades
+from .utils import format_average_grades
 
 
 grades_bp = Blueprint('grades', __name__)
