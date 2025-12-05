@@ -1,32 +1,23 @@
+# pylint: disable=redefined-outer-name
 """
 configures tests for the app
 """
 import pytest
-from app import app as flask_app
-from website import db, create_app
 
 @pytest.fixture
 def app():
-    """
-    Create and configure a new Flask app instance for testing.
-
-    Sets the app in TESTING mode, uses an in-memory SQLite database,
-    and sets up the database schema before yielding the app. Cleans
-    up the database after the test is done.
-    """
+    """Create a new Flask app instance for testing."""
+    from website import db, create_app
     test_config = {
         'TESTING': True,
         'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
         'SQLALCHEMY_TRACK_MODIFICATIONS': False
     }
-    flask_app = create_app(test_config)
-    flask_app.config['TESTING'] = True
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app_instance = create_app(test_config)
 
-    with flask_app.app_context():
+    with app_instance.app_context():
         db.create_all()
-        yield flask_app
+        yield app_instance
         db.session.remove()
         db.drop_all()
 

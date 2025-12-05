@@ -1,8 +1,16 @@
+# pylint: disable=redefined-outer-name
 """
 Unit tests for the /api/v1/users/ routes.
 Tests CRUD operations for the User model.
 """
+# Standard library
+from unittest.mock import patch
+
+# Third-party
 import pytest
+from sqlalchemy.exc import IntegrityError
+
+# Local
 from website.models import User
 from website import db
 
@@ -38,7 +46,7 @@ def test_get_users_with_data(client, sample_user_fixture):
 
     assert resp.status_code == 200
     assert len(data) == 1
-    assert data[0]["email"] == "jane@example.com"
+    assert data[0]["email"] == sample_user_fixture.email
     assert data[0]["presentation"] is None
 
 
@@ -138,11 +146,6 @@ def test_delete_user_not_found(client):
     resp = client.delete("/api/v1/users/9999")
     assert resp.status_code == 404
 
-import pytest
-from unittest.mock import patch
-from sqlalchemy.exc import IntegrityError
-from website.models import User
-from website import db
 
 def test_create_user_integrity_error(client):
     """Test POST /api/v1/users/ triggers IntegrityError."""
