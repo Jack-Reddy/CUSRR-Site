@@ -1,210 +1,66 @@
+# pylint: disable=import-outside-toplevel
+
+'''
+Initialize Flask app, database, OAuth, and define routes.
+'''
+import os
+import requests
 from flask import Flask, render_template, flash
 from flask import session, redirect, url_for, jsonify, request
-import os
-
 from flask_sqlalchemy import SQLAlchemy
-
-import requests
 from dotenv import load_dotenv
-
-
-
-
-#from models import User, Presentation
-
-from functools import wraps
-
 
 load_dotenv()
 db = SQLAlchemy()
 
+
 def create_app():
+    '''
+    Generate Flask app instance, register blueprints, and define routes.
+    Returns:
+        Flask app instance
+    '''
 
     app = Flask(__name__)
-
-    
-
     from .config import Config
+    app.config.from_object(Config)
+    db.init_app(app)
     from . import auth
 
-    #Setup app
+    # Setup app
     app.secret_key = os.environ.get('FLASK_SECRET')
     auth.init_oauth(app)
     google = auth.oauth.create_client('google')
-    
+
     from .models import User, Presentation
-    
 
-
-    #Routes
+    # Routes
     from .routes.users import users_bp
     from .routes.presentations import presentations_bp
     from .routes.block_schedule import block_schedule_bp
     from .routes.abstract_grades import abstract_grades_bp
     from .routes.grades import grades_bp
 
-    def organizer_required(view):
-        @wraps(view)
-        def wrapped(*args, **kwargs):
-            user_info = session.get('user')
-            if not user_info:
-                return redirect(url_for('google_login'))
+    # Register API blueprints under `/api/v1/...` so frontend endpoints match
+    app.register_blueprint(users_bp, url_prefix='/api/v1/users')
+    app.register_blueprint(
+        presentations_bp,
+        url_prefix='/api/v1/presentations')
+    app.register_blueprint(
+        block_schedule_bp,
+        url_prefix='/api/v1/block-schedule')
+    app.register_blueprint(
+        abstract_grades_bp,
+        url_prefix='/api/v1/abstractgrades')
+    app.register_blueprint(grades_bp, url_prefix='/api/v1/grades')
 
-            email = user_info.get('email')
-            if not email:
-                return redirect(url_for('google_login'))
-
-            db_user = User.query.filter_by(email=email).first()
-            if not db_user:
-                return redirect(url_for('signup'))
-
-            if db_user.auth == 'organizer':
-                return view(*args, **kwargs)
-
-            # not permitted: return 403 for API/XHR, or redirect to dashboard
-            wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if wants_json:
-                return jsonify({'error': 'forbidden', 'reason': 'organizer_required'}), 403
-            # redirect to dashboard
-            return redirect(url_for('dashboard'))
-        return wrapped
-
-
-    def abstract_grader_required(view):
-        @wraps(view)
-        def wrapped(*args, **kwargs):
-            user_info = session.get('user')
-            if not user_info:
-                return redirect(url_for('google_login'))
-
-            email = user_info.get('email')
-            if not email:
-                return redirect(url_for('google_login'))
-
-            db_user = User.query.filter_by(email=email).first()
-            if not db_user:
-                return redirect(url_for('signup'))
-
-            roles = []
-            if db_user.auth:
-                roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
-
-            if 'organizer' in roles or 'abstract-grader' in roles:
-                return view(*args, **kwargs)
-
-            # not permitted: return 403 for API/XHR, or redirect to dashboard
-            wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if wants_json:
-                return jsonify({'error': 'forbidden', 'reason': 'abstract_grader_required'}), 403
-            return redirect(url_for('dashboard'))
-
-        return wrapped
-
-    def banned_user_redirect(view):
-        @wraps(view)
-        def wrapped(*args, **kwargs):
-            user_info = session.get('user')
-            if not user_info:
-                # If no user session, let them continue or redirect elsewhere
-                return view(*args, **kwargs)
-
-            email = user_info.get('email')
-            if not email:
-                return view(*args, **kwargs)
-
-            db_user = User.query.filter_by(email=email).first()
-            if not db_user:
-                return view(*args, **kwargs)
-
-            roles = []
-            if db_user.auth:
-                roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
-
-            if 'banned' in roles:
-                return redirect(url_for('fizzbuzz'))
-
-            # user is not banned, continue to the original view
-            return view(*args, **kwargs)
-
-        return wrapped
-    def presenter_required(view):
-        @wraps(view)
-        def wrapped(*args, **kwargs):
-            user_info = session.get('user')
-            if not user_info:
-                return redirect(url_for('google_login'))
-
-            email = user_info.get('email')
-            if not email:
-                return redirect(url_for('google_login'))
-
-            db_user = User.query.filter_by(email=email).first()
-            if not db_user:
-                return redirect(url_for('signup'))
-
-            if db_user.auth == 'presenter' or db_user.auth == 'organizer':
-                return view(*args, **kwargs)
-
-            # not permitted: return 403 for API/XHR, or redirect to dashboard
-            wants_json = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-            if wants_json:
-                return jsonify({'error': 'forbidden', 'reason': 'presenter_required'}), 403
-            # redirect to dashboard
-            return redirect(url_for('dashboard'))
-        return wrapped
-
-
-    @app.context_processor
-    def inject_permissions(): # helper so unauthed users cannot access links they shouldn't be able to get to when refreshing quickly
-        user_info = session.get('user')
-        email = user_info.get('email') if user_info else None
-
-        db_user = None
-        roles = []
-
-        if email:
-            db_user = User.query.filter_by(email=email).first()
-            if db_user and db_user.auth:
-                roles = [r.strip().lower() for r in str(db_user.auth).split(',') if r.strip()]
-
-        is_authenticated = bool(user_info)  # Google auth?
-        is_organizer = 'organizer' in roles
-        is_presenter = 'presenter' in roles
-
-        allowed_programs = set()
-        if is_presenter or is_organizer: # show presentations info 
-            allowed_programs.update(['poster', 'presentation', 'blitz'])
-
-        user_name = None
-        user_picture = None
-        if user_info:
-            user_name = user_info.get('name') or user_info.get('email')
-            user_picture = user_info.get('picture')
-
-        return dict(
-            db_user=db_user,
-            roles=roles,
-            is_organizer=is_organizer,
-            is_presenter=is_presenter,
-            allowed_programs=allowed_programs,
-            is_authenticated=is_authenticated,
-            user_name=user_name,
-            user_picture=user_picture,
-        )
-
-
-    app.config.from_object(Config)
-    db.init_app(app)
-
-    app.register_blueprint(users_bp, url_prefix="/api/v1/users")
-    app.register_blueprint(presentations_bp, url_prefix="/api/v1/presentations")
-    app.register_blueprint(abstract_grades_bp, url_prefix='/api/v1/abstractgrades')
-    app.register_blueprint(grades_bp, url_prefix='/grades')
-    app.register_blueprint(block_schedule_bp, url_prefix='/api/v1/block-schedule')
-
+    (auth.organizer_required,
+    auth.abstract_grader_required,
+    auth.banned_user_redirect,
+    auth.presenter_required) = auth.init_role_auth(app, db, User)
 
     @app.route('/import_csv', methods=['POST'])
-    @organizer_required
+    @auth.organizer_required
     def import_csv():
         file = request.files.get('csv_file')
         if not file:
@@ -224,22 +80,29 @@ def create_app():
             for w in warnings:
                 flash(w, "warning")
 
-        except Exception as e:
+        except (ValueError, IOError) as e:
             flash(f"Error reading CSV: {str(e)}", "danger")
 
         return redirect(url_for('organizer_user_status'))
 
-
-
     @app.route('/')
     def program():
+        '''
+        Render the program page.
+        '''
         return render_template('dashboard.html')
 
     @app.route('/schedule')
-    @banned_user_redirect
+    @auth.banned_user_redirect
     def schedule():
+        '''
+        Render the schedule page.
+        Determine if the user is an organizer to show additional features.
+        Returns:
+            Rendered schedule template with is_organizer flag.
+        '''
 
-        #if logged in and organizer, pass true
+        # if logged in and organizer, pass true
         if 'user' in session:
             user_info = session['user']
             email = user_info.get('email')
@@ -250,44 +113,64 @@ def create_app():
 
     @app.route('/fizzbuzz')
     def fizzbuzz():
+        '''
+        Render the fizz-buzz page for banned users.
+        '''
         return render_template('fizz-buzz.html')
 
-
     @app.route('/dashboard')
-    @banned_user_redirect
+    @auth.banned_user_redirect
     def dashboard():
+        '''
+        Render the dashboard page.
+        '''
         return render_template('dashboard.html')
 
     @app.route('/abstractGrader')
-    @banned_user_redirect
-    @abstract_grader_required
-    def abstractGrader():
+    @auth.banned_user_redirect
+    @auth.abstract_grader_required
+    def abstract_grader():
+        '''
+        Render the abstract grader page.
+        Permissions: Abstract Grader required.
+        '''
         return render_template('abstractGrader.html')
 
     @app.route('/organizer-user-status')
-    @banned_user_redirect
-    @organizer_required
+    @auth.banned_user_redirect
+    @auth.organizer_required
     def organizer_user_status():
+        '''
+        Render the organizer user status page.
+        Permissions: Organizer required.
+        '''
         return render_template('organizer-user-status.html')
 
-
     @app.route('/organizer-presentations-status')
-    @banned_user_redirect
-
-    @organizer_required
+    @auth.banned_user_redirect
+    @auth.organizer_required
     def organizer_presentations():
+        '''
+        Render the organizer presentations status page.
+        Permissions: Organizer required.
+        '''
         return render_template('organizer-presentations-status.html')
 
+    # Authentication Routes
 
-    #Authentication Routes
     @app.route('/google/login')
     def google_login():
+        '''
+        Initiate Google OAuth login.
+        '''
         redirect_uri = url_for('google_auth', _external=True)
         return google.authorize_redirect(redirect_uri)
 
     @app.route('/google/auth')
     def google_auth():
-
+        '''
+        Handle Google OAuth callback and authenticate the user.
+        '''
         user_info = None
 
         try:
@@ -305,7 +188,8 @@ def create_app():
                     'redirect_uri': redirect_uri,
                     'grant_type': 'authorization_code',
                 },
-                headers={'Accept': 'application/json'}
+                headers={'Accept': 'application/json'},
+                timeout=10
             )
             token_json = token_resp.json()
 
@@ -318,31 +202,41 @@ def create_app():
                         token_json,
                         claims_options={
                             'iss': {
-                                'values': ['accounts.google.com', 'https://accounts.google.com']
-                            }
-                        }
-                    )
+                                'values': [
+                                    'accounts.google.com',
+                                    'https://accounts.google.com']}})
                 except Exception:
-                    # If ID token validation fails, fetch userinfo via OIDC endpoint
+                    # If ID token validation fails, fetch userinfo via OIDC
+                    # endpoint
                     if access_token:
                         resp = requests.get(
                             'https://openidconnect.googleapis.com/v1/userinfo',
-                            headers={'Authorization': f'Bearer {access_token}'}
-                        )
+                            headers={
+                                'Authorization': f'Bearer {access_token}'},
+                            timeout=10)
                         user_info = resp.json()
                     else:
-                        user_info = {'error': 'no_access_token_after_id_token_failure', 'detail': token_json}
+                        user_info = {
+                            'error': 'no_access_token_after_id_token_failure',
+                            'detail': token_json}
+
             else:
                 if access_token:
                     resp = requests.get(
                         'https://openidconnect.googleapis.com/v1/userinfo',
-                        headers={'Authorization': f'Bearer {access_token}'}
+                        headers={'Authorization': f'Bearer {access_token}'},
+                        timeout=10
                     )
                     user_info = resp.json()
                 else:
-                    user_info = {'error': 'no id_token or access_token', 'detail': token_json}
-        except Exception as e:
-            user_info = {'error': 'token_exchange_failed', 'detail': str(e), 'token_resp': locals().get('token_json')}
+                    user_info = {
+                        'error': 'no id_token or access_token',
+                        'detail': token_json}
+        except (requests.RequestException, KeyError, ValueError) as e:
+            user_info = {
+                'error': 'token_exchange_failed',
+                'detail': str(e),
+                'token_resp': locals().get('token_json')}
 
         session['user'] = user_info
         # Check if user exists in DB
@@ -352,24 +246,29 @@ def create_app():
         if db_user:
             # User exists, redirect to dashboard
             return redirect(url_for('dashboard'))
-        else:
-            # User doesn't exist, redirect to signup page
-            return redirect(url_for('signup'))
+        # User doesn't exist, redirect to signup page
+        return redirect(url_for('signup'))
 
     @app.route('/google/logout')
     def google_logout():
+        '''
+        Handle user logout by clearing the session.
+        '''
         session.pop('user', None)
         return redirect('/')
 
-
     @app.route('/me')
     def me():
+        '''
+        Return the current user's authentication status and profile information.
+        '''
         user = session.get('user')
         if not user:
             return jsonify({'authenticated': False}), 401
 
         email = user.get('email')
-        db_user = User.query.filter_by(email=email).first()  # check if account exists
+        db_user = User.query.filter_by(
+            email=email).first()  # check if account exists
 
         return jsonify({
             'authenticated': True,
@@ -385,27 +284,48 @@ def create_app():
 
     @app.route('/blitz_page')
     def blitz_page():
+        '''
+        Render the blitz page.
+        '''
         return render_template('blitz_page.html')
 
     @app.route('/presentation_page')
     def presentation_page():
+        '''
+        Render the presentation page.
+        '''
         return render_template('presentation_page.html')
 
     @app.route('/poster_page')
     def poster_page():
+        '''
+        Render the poster page.
+        '''
         return render_template('poster_page.html')
 
     @app.route('/signup')
     def signup():
+        '''
+        Render the signup page.
+        '''
         return render_template('signup.html')
 
     @app.route('/profile')
     # @presenter_required
     def profile():
+        '''
+        Render the profile page.
+        Permissions: Presenter required.
+        '''
         return render_template('profile.html')
 
-    @app.route('/abstractScoring')
-    def abstractScoring():
+    @app.route('/abstract_scoring')
+    @auth.abstract_grader_required
+    def abstract_scoring():
+        '''
+        Render the abstract scoring page.
+        Permissions: Abstract Grader required.
+        '''
         # Get presentation
         pres_id = request.args.get("id", type=int)
         presentation = Presentation.query.get_or_404(pres_id)
@@ -425,19 +345,15 @@ def create_app():
             user_id=user_id  # pass user_id to template
         )
 
-
-# if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # setup_permissions()
-            #After models import
         from .csv_importer import import_users_from_csv
         from .seed import seed_data, setup_permissions
         if User.query.count() == 0:
-            
             seed_data()
-    # app.run(debug=True)
+            setup_permissions()
     return app
+
 
 if __name__ == '__main__':
     create_app()

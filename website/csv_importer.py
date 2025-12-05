@@ -2,14 +2,21 @@ import csv
 from io import TextIOWrapper
 from .models import User, db
 
+
 def import_users_from_csv(file):
+    '''
+    Import users from a CSV file into the database.
+    Expects columns: firstname, lastname, email, role (optional).
+    :param file: File object representing the uploaded CSV file
+    :return: Tuple (number of users added, list of warnings)
+    '''
     warnings = []   # collect row-level issues
 
     duplicates = []
     bad_rows = []
 
-    csv_data = TextIOWrapper(file, encoding='utf-8', errors='replace')
-    reader = csv.DictReader(csv_data)
+    reader = csv.DictReader(
+        TextIOWrapper(file, encoding='utf-8', errors='replace'))
 
     required = {"firstname", "lastname", "email"}
     fieldnames = reader.fieldnames or []
@@ -53,12 +60,18 @@ def import_users_from_csv(file):
         db.session.add(user)
         added += 1
 
-    
     if duplicates:
-        warnings.append(f"Duplicate emails found on rows: {', '.join(map(str, duplicates))}. These rows were skipped.")
+        warnings.append(
+            f'''Duplicate emails found on rows: {', '.join(
+                    map(
+                        str,
+                        duplicates))}. These rows were skipped.''')
 
     if bad_rows:
-        warnings.append(f"Invalid or missing data on rows: {', '.join(map(str, bad_rows))}. These rows were skipped.")
+        warnings.append(
+            f'''Invalid or missing data on rows: {', '.join(
+                    map(
+                        str,
+                        bad_rows))}. These rows were skipped.''')
     db.session.commit()
     return added, warnings
-

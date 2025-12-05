@@ -1,6 +1,16 @@
+'''
+Configuration settings for the Flask application.
+Sets secret key and database URI from environment variables.
+'''
+
 import os
 
+
 class Config:
+    '''
+    Configuration class for Flask application.
+    Sets secret key and database URI from environment variables.
+    '''
     SECRET_KEY = os.environ.get('FLASK_SECRET') or 'dev_secret_key'
 
     # Get DATABASE_URL from environment
@@ -11,7 +21,7 @@ class Config:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
     # Fallback to local SQLite file
-    #SQLALCHEMY_DATABASE_URI = DATABASE_URL or "sqlite:///app.db"
+    # SQLALCHEMY_DATABASE_URI = DATABASE_URL or "sqlite:///app.db"
 
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
 
