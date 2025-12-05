@@ -21,3 +21,6 @@ instance/
 
 #Permissions
 permissions.csv
+
+#coverage resports
+.coverage
