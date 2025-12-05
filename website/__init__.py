@@ -57,7 +57,7 @@ def create_app():
     (auth.organizer_required,
     auth.abstract_grader_required,
     auth.banned_user_redirect,
-    auth.presenter_required) = auth.init_role_auth(app, db, User)
+    auth.presenter_required) = auth.init_role_auth(app, User)
 
     @app.route('/import_csv', methods=['POST'])
     @auth.organizer_required

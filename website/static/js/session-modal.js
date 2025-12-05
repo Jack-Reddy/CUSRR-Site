@@ -98,7 +98,7 @@
     const payload = { user_id: userId, presentation_id: presentationId, criteria_1, criteria_2, criteria_3, comments };
 
     try {
-      const resp = await fetch('/grades/', {
+      const resp = await fetch('/api/v1/grades/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
