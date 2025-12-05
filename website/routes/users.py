@@ -4,24 +4,21 @@ from website import db
 
 users_bp = Blueprint('users', __name__)
 
-
+# GET all users
 @users_bp.route('/', methods=['GET'])
 def get_users():
-    ''' GET all users '''
     users = User.query.all()
     return jsonify([u.to_dict() for u in users])
 
-
-@users_bp.route('/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    ''' GET one user '''
-    user = User.query.get_or_404(user_id)
+# GET one user
+@users_bp.route('/<int:id>', methods=['GET'])
+def get_user(id):
+    user = User.query.get_or_404(id)
     return jsonify(user.to_dict())
 
-
+# POST create user
 @users_bp.route('/', methods=['POST'])
 def create_user():
-    ''' POST create user '''
     data = request.get_json()
     new_user = User(
         firstname=data['firstname'],
@@ -35,11 +32,10 @@ def create_user():
     db.session.commit()
     return jsonify(new_user.to_dict()), 201
 
-
-@users_bp.route('/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    ''' PUT update user '''
-    user = User.query.get_or_404(user_id)
+# PUT update user
+@users_bp.route('/<int:id>', methods=['PUT'])
+def update_user(id):
+    user = User.query.get_or_404(id)
     data = request.get_json()
     user.firstname = data.get('firstname', user.firstname)
     user.lastname = data.get('lastname', user.lastname)
@@ -56,10 +52,10 @@ def update_user(user_id):
     return jsonify(user.to_dict())
 
 
-@users_bp.route('/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
-    ''' DELETE user '''
-    user = User.query.get_or_404(user_id)
+# DELETE user
+@users_bp.route('/<int:id>', methods=['DELETE'])
+def delete_user(id):
+    user = User.query.get_or_404(id)
     db.session.delete(user)
     db.session.commit()
     return jsonify({"message": "User deleted"})

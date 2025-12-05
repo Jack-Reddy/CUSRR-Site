@@ -33,26 +33,24 @@
     {% endif %}
 
     {# PROFILE BUTTON: same structure/classes as original #}
-    {% if is_authenticated %}
+    {% if is_authenticated and user_picture %}
     <a id="profile-btn"
-   class="btn btn-outline-secondary mb-4 nav-link card text-center border"
-   href="{{ profile_href }}"
-   data-signup-url="{{ url_for('signup') }}"
-   data-profile-url="{{ url_for('profile') }}">
+      class="btn btn-outline-secondary mb-4 nav-link card text-center border"
+      href="{{ profile_href }}"
+      data-signup-url="{{ url_for('signup') }}"
+      data-profile-url="{{ url_for('profile') }}">
+      <span id="profile" class="text-uppercase label">CUSRR Profile</span>
 
-  <span id="profile" class="text-uppercase label">CUSRR Profile</span>
+      <img id="user-pic"
+          src="{{ user_picture }}"
+          alt="User avatar"
+          width="35"
+          height="35">
 
-  <img id="user-pic"
-       src="{{ user_picture or url_for('static', filename='icons/default-avatar.svg') }}"
-       alt="User avatar"
-       width="35"
-       height="35">
-
-  <span id="user-name" class="text-uppercase label">
-    {% if user_name %}{{ user_name }}{% else %}Guest{% endif %}
-  </span>
-</a>
-
+      <span id="user-name" class="text-uppercase label">
+        {% if user_name %}{{ user_name }}{% endif %}
+      </span>
+    </a>
 {% else %}
 <!-- Button doesn't exist if auth doesn't exist -->
 {% endif %}
@@ -97,7 +95,7 @@
           Abstract Grader
         </div>
         <a class="btn btn-outline-secondary mb-2 nav-link"
-           href="{{ url_for('abstract_grader') }}"
+           href="{{ url_for('abstractGrader') }}"
            rel="noopener">
           <img class="icon-img"
                src="{{ url_for('static', filename='icons/abstractGrading.svg') }}"

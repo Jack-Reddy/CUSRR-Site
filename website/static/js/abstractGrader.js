@@ -46,7 +46,7 @@ function truncate(str, n) {
 
 
             <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-sm btn-outline-info px-2" href="/abstract_scoring?id=${p.id}">Grade</a>
+              <a class="btn btn-sm btn-outline-info px-2" href="/abstractScoring?id=${p.id}">Grade</a>
             </div>
           </div>
 
