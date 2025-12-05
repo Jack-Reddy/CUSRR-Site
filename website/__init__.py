@@ -14,7 +14,7 @@ load_dotenv()
 db = SQLAlchemy()
 
 
-def create_app():
+def create_app(test_config=None):
     '''
     Generate Flask app instance, register blueprints, and define routes.
     Returns:
@@ -24,6 +24,10 @@ def create_app():
     app = Flask(__name__)
     from .config import Config
     app.config.from_object(Config)
+
+    if test_config:
+        app.config.update(test_config)
+
     db.init_app(app)
     from . import auth
 
@@ -345,13 +349,9 @@ def create_app():
             user_id=user_id  # pass user_id to template
         )
 
-    with app.app_context():
-        db.create_all()
-        from .csv_importer import import_users_from_csv
-        from .seed import seed_data, setup_permissions
-        if User.query.count() == 0:
-            seed_data()
-            setup_permissions()
+    if not app.config.get("TESTING", False):
+        with app.app_context():
+            db.create_all()
     return app
 
 
