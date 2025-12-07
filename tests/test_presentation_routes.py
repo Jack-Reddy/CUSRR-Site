@@ -1,4 +1,4 @@
-# pylint: disable=unused-argument
+# pylint: disable=duplicate-code,unused-argument
 """Tests for the /api/v1/presentations endpoints."""
 
 from datetime import datetime, timedelta

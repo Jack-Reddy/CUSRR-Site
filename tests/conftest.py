@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytest
 
 # Local
-from website.models import User, BlockSchedule, Presentation, Grade
+from website.models import User, BlockSchedule, Presentation, Grade, AbstractGrade
 from website import db, create_app
 
 @pytest.fixture
@@ -143,6 +143,41 @@ def multiple_grades_fixture(app, sample_user_fixture, sample_presentation_fixtur
         grades = []
         for i in range(3):
             grade = Grade(
+                user_id=sample_user_fixture.id,
+                presentation_id=sample_presentation_fixture.id,
+                criteria_1=3+i,
+                criteria_2=4,
+                criteria_3=5
+            )
+            db.session.add(grade)
+            grades.append(grade)
+        db.session.commit()
+        yield grades
+
+
+@pytest.fixture
+def sample_abstract_grade_fixture(app, sample_user_fixture, sample_presentation_fixture):
+    """Creates a single abstract grade for testing."""
+    with app.app_context():
+        grade = AbstractGrade(
+            user_id=sample_user_fixture.id,
+            presentation_id=sample_presentation_fixture.id,
+            criteria_1=4,
+            criteria_2=3,
+            criteria_3=5
+        )
+        db.session.add(grade)
+        db.session.commit()
+        yield grade
+
+
+@pytest.fixture
+def multiple_abstract_grades_fixture(app, sample_user_fixture, sample_presentation_fixture):
+    """Creates multiple abstract grades for testing averages."""
+    with app.app_context():
+        grades = []
+        for i in range(3):
+            grade = AbstractGrade(
                 user_id=sample_user_fixture.id,
                 presentation_id=sample_presentation_fixture.id,
                 criteria_1=3+i,

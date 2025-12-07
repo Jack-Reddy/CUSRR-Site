@@ -1,4 +1,4 @@
-# pylint: disable=redefined-outer-name, disable=unused-argument
+# pylint: disable=redefined-outer-name, disable=unused-argument, disable=duplicate-code
 """
 Unit tests for the /api/v1/users/ routes.
 Tests CRUD operations for the User model.
