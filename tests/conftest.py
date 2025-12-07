@@ -2,7 +2,15 @@
 """
 configures tests for the app
 """
+#Basic Imports
+from datetime import datetime, timedelta
+
+# Third Part Imports
 import pytest
+
+# Local
+from website.models import User
+from website import db
 
 @pytest.fixture
 def app():
@@ -39,3 +47,61 @@ def runner(app):
     Useful for testing custom Flask CLI commands.
     """
     return app.test_cli_runner()
+
+
+@pytest.fixture
+def sample_user_fixture(app):
+    """Insert a sample user into the database for testing."""
+    with app.app_context():
+        user = User(
+            firstname="Jane",
+            lastname="Doe",
+            email="jane@example.com",
+            activity="active",
+            presentation_id=None,
+            auth="admin,judge"
+        )
+        db.session.add(user)
+        db.session.commit()
+        yield user
+
+@pytest.fixture
+def sample_block_fixture(app):
+    """Create a valid BlockSchedule for testing."""
+    from website.models import BlockSchedule
+
+    with app.app_context():
+        start = datetime.now() + timedelta(hours=1)
+        end = start + timedelta(minutes=60)
+
+        block = BlockSchedule(
+            day="Day 1",
+            start_time=start,
+            end_time=end,
+            title="Poster Session A",  
+            description="Test poster block",
+            location="Room A",
+            block_type="poster",
+            sub_length=10
+        )
+
+        db.session.add(block)
+        db.session.commit()
+        yield block
+
+
+@pytest.fixture
+def sample_presentation_fixture(app, sample_block_fixture):
+    """Create a Presentation for basic testing."""
+    from website.models import Presentation
+    with app.app_context():
+        p = Presentation(
+            title="Test Presentation",
+            abstract="A test abstract",
+            subject="Testing",
+            time=datetime.now(),
+            schedule_id=sample_block_fixture.id
+        )
+        db.session.add(p)
+        db.session.commit()
+        yield p
