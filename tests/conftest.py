@@ -18,7 +18,8 @@ def app():
     test_config = {
         'TESTING': True,
         'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
-        'SQLALCHEMY_TRACK_MODIFICATIONS': False
+        'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        'SECRET_KEY': 'test-secret-key'
     }
     app_instance = create_app(test_config)
 
