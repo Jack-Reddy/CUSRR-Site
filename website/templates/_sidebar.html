@@ -1,7 +1,10 @@
 <!-- templates/_sidebar.html -->
 <aside id="sidenav-main">
   <div class="sidebar-header">
-    <button id="toggleSidebar" class="btn btn-sm btn-outline-secondary"
+    <!-- DESKTOP TOGGLE (only visible md and up) -->
+    <button id="toggleSidebar"
+            class="btn btn-sm btn-outline-secondary d-none d-md-flex"
+            data-sidebar-toggle
             aria-controls="sidenav-main"
             aria-expanded="true"
             title="Toggle sidebar">
@@ -131,5 +134,5 @@
 
   </nav>
 </aside>
-
+<div id="sidebar-backdrop"></div>
 <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
