@@ -65,30 +65,6 @@ def sample_user_fixture(app):
         yield user
 
 @pytest.fixture
-def sample_block_fixture(app):
-    """Create a valid BlockSchedule for testing."""
-
-    with app.app_context():
-        start = datetime.now() + timedelta(hours=1)
-        end = start + timedelta(minutes=60)
-
-        block = BlockSchedule(
-            day="Day 1",
-            start_time=start,
-            end_time=end,
-            title="Poster Session A",
-            description="Test poster block",
-            location="Room A",
-            block_type="poster",
-            sub_length=10
-        )
-
-        db.session.add(block)
-        db.session.commit()
-        yield block
-
-
-@pytest.fixture
 def sample_presentation_fixture(app, sample_block_fixture):
     """Create a Presentation for basic testing."""
     with app.app_context():
@@ -188,3 +164,23 @@ def multiple_abstract_grades_fixture(app, sample_user_fixture, sample_presentati
             grades.append(grade)
         db.session.commit()
         yield grades
+
+@pytest.fixture
+def sample_block_fixture(app):
+    """Insert a sample block schedule into the database for testing."""
+    with app.app_context():
+        start = datetime.now() + timedelta(hours=1)
+        end = start + timedelta(hours=1)
+        block = BlockSchedule(
+            day="Day 1",
+            start_time=start,
+            end_time=end,
+            title="Sample Block",
+            description="A test block schedule",
+            location="Room A",
+            block_type="poster",
+            sub_length=15
+        )
+        db.session.add(block)
+        db.session.commit()
+        yield block

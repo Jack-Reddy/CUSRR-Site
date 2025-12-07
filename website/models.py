@@ -273,18 +273,16 @@ class BlockSchedule(db.Model):
         cascade='save-update')
 
     def to_dict(self):
-        """turns block schedule into dict"""
+        """turns block schedule into a dictionary"""
         return {
             "id": self.id,
             "day": self.day,
-            "startTime": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
-            "endTime": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
+            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
+            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "length": (
-                self.end_time -
-                self.start_time).total_seconds() /
-            60,
-            "type": self.block_type,
-            "sub_length": self.sub_length}
+            "length": (self.end_time - self.start_time).total_seconds() / 60,
+            "block_type": self.block_type,
+            "sub_length": self.sub_length
+    }
