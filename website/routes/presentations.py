@@ -3,9 +3,11 @@ API endpoints for managing presentations.
 
 '''
 from datetime import datetime, timedelta
+
 from flask import Blueprint, jsonify, request, session
-from website.models import BlockSchedule, Presentation, User
 from sqlalchemy import func
+
+from website.models import BlockSchedule, Presentation, User
 from website import db
 
 presentations_bp = Blueprint('presentations', __name__)
