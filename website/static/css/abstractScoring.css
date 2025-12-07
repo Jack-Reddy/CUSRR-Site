@@ -86,8 +86,8 @@
   .review-app .review-app__btn--outline { background: transparent; border-color: #c7c7c7; }
   .review-app .review-app__btn--primary { background: #0dcaf0; color: #06333b; border-color: #0dcaf0; }
   
-  /* ---------- MOBILE: stack & simplify ---------- */
-  @media (max-width: 767.98px) {
+  /* ---------- MOBILE: stack & behave like a normal page ---------- */
+@media (max-width: 767.98px) {
     .review-app .review-app__page {
       flex-direction: column;      /* stack abstract then grading panel */
       gap: 12px;
@@ -100,28 +100,31 @@
       max-width: 100%;
     }
   
-    /* Let the abstract grow naturally; avoid locking to 85vh */
+    /* Abstract: let it size naturally and scroll if long */
     .review-app .review-app__comic {
       height: auto;
-      max-height: 50vh;            /* optional cap so it's not endless */
-      font-size: 0.9rem;           /* slightly smaller for small screens */
+      max-height: 40vh;            /* optional: cap height so panel is visible too */
+      font-size: 0.9rem;
     }
   
-    /* Turn off sticky full-height behavior on mobile */
+    /* Turn OFF sticky behavior on mobile */
     .review-app .review-app__right {
       position: static;
       max-height: none;
       overflow: visible;
     }
   
+    /* Panel should NOT be full-viewport height on mobile */
     .review-app .review-app__panel {
       height: auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);  /* slightly lighter shadow */
     }
   
-    /* Buttons full width or at least more tappable */
+    /* Buttons: friendlier tap targets and layout */
     .review-app .review-app__actions {
       justify-content: space-between;
       flex-wrap: wrap;
+      margin-top: 12px;
     }
   
     .review-app .review-app__actions .btn {
