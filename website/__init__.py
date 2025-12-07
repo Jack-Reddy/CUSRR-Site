@@ -9,6 +9,7 @@ from flask import Flask, render_template, flash
 from flask import session, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from csv_importer import import_users_from_csv
 
 load_dotenv()
 db = SQLAlchemy()
