@@ -81,11 +81,11 @@ def create_app(test_config=None):
             flash(f"Successfully imported {added} users!", "success")
 
             # Show each warning individually
-            for w in warnings:
-                flash(w, "warning")
+            for warning in warnings:
+                flash(warning, "warning")
 
-        except (ValueError, IOError) as e:
-            flash(f"Error reading CSV: {str(e)}", "danger")
+        except (ValueError, IOError) as error:
+            flash(f"Error reading CSV: {str(error)}", "danger")
 
         return redirect(url_for('organizer_user_status'))
 
@@ -236,10 +236,10 @@ def create_app(test_config=None):
                     user_info = {
                         'error': 'no id_token or access_token',
                         'detail': token_json}
-        except (requests.RequestException, KeyError, ValueError) as e:
+        except (requests.RequestException, KeyError, ValueError) as error:
             user_info = {
                 'error': 'token_exchange_failed',
-                'detail': str(e),
+                'detail': str(error),
                 'token_resp': locals().get('token_json')}
 
         session['user'] = user_info

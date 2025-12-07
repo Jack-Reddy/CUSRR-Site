@@ -16,5 +16,3 @@ def format_average_grades(averages):
             "num_grades": avg.num_grades
         })
     return jsonify(results)
-
-

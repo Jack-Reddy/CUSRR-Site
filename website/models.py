@@ -1,3 +1,4 @@
+# pylint: disable=too-few-public-methods
 '''db models for all tables within the db'''
 from datetime import timedelta, datetime
 from sqlalchemy import DateTime
@@ -58,12 +59,12 @@ class Presentation(db.Model):
                 calculated_time = self.schedule.start_time
         # Format datetimes as naive local ISO strings (no timezone suffix)
 
-        def fmt(dt):
-            if not dt:
+        def fmt(date_time):
+            if not date_time:
                 return None
-            if isinstance(dt, datetime):
-                return dt.strftime('%Y-%m-%dT%H:%M:%S')
-            return str(dt)
+            if isinstance(date_time, datetime):
+                return date_time.strftime('%Y-%m-%dT%H:%M:%S')
+            return str(date_time)
 
         return {
             "id": self.id,
@@ -277,8 +278,10 @@ class BlockSchedule(db.Model):
         return {
             "id": self.id,
             "day": self.day,
-            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
-            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
+            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') 
+                        if self.start_time else None,
+            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') 
+                        if self.end_time else None,
             "title": self.title,
             "description": self.description,
             "location": self.location,
