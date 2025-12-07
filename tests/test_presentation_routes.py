@@ -1,3 +1,4 @@
+# pylint: disable=unused-argument
 """Tests for the /api/v1/presentations endpoints."""
 
 from datetime import datetime, timedelta
@@ -12,7 +13,7 @@ def test_get_presentations_empty(client):
     assert res.get_json() == []
 
 
-def test_get_presentations_nonempty(client, _sample_presentation_fixture):
+def test_get_presentations_nonempty(client, sample_presentation_fixture):
     """GET /api/v1/presentations/ returns existing presentations."""
     res = client.get("/api/v1/presentations/")
     data = res.get_json()
@@ -166,7 +167,7 @@ def test_update_order_forbidden_no_session(client):
     assert res.status_code == 403
 
 
-def test_update_order_success(client, app, sample_block_fixture, _sample_user_fixture):
+def test_update_order_success(client, app, sample_block_fixture, sample_user_fixture):
     """POST /api/v1/presentations/order updates num_in_block for organizer user."""
     with app.app_context():
         user = User.query.filter_by(email="jane@example.com").first()
@@ -191,7 +192,7 @@ def test_update_order_success(client, app, sample_block_fixture, _sample_user_fi
 
     assert res.status_code == 200
 
-def test_update_presentations_order_edge_cases(client, _app,
+def test_update_presentations_order_edge_cases(client, app,
                                                sample_user_fixture,
                                                sample_block_fixture):
     """
@@ -255,7 +256,7 @@ def test_update_presentations_order_edge_cases(client, _app,
     db.session.rollback()
     db.session.commit = original_commit  # restore commit
 
-def test_get_recent_presentations_computed_time(client, _app, sample_block_fixture):
+def test_get_recent_presentations_computed_time(client, app, sample_block_fixture):
     """
     Covers effective_time fallback in get_recent_presentations when Presentation.time is None
     and computation uses block start time + num_in_block * sub_length.

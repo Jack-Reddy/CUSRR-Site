@@ -1,4 +1,4 @@
-# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-outer-name, disable=unused-argument
 """
 Unit tests for the /api/v1/users/ routes.
 Tests CRUD operations for the User model.
@@ -7,12 +7,10 @@ Tests CRUD operations for the User model.
 from unittest.mock import patch
 
 # Third-party
-import pytest
 from sqlalchemy.exc import IntegrityError
 
 # Local
 from website.models import User
-from website import db
 
 
 def test_get_users_empty(client):

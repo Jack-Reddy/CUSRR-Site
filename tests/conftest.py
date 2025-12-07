@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytest
 
 # Local
-from website.models import User, BlockSchedule, Presentation
+from website.models import User, BlockSchedule, Presentation, Grade
 from website import db, create_app
 
 @pytest.fixture
@@ -102,3 +102,54 @@ def sample_presentation_fixture(app, sample_block_fixture):
         db.session.add(sample_presentation)
         db.session.commit()
         yield sample_presentation
+
+@pytest.fixture
+def sample_average_fixture(sample_presentation_fixture):
+    """Creates a simple object mimicking average grade results."""
+    class Avg:
+        """average class for testing"""
+        def __init__(self, presentation_id, average_score, num_grades):
+            self.presentation_id = presentation_id
+            self.average_score = average_score
+            self.num_grades = num_grades
+
+    avg = Avg(
+        presentation_id=sample_presentation_fixture.id,
+        average_score=4.5678,
+        num_grades=3
+    )
+    yield [avg]
+
+@pytest.fixture
+def sample_grade_fixture(app, sample_user_fixture, sample_presentation_fixture):
+    """Creates a sample Grade for testing."""
+    with app.app_context():
+        grade = Grade(
+            user_id=sample_user_fixture.id,
+            presentation_id=sample_presentation_fixture.id,
+            criteria_1=4,
+            criteria_2=3,
+            criteria_3=5
+        )
+        db.session.add(grade)
+        db.session.commit()
+        yield grade
+
+
+@pytest.fixture
+def multiple_grades_fixture(app, sample_user_fixture, sample_presentation_fixture):
+    """Creates multiple grades for testing averages."""
+    with app.app_context():
+        grades = []
+        for i in range(3):
+            grade = Grade(
+                user_id=sample_user_fixture.id,
+                presentation_id=sample_presentation_fixture.id,
+                criteria_1=3+i,
+                criteria_2=4,
+                criteria_3=5
+            )
+            db.session.add(grade)
+            grades.append(grade)
+        db.session.commit()
+        yield grades

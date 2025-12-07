@@ -1,3 +1,4 @@
+"""routes for user table in db"""
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 from website.models import User
