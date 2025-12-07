@@ -45,8 +45,21 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
       
 </head>
-<body>
+<body class="has-mobile-sidebar-toggle">
 
+
+  <!-- Mobile sidebar toggle: visible only on small screens -->
+  <button class="btn btn-sm btn-outline-secondary d-md-none sidebar-toggle-mobile"
+          type="button"
+          data-sidebar-toggle
+          aria-controls="sidenav-main"
+          aria-expanded="false"
+          aria-label="Toggle sidebar">
+    <img class="icon-img"
+         src="{{ url_for('static', filename='icons/sidebar.svg') }}"
+         alt=""
+         aria-hidden="true">
+  </button>
   
 
   <!-- Sidebar -->

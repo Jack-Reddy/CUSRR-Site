@@ -1,67 +1,146 @@
 
-    :root{
-      --sidebar-width: 230px;     /* your full width */
-      --sidebar-mini: 95px;       /* rail width */
-      --rail-icon-size: 22px;     /* icon size when mini */
-      --rail-btn: 48px;           /* square button size */
-    }
+  :root{
+    --sidebar-width: 230px;     /* your full width */
+    --sidebar-mini: 95px;       /* rail width */
+    --rail-icon-size: 22px;     /* icon size when mini */
+    --rail-btn: 48px;           /* square button size */
+  }
 
 
-    /* Sidebar base */
-    #sidenav-main{
-      position: fixed; top: 0; left: 0; bottom: 0;
-      width: var(--sidebar-width);
-      overflow-y: auto; z-index: 1030;
-      background: #fff; border-right: 1px solid #e9ecef; padding: 16px;
-      transition: width .25s ease;
-    }
+  /* Sidebar base */
+  #sidenav-main{
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: var(--sidebar-width);
+    overflow-y: auto; z-index: 1030;
+    background: #fff; border-right: 1px solid #e9ecef; padding: 16px;
+    transition: width .25s ease;
+  }
 
-    /* Content offset */
-    .main-content{
-      margin-left: var(--sidebar-width);
-      min-height: 100vh; padding: 24px;
-      transition: margin-left .25s ease;
-    }
+  /* Content offset */
+  .main-content{
+    margin-left: var(--sidebar-width);
+    min-height: 100vh; padding: 24px;
+    transition: margin-left .25s ease;
+  }
 
-    /* Mini state: shrink widths, hide labels, center icons */
-    .sidebar-mini #sidenav-main{
-      width: var(--sidebar-mini);
-      padding: 12px 8px;          /* tighter padding so icons visually center */
-    }
-    
-    .sidebar-mini #sidenav-main .nav-link.btn{
-      justify-content: center;            /* center the icon */
-      padding: 0;                         /* remove leftover text padding */
-      height: var(--rail-btn);
-      border-radius: 12px;                /* same rounding as full size */
-      margin: 6px 0;                      /* even spacing down the rail */
-    }
+  /* Mini state: shrink widths, hide labels, center icons */
+  .sidebar-mini #sidenav-main{
+    width: var(--sidebar-mini);
+    padding: 12px 8px;          /* tighter padding so icons visually center */
+  }
+  
+  .sidebar-mini #sidenav-main .nav-link.btn{
+    justify-content: center;            /* center the icon */
+    padding: 0;                         /* remove leftover text padding */
+    height: var(--rail-btn);
+    border-radius: 12px;                /* same rounding as full size */
+    margin: 6px 0;                      /* even spacing down the rail */
+  }
 
-    .sidebar-mini .main-content{ margin-left: var(--sidebar-mini); }
+  .sidebar-mini .main-content{ margin-left: var(--sidebar-mini); }
 
-    /* Icon + label structure */
-    .nav-link .icon { display:inline-flex; width: 40px; justify-content:center; }
-    .nav-link .label{ margin-left: 8px; white-space: nowrap; }
+  /* Icon + label structure */
+  .nav-link .icon { display:inline-flex; width: 40px; justify-content:center; }
+  .nav-link .label{ margin-left: 8px; white-space: nowrap; }
 
-    /* Hide labels in mini state */
-    .sidebar-mini .nav-link .label{ display:none; }
+  /* Hide labels in mini state */
+  .sidebar-mini .nav-link .label{ display:none; }
 
-    /* Make links full-width buttons without breaking layout */
-    .nav-link.btn{ display:flex; align-items:center; justify-content:flex-start; }
+  /* Make links full-width buttons without breaking layout */
+  .nav-link.btn{ display:flex; align-items:center; justify-content:flex-start; }
 
-    /* Header row inside the sidebar */
-    .sidebar-header{ display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
-    .sidebar-title{ font-weight:700; }
-    .sidebar-mini .sidebar-title{ display:none; } /* hide title in mini */
+  /* Header row inside the sidebar */
+  .sidebar-header{ display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+  .sidebar-title{ font-weight:700; }
+  .sidebar-mini .sidebar-title{ display:none; } /* hide title in mini */
 
-    /* Toggle button styles (fits inside sidebar; never overlays content) */
-    #toggleSidebar{
-      display:flex; align-items:center; justify-content:center;
-      width: 100%; height: 36px;
-      padding: 0; line-height: 1; font-size: 16px;
-    }
-    
-    /* In mini state keep it compact but still visible */
-    .sidebar-mini #toggleSidebar{
-      width: 100%; /* stays full width of the mini rail */
-    }
+  /* Toggle button styles (fits inside sidebar; never overlays content) */
+  #toggleSidebar{
+    display:flex; align-items:center; justify-content:center;
+    width: 100%; height: 36px;
+    padding: 0; line-height: 1; font-size: 16px;
+  }
+  
+  /* In mini state keep it compact but still visible */
+  .sidebar-mini #toggleSidebar{
+    width: 100%; /* stays full width of the mini rail */
+  }
+
+  /* Backdrop for mobile drawer */
+#sidebar-backdrop{
+position: fixed;
+inset: 0;
+background: rgba(0, 0, 0, 0.35);
+opacity: 0;
+pointer-events: none;
+transition: opacity .2s ease;
+z-index: 1029; /* just below sidebar (1030) */
+}
+
+#sidebar-backdrop.show{
+opacity: 1;
+pointer-events: auto;
+}
+
+/* Base: keep what you had above this */
+
+/* -------- MOBILE LAYOUT -------- */
+@media (max-width: 767.98px) {
+
+  /* Floating mobile toggle styled like desktop button */
+  .sidebar-toggle-mobile {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 2101;
+
+    background: #ffffff !important;
+    border-color: #ced4da !important;
+    color: #495057 !important;
+
+    padding: 0.25rem 0.6rem;            /* like btn-sm */
+    border-radius: 0.375rem !important; /* standard Bootstrap radius */
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .sidebar-toggle-mobile .icon-img {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* 🔽 Off-canvas sidebar: hidden by default on mobile */
+.has-mobile-sidebar-toggle #sidenav-main {
+  position: fixed;
+  left: 0;
+  top: 3.25rem;                         /* leave room for button */
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: #fff;
+  border-right: 1px solid #e9ecef;
+
+  transform: translateX(-100%);         /* hidden */
+  transition: transform .25s ease;
+  z-index: 2000;
+  padding: 16px;
+
+  /* ⭐️ ADD THESE LINES FOR ROUNDED CORNERS ⭐️ */
+  border-top-right-radius: 16px;
+  border-bottom-right-radius: 16px;
+  overflow: hidden;  /* keeps contents clipped to curve */
+}
+
+/* When opened */
+.has-mobile-sidebar-toggle #sidenav-main.open {
+  transform: translateX(0);             /* slide in */
+}
+  /* No content shift on mobile (sidebar overlays) */
+  .has-mobile-sidebar-toggle .main-content {
+    margin-left: 0 !important;
+    padding-top: 3.25rem;                 /* push content below button */
+  }
+}
