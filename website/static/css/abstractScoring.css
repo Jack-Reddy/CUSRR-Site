@@ -1,39 +1,132 @@
-
-/* Scope EVERY rule under .review-app */
-.review-app .review-app__page { display:flex; gap:16px; align-items:flex-start; padding:16px; }
-.review-app .review-app__left { flex:1; min-width:0; }
-.review-app .review-app__right { width:360px; position:sticky; top:16px; max-height:85vh; overflow:auto; }
-
-.review-app .review-app__comic {
+/* Desktop / default layout */
+.review-app .review-app__page {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px;
+  }
+  
+  .review-app .review-app__left {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .review-app .review-app__right {
+    width: 360px;
+    position: sticky;
+    top: 16px;
+    max-height: 85vh;
+    overflow: auto;
+  }
+  
+  .review-app .review-app__comic {
     font-family: "Comic Sans MS", cursive;
     white-space: pre-wrap;
     margin: 0;
-    padding:16px;    
+    padding: 16px;
     background: #f9f9f9;
     border: 2px solid #ccc;
     box-sizing: border-box;
     height: 85vh;
     overflow: auto;
-}
-
-.review-app .review-app__panel {
-    background:#fff; border:1px solid #dcdcdc; border-radius:12px; padding:16px;
-    box-shadow:0 2px 10px rgba(0,0,0,0.06);
+  }
+  
+  .review-app .review-app__panel {
+    background: #fff;
+    border: 1px solid #dcdcdc;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
     height: 100vh;
-}
-.review-app .review-app__title { margin:0 0 12px; font-size:1rem; }
-.review-app .review-app__label { display:block; margin:12px 0 6px; font-size:.9rem; }
-.review-app .review-app__row { display:flex; justify-content:space-between; align-items:center; }
-.review-app .review-app__textarea {
-    width:100%; box-sizing:border-box; padding:10px; border:1px solid #cfcfcf; border-radius:8px; font:inherit; resize:vertical;
-}
-.review-app .review-app__crit { margin:10px 0 16px; }
-.review-app .review-app__range { width:100%; }
-.review-app .review-app__total { text-align:center; border:1px solid #e3e3e3; border-radius:10px; padding:10px; margin:8px 0 16px; }
-.review-app .review-app__total-label { font-size:.8rem; color:#6b7280; }
-.review-app .review-app__total-value { font-size:1.4rem; font-weight:700; }
-.review-app .review-app__actions { display:flex; gap:8px; justify-content:flex-end; }
-.review-app .review-app__btn { padding:8px 12px; border-radius:8px; border:1px solid transparent; background:#efefef; cursor:pointer; font:inherit; }
-.review-app .review-app__btn--outline { background:transparent; border-color:#c7c7c7; }
-.review-app .review-app__btn--primary { background:#0dcaf0; color:#06333b; border-color:#0dcaf0; }
- 
+  }
+  
+  .review-app .review-app__title { margin: 0 0 12px; font-size: 1rem; }
+  .review-app .review-app__label { display: block; margin: 12px 0 6px; font-size: .9rem; }
+  .review-app .review-app__row { display: flex; justify-content: space-between; align-items: center; }
+  
+  .review-app .review-app__textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid #cfcfcf;
+    border-radius: 8px;
+    font: inherit;
+    resize: vertical;
+  }
+  
+  .review-app .review-app__crit { margin: 10px 0 16px; }
+  .review-app .review-app__range { width: 100%; }
+  
+  .review-app .review-app__total {
+    text-align: center;
+    border: 1px solid #e3e3e3;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 8px 0 16px;
+  }
+  
+  .review-app .review-app__total-label { font-size: .8rem; color: #6b7280; }
+  .review-app .review-app__total-value { font-size: 1.4rem; font-weight: 700; }
+  
+  .review-app .review-app__actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  .review-app .review-app__btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: #efefef;
+    cursor: pointer;
+    font: inherit;
+  }
+  
+  .review-app .review-app__btn--outline { background: transparent; border-color: #c7c7c7; }
+  .review-app .review-app__btn--primary { background: #0dcaf0; color: #06333b; border-color: #0dcaf0; }
+  
+  /* ---------- MOBILE: stack & simplify ---------- */
+  @media (max-width: 767.98px) {
+    .review-app .review-app__page {
+      flex-direction: column;      /* stack abstract then grading panel */
+      gap: 12px;
+      padding: 12px;
+    }
+  
+    .review-app .review-app__left,
+    .review-app .review-app__right {
+      width: 100%;
+      max-width: 100%;
+    }
+  
+    /* Let the abstract grow naturally; avoid locking to 85vh */
+    .review-app .review-app__comic {
+      height: auto;
+      max-height: 50vh;            /* optional cap so it's not endless */
+      font-size: 0.9rem;           /* slightly smaller for small screens */
+    }
+  
+    /* Turn off sticky full-height behavior on mobile */
+    .review-app .review-app__right {
+      position: static;
+      max-height: none;
+      overflow: visible;
+    }
+  
+    .review-app .review-app__panel {
+      height: auto;
+    }
+  
+    /* Buttons full width or at least more tappable */
+    .review-app .review-app__actions {
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+  
+    .review-app .review-app__actions .btn {
+      flex: 1 1 auto;
+      min-width: 48%;
+    }
+  }
+  
