@@ -32,7 +32,7 @@ def create_app(test_config=None):
     from . import auth
 
     # Setup app
-    app.secret_key = os.environ.get('FLASK_SECRET')
+    app.secret_key = app.config.get('SECRET_KEY') or os.environ.get('FLASK_SECRET')
     auth.init_oauth(app)
     google = auth.oauth.create_client('google')
 
