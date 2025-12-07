@@ -9,13 +9,12 @@ from datetime import datetime, timedelta
 import pytest
 
 # Local
-from website.models import User
-from website import db
+from website.models import User, BlockSchedule, Presentation
+from website import db, create_app
 
 @pytest.fixture
 def app():
     """Create a new Flask app instance for testing."""
-    from website import db, create_app
     test_config = {
         'TESTING': True,
         'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
@@ -68,7 +67,6 @@ def sample_user_fixture(app):
 @pytest.fixture
 def sample_block_fixture(app):
     """Create a valid BlockSchedule for testing."""
-    from website.models import BlockSchedule
 
     with app.app_context():
         start = datetime.now() + timedelta(hours=1)
@@ -78,7 +76,7 @@ def sample_block_fixture(app):
             day="Day 1",
             start_time=start,
             end_time=end,
-            title="Poster Session A",  
+            title="Poster Session A",
             description="Test poster block",
             location="Room A",
             block_type="poster",
@@ -93,15 +91,14 @@ def sample_block_fixture(app):
 @pytest.fixture
 def sample_presentation_fixture(app, sample_block_fixture):
     """Create a Presentation for basic testing."""
-    from website.models import Presentation
     with app.app_context():
-        p = Presentation(
+        sample_presentation = Presentation(
             title="Test Presentation",
             abstract="A test abstract",
             subject="Testing",
             time=datetime.now(),
             schedule_id=sample_block_fixture.id
         )
-        db.session.add(p)
+        db.session.add(sample_presentation)
         db.session.commit()
-        yield p
+        yield sample_presentation

@@ -1,6 +1,8 @@
-import json
+"""Tests for the /api/v1/presentations endpoints."""
+
 from datetime import datetime, timedelta
-from website.models import Presentation, BlockSchedule, User
+
+from website.models import Presentation, User
 from website import db
 
 def test_get_presentations_empty(client):
@@ -10,7 +12,7 @@ def test_get_presentations_empty(client):
     assert res.get_json() == []
 
 
-def test_get_presentations_nonempty(client, sample_presentation_fixture):
+def test_get_presentations_nonempty(client, _sample_presentation_fixture):
     """GET /api/v1/presentations/ returns existing presentations."""
     res = client.get("/api/v1/presentations/")
     data = res.get_json()
@@ -21,10 +23,10 @@ def test_get_presentations_nonempty(client, sample_presentation_fixture):
 
 def test_get_single_presentation(client, sample_presentation_fixture):
     """GET /api/v1/presentations/<id> returns the correct presentation."""
-    p = sample_presentation_fixture
-    res = client.get(f"/api/v1/presentations/{p.id}")
+    sample_presentation = sample_presentation_fixture
+    res = client.get(f"/api/v1/presentations/{sample_presentation.id}")
     assert res.status_code == 200
-    assert res.get_json()["id"] == p.id
+    assert res.get_json()["id"] == sample_presentation.id
 
 
 def test_get_single_presentation_404(client):
@@ -59,9 +61,9 @@ def test_create_presentation_invalid_time(client):
 
 def test_update_presentation(client, sample_presentation_fixture):
     """PUT /api/v1/presentations/<id> updates an existing presentation's title."""
-    p = sample_presentation_fixture
+    sample_presentation = sample_presentation_fixture
     res = client.put(
-        f"/api/v1/presentations/{p.id}",
+        f"/api/v1/presentations/{sample_presentation.id}",
         json={"title": "Updated Title"}
     )
     assert res.status_code == 200
@@ -76,11 +78,11 @@ def test_update_presentation_404(client):
 
 def test_delete_presentation(client, sample_presentation_fixture):
     """DELETE /api/v1/presentations/<id> removes the presentation."""
-    p = sample_presentation_fixture
-    res = client.delete(f"/api/v1/presentations/{p.id}")
+    sample_presentation = sample_presentation_fixture
+    res = client.delete(f"/api/v1/presentations/{sample_presentation.id}")
     assert res.status_code == 200
     assert res.get_json()["message"] == "Presentation deleted"
-    assert Presentation.query.get(p.id) is None
+    assert Presentation.query.get(sample_presentation.id) is None
 
 
 def test_delete_presentation_404(client):
@@ -90,7 +92,10 @@ def test_delete_presentation_404(client):
 
 
 def test_recent_presentations(client, app, sample_block_fixture):
-    """GET /api/v1/presentations/recent returns future presentations sorted by effective time."""
+    """
+    GET /api/v1/presentations/recent returns future presentations
+    sorted by effective time.
+    """
     with app.app_context():
         future = datetime.now() + timedelta(hours=1)
         pres = Presentation(
@@ -134,17 +139,17 @@ def test_get_presentations_by_type_invalid(client):
 def test_get_presentations_by_day(client, sample_block_fixture, app):
     """GET /api/v1/presentations/day/<day> returns presentations grouped by poster blocks."""
     with app.app_context():
-        p1 = Presentation(
+        pres1 = Presentation(
             title="Poster1",
             schedule_id=sample_block_fixture.id,
             num_in_block=0
         )
-        p2 = Presentation(
+        pres2 = Presentation(
             title="Poster2",
             schedule_id=sample_block_fixture.id,
             num_in_block=1
         )
-        db.session.add_all([p1, p2])
+        db.session.add_all([pres1, pres2])
         db.session.commit()
 
     res = client.get("/api/v1/presentations/day/Day 1")
@@ -161,21 +166,21 @@ def test_update_order_forbidden_no_session(client):
     assert res.status_code == 403
 
 
-def test_update_order_success(client, app, sample_block_fixture, sample_user_fixture):
+def test_update_order_success(client, app, sample_block_fixture, _sample_user_fixture):
     """POST /api/v1/presentations/order updates num_in_block for organizer user."""
     with app.app_context():
         user = User.query.filter_by(email="jane@example.com").first()
         user.auth = "organizer"
         db.session.commit()
 
-        p = Presentation(
+        sample_presentation = Presentation(
             title="Reorder Me",
             schedule_id=sample_block_fixture.id,
             num_in_block=0
         )
-        db.session.add(p)
+        db.session.add(sample_presentation)
         db.session.commit()
-        presentation_id = p.id
+        presentation_id = sample_presentation.id
 
     with client.session_transaction() as sess:
         sess["user"] = {"email": "jane@example.com"}
@@ -185,12 +190,10 @@ def test_update_order_success(client, app, sample_block_fixture, sample_user_fix
     })
 
     assert res.status_code == 200
-import json
-from datetime import datetime, timedelta
-from website.models import Presentation, BlockSchedule, User
-from website import db
 
-def test_update_presentations_order_edge_cases(client, app, sample_user_fixture, sample_block_fixture):
+def test_update_presentations_order_edge_cases(client, _app,
+                                               sample_user_fixture,
+                                               sample_block_fixture):
     """
     Covers edge cases for /api/v1/presentations/order:
     - Missing session
@@ -202,13 +205,15 @@ def test_update_presentations_order_edge_cases(client, app, sample_user_fixture,
     """
 
     # No session user → 403
-    res = client.post("/api/v1/presentations/order", json={"orders": [{"presentation_id": 1, "num_in_block": 5}]})
+    res = client.post("/api/v1/presentations/order",
+                      json={"orders": [{"presentation_id": 1, "num_in_block": 5}]})
     assert res.status_code == 403
 
     # Non-organizer session → 403
     with client.session_transaction() as sess:
         sess["user"] = {"email": "user@example.com"}
-    res = client.post("/api/v1/presentations/order", json={"orders": [{"presentation_id": 1, "num_in_block": 5}]})
+    res = client.post("/api/v1/presentations/order",
+                      json={"orders": [{"presentation_id": 1, "num_in_block": 5}]})
     assert res.status_code == 403
 
     # Make fixture user organizer
@@ -222,12 +227,14 @@ def test_update_presentations_order_edge_cases(client, app, sample_user_fixture,
     assert res.status_code == 400
 
     # Orders with missing 'presentation_id' → passes, returns empty updated list
-    res = client.post("/api/v1/presentations/order", json={"orders": [{"num_in_block": 5}]})
+    res = client.post("/api/v1/presentations/order",
+                      json={"orders": [{"num_in_block": 5}]})
     assert res.status_code == 200
     assert res.json["updated"] == []
 
     # Orders with nonexistent presentation_id → passes, returns empty updated list
-    res = client.post("/api/v1/presentations/order", json={"orders": [{"presentation_id": 999}]})
+    res = client.post("/api/v1/presentations/order",
+                      json={"orders": [{"presentation_id": 999}]})
     assert res.status_code == 200
     assert res.json["updated"] == []
 
@@ -241,33 +248,30 @@ def test_update_presentations_order_edge_cases(client, app, sample_user_fixture,
     db.session.add(pres)
     db.session.flush()  # ensure id assigned
 
-    res = client.post("/api/v1/presentations/order", json={"orders": [{"presentation_id": pres.id, "num_in_block": 1}]})
+    res = client.post("/api/v1/presentations/order",
+                      json={"orders": [{"presentation_id": pres.id, "num_in_block": 1}]})
     assert res.status_code == 500
     assert "Failed to save order" in res.json["error"]
     db.session.rollback()
     db.session.commit = original_commit  # restore commit
 
-
-def test_get_presentations_by_type_invalid(client):
-    """Covers invalid category branch in get_presentations_by_type (returns 400)."""
-    res = client.get("/api/v1/presentations/type/invalid_category")
-    assert res.status_code == 400
-    assert "Invalid type" in res.json["error"]
-
-
-def test_get_recent_presentations_computed_time(client, app, sample_block_fixture):
+def test_get_recent_presentations_computed_time(client, _app, sample_block_fixture):
     """
     Covers effective_time fallback in get_recent_presentations when Presentation.time is None
     and computation uses block start time + num_in_block * sub_length.
     """
-    pres = Presentation(title="Fallback Time", schedule_id=sample_block_fixture.id, num_in_block=1, time=None)
+    pres = Presentation(title="Fallback Time",
+                        schedule_id=sample_block_fixture.id,
+                        num_in_block=1,
+                        time=None)
     db.session.add(pres)
     db.session.commit()
 
     res = client.get("/api/v1/presentations/recent")
     assert res.status_code == 200
     # Should include the presentation
-    assert any(p["title"] == "Fallback Time" for p in res.json)
+    assert any(sample_presentation["title"] == "Fallback Time" for
+               sample_presentation in res.json)
 
 
 def test_get_presentations_by_day_null_num(client, sample_block_fixture):
@@ -275,14 +279,16 @@ def test_get_presentations_by_day_null_num(client, sample_block_fixture):
     Covers null num_in_block ordering branch in get_presentations_by_day,
     ensuring presentations with None num_in_block appear first due to nullsfirst().
     """
-    pres = Presentation(title="Null num_in_block", schedule_id=sample_block_fixture.id, num_in_block=None)
+    pres = Presentation(title="Null num_in_block",
+                        schedule_id=sample_block_fixture.id,
+                        num_in_block=None)
     db.session.add(pres)
     db.session.commit()
 
     res = client.get(f"/api/v1/presentations/day/{sample_block_fixture.day}")
     assert res.status_code == 200
     assert any(
-        p["title"] == "Null num_in_block"
+        sample_presentation["title"] == "Null num_in_block"
         for block in res.json
-        for p in block["presentations"]
+        for sample_presentation in block["presentations"]
     )
