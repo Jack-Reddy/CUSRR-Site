@@ -15,23 +15,6 @@ from website.models import User
 from website import db
 
 
-@pytest.fixture
-def sample_user_fixture(app):
-    """Insert a sample user into the database for testing."""
-    with app.app_context():
-        user = User(
-            firstname="Jane",
-            lastname="Doe",
-            email="jane@example.com",
-            activity="active",
-            presentation_id=None,
-            auth="admin,judge"
-        )
-        db.session.add(user)
-        db.session.commit()
-        yield user
-
-
 def test_get_users_empty(client):
     """Test that GET /api/v1/users/ returns an empty list when no users exist."""
     resp = client.get("/api/v1/users/")

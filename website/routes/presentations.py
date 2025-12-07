@@ -11,8 +11,6 @@ from website import db
 presentations_bp = Blueprint('presentations', __name__)
 
 
-
-
 @presentations_bp.route('/', methods=['GET'])
 def get_presentations():
     ''' GET all presentations '''
@@ -27,8 +25,6 @@ def get_presentation(presentation_id):
     ''' GET one presentation '''
     presentation = Presentation.query.get_or_404(presentation_id)
     return jsonify(presentation.to_dict())
-
-
 
 
 @presentations_bp.route('/', methods=['POST'])
@@ -51,8 +47,6 @@ def create_presentation():
     db.session.add(new_presentation)
     db.session.commit()
     return jsonify(new_presentation.to_dict()), 201
-
-
 
 
 @presentations_bp.route('/<int:presentation_id>', methods=['PUT'])
