@@ -1,3 +1,4 @@
+"""function for importing csv"""
 import csv
 from io import TextIOWrapper
 from .models import User, db

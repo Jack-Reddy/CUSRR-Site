@@ -5,7 +5,7 @@ Provides CRUD operations and average score calculations.
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, desc
-from website.models import AbstractGrade, Presentation
+from website.models import AbstractGrade
 from website import db
 from .utils import format_average_grades
 
