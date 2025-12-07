@@ -37,7 +37,7 @@ def client(app):
     This client can be used to make HTTP requests to the application
     routes during testing.
     """
-    return app.test_client()
+    return app.test_client(use_cookies=True)
 
 @pytest.fixture
 def runner(app):
