@@ -53,12 +53,12 @@ class Presentation(db.Model):
             else:
                 calculated_time = self.schedule.start_time
         # Format datetimes as naive local ISO strings (no timezone suffix)
-
+    
         def fmt(dt):
             if not dt:
                 return None
             if isinstance(dt, datetime):
-                return dt.strftime('%Y-%m-%dT%H:%M:%S')
+                return dt.strftime("%b %-d %I:%M %p")
             return str(dt)
 
         return {
