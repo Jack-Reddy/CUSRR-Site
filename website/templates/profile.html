@@ -110,26 +110,17 @@
         <label for="final-title" class="form-label w-100">Presentation Title</label>
         <input id="final-title" type="text" class="form-control" placeholder="Title of your presentation">
 
-        <!-- Presentation Type (readonly or selectable depending on your logic) -->
-        <label for="final-type" class="form-label w-100 mt-3">Presentation Type</label>
-        <select id="final-type" class="form-select">
-          <option selected>Select your presentation type</option>
-          <option value="1">Presentation</option>
-          <option value="2">Blitz</option>
-          <option value="3">Poster</option>
-        </select>
 
         <!-- PDF Upload -->
-        <div class="mt-4">
-          <label for="presentation-pdf" class="form-label">Upload Presentation PDF</label>
-          <input 
-            id="presentation-pdf"
-            type="file" 
-            class="form-control"
-            accept="application/pdf"
-          >
+        <input 
+          id="presentation-ppt"
+          type="file" 
+          class="form-control"
+          accept=".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        />
+      
           <div class="form-text mt-1">
-            Allowed format: <strong>.pdf</strong> — Max size: 20MB
+            Allowed format: <strong>.ppt, .pptx</strong> — Max size: 20MB
           </div>
         </div>
 
