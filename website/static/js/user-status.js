@@ -25,7 +25,7 @@ async function loadUsers() {
   }
 }
 
-function getNoneStatusEmails() {
+function getIncompleteStatusEmails() {
   const rows = userTable ? userTable.data().toArray() : allUsers;
   return rows
     .filter((u) => {
@@ -34,7 +34,7 @@ function getNoneStatusEmails() {
       if (raw === null || raw === undefined) return true;
       if (typeof raw === 'string') {
         const trimmed = raw.trim().toLowerCase();
-        return trimmed === '' || trimmed === 'none' || trimmed === 'null';
+        return trimmed === '' || trimmed === 'incomplete';
       }
       return false;
     })
@@ -42,10 +42,10 @@ function getNoneStatusEmails() {
     .filter(Boolean);
 }
 
-async function copyNoneStatusEmails() {
-  const emails = getNoneStatusEmails();
+async function copyIncompleteStatusEmails() {
+  const emails = getIncompleteStatusEmails();
   if (!emails.length) {
-    alert('No attendees with status = None to copy.');
+    alert('No attendees with status = Incomplete to copy.');
     return;
   }
 
@@ -192,8 +192,8 @@ async function editUser(userId) {
 document.addEventListener('DOMContentLoaded', () => {
   loadUsers();
 
-  const copyBtn = document.getElementById('copy-none-status-btn');
+  const copyBtn = document.getElementById('copy-incomplete-status-btn');
   if (copyBtn) {
-    copyBtn.addEventListener('click', copyNoneStatusEmails);
+    copyBtn.addEventListener('click', copyIncompleteStatusEmails);
   }
 });
