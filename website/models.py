@@ -268,8 +268,8 @@ class BlockSchedule(db.Model):
         return {
             "id": self.id,
             "day": self.day,
-            "startTime": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
-            "endTime": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
+            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
+            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
             "title": self.title,
             "description": self.description,
             "location": self.location,
