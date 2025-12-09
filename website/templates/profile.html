@@ -95,16 +95,52 @@
 
         </div>
 
-        <!-- FORM B: FULL PRESENTATION SIGNUP (HIDDEN INITIALLY) -->
-        <div id="presentation-form" class="mt-5 d-none">
+        <!-- FORM B: FULL PRESENTATION UPLOAD -->
+    <div id="presentation-form" class="mt-5 d-none">
 
-          TODO: Import powerpoint form here
+      <h5 class="text-center mb-3">Full Presentation Upload</h5>
 
+      <p class="text-muted text-center mb-4">
+        Please upload a <strong>PDF</strong> version of your final presentation.
+      </p>
+
+      <div class="card p-4 shadow-sm">
+
+        <!-- Presentation Title -->
+        <label for="final-title" class="form-label w-100">Presentation Title</label>
+        <input id="final-title" type="text" class="form-control" placeholder="Title of your presentation">
+
+
+        <!-- PDF Upload -->
+        <input 
+          id="presentation-ppt"
+          type="file" 
+          class="form-control"
+          accept=".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        />
+      
+          <div class="form-text mt-1">
+            Allowed format: <strong>.ppt, .pptx</strong> — Max size: 20MB
+          </div>
         </div>
 
-      </div>
-    </div>
+        <!-- Notes -->
+        <div class="mt-4">
+          <label for="presentation-notes" class="form-label">Additional Notes (optional)</label>
+          <textarea 
+            id="presentation-notes" 
+            class="form-control" 
+            rows="3" 
+            placeholder="Include any comments for the organizers..."
+          ></textarea>
+        </div>
 
+        <!-- Submit Button -->
+        <button id="presentation-submit" class="btn btn-success mt-4 w-100">
+          Submit Final Presentation
+        </button>
+
+    </div>
   </div>
 
   <!-- ===================== TAB 3: DASHBOARD ===================== -->  
@@ -122,9 +158,9 @@
       </div>
     </div>
 
-  </div>
+  </div> -->
 
-</div> -->
+</div>
 
 {% endblock %}
 
