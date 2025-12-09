@@ -198,7 +198,7 @@ def update_presentations_order():
         num = item.get('num_in_block')
         if pid is None or num is None:
             continue
-        presentation = Presentation.query.get(pid)
+        presentation = db.session.get(Presentation, pid)
         if not presentation:
             continue
         presentation.num_in_block = int(num)

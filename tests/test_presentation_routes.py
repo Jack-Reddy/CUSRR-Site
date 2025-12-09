@@ -83,7 +83,7 @@ def test_delete_presentation(client, sample_presentation_fixture):
     res = client.delete(f"/api/v1/presentations/{sample_presentation.id}")
     assert res.status_code == 200
     assert res.get_json()["message"] == "Presentation deleted"
-    assert Presentation.query.get(sample_presentation.id) is None
+    assert db.session.get(Presentation, sample_presentation.id) is None
 
 
 def test_delete_presentation_404(client):

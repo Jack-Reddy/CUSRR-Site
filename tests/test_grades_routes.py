@@ -4,6 +4,7 @@ Tests for the /api/v1/grades routes.
 """
 
 from website.models import Grade
+from website import db
 
 def test_get_grades_empty(client):
     """GET /api/v1/grades/ returns an empty list when no grades exist."""
@@ -66,7 +67,7 @@ def test_delete_grade(client, sample_grade_fixture):
     res = client.delete(f"/api/v1/grades/{sample_grade_fixture.id}")
     assert res.status_code == 200
     assert res.get_json()["message"] == "Grade deleted"
-    assert Grade.query.get(sample_grade_fixture.id) is None
+    assert db.session.get(Grade, sample_grade_fixture.id) is None
 
 
 def test_delete_grade_404(client):
