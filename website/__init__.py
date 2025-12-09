@@ -63,6 +63,7 @@ def create_app(test_config=None):
     auth.banned_user_redirect,
     auth.presenter_required) = auth.init_role_auth(app, User)
 
+    from .csv_importer import import_users_from_csv
     @app.route('/import_csv', methods=['POST'])
     @auth.organizer_required
     def import_csv():
