@@ -36,9 +36,7 @@ def create_grade():
     ).first()
 
     if existing:
-        return jsonify({
-            "error": "User has already submitted a grade for this presentation."
-        }), 400
+        return jsonify({"error": "Grade already exists"}), 400
 
     new_grade = Grade(
         user_id=data["user_id"],
