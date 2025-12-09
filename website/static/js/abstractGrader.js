@@ -153,16 +153,33 @@ function truncate(str, n) {
 
   // Load presentations from API
   async function loadPresentations() {
-    const res = await fetch("/api/v1/presentations");
-    presentations = await res.json();
+  const res = await fetch("/api/v1/presentations");
+  presentations = await res.json();
 
-    // Ensure status exists
-    presentations.forEach(p => {
-      if (!p.status) p.status = "todo"; // default
-    });
+  const meRes = await fetch("/me");
+  const meData = await meRes.json();
 
+  if (!meData.authenticated || !meData.user_id) {
+    console.warn("No logged-in user; skipping completion sync.");
     renderCards();
+    return;
   }
+
+  const completedRes = await fetch(`/api/v1/abstractgrades/completed/${meData.user_id}`);
+  const completedData = await completedRes.json();
+  const completedIds = new Set(completedData.completed);
+
+  presentations.forEach(p => {
+    if (completedIds.has(p.id)) {
+      p.status = "done";
+    } else if (!p.status) {
+      p.status = "todo";
+    }
+  });
+
+  // 5. Render
+  renderCards();
+}
 
   // Init
   loadPresentations();
