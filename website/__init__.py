@@ -313,6 +313,13 @@ def create_app(test_config=None):
         Render the signup page.
         '''
         return render_template('signup.html')
+    @app.route('/grades-dashboard')
+    @auth.organizer_required
+    def grades_dashboard():
+        '''
+        Render the grades page.
+        '''
+        return render_template('grades_dashboard.html')
 
     @app.route('/profile')
     # @presenter_required
