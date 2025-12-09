@@ -86,7 +86,9 @@ def test_get_average_abstract_grades_by_presentation(client, multiple_abstract_g
     ) / len(multiple_abstract_grades_fixture), 2)
     assert data[0]["average_score"] == avg_score
 
-def test_get_completed_presentations_for_user(client, sample_user_fixture, sample_presentation_fixture):
+def test_get_completed_presentations_for_user(client, 
+                                              sample_user_fixture, 
+                                              sample_presentation_fixture):
     """
     GET /api/v1/abstractgrades/completed/<user_id> returns presentations graded by a user.
     """
@@ -105,7 +107,7 @@ def test_get_completed_presentations_for_user(client, sample_user_fixture, sampl
 
     # Hit the new route
     res = client.get(f"/api/v1/abstractgrades/completed/{sample_user_fixture.id}")
-    
+
     assert res.status_code == 200
     data = res.get_json()
 

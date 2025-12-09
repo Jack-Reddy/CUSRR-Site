@@ -1,3 +1,9 @@
+"""
+SQLAlchemy models for the CUSRR application.
+
+Includes Presentation, User, Grade, AbstractGrade, and BlockSchedule.
+Each model provides a `to_dict()` method for JSON-ready serialization.
+"""
 from datetime import timedelta, datetime
 from sqlalchemy import DateTime
 from website import db
@@ -43,6 +49,9 @@ class Presentation(db.Model):
     schedule = db.relationship('BlockSchedule', back_populates='presentations')
 
     def to_dict(self):
+        """
+        Return a JSON-serializable dictionary representation of the presentation.
+        """
         calculated_time = None
         if self.time:
             calculated_time = self.time
@@ -115,6 +124,9 @@ class User(db.Model):
         cascade='all, delete')
 
     def to_dict(self):
+        """
+        Return a full JSON representation of the user.
+        """
         return {
             "id": self.id,
             "firstname": self.firstname,
@@ -127,6 +139,9 @@ class User(db.Model):
             "auth": self.auth}
 
     def to_dict_basic(self):
+        """
+        Return a minimal dictionary with ID, first name, last name, and email.
+        """
         return {
             "id": self.id,
             "firstname": self.firstname,
@@ -167,6 +182,9 @@ class Grade(db.Model):
     presentation = db.relationship('Presentation', back_populates='grades')
 
     def to_dict(self):
+        """
+        Return a dictionary describing the grade.
+        """
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -216,6 +234,9 @@ class AbstractGrade(db.Model):
         back_populates='abstract_grades')
 
     def to_dict(self):
+        """
+        Return a dictionary describing the abstract grade.
+        """
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -265,6 +286,9 @@ class BlockSchedule(db.Model):
         cascade='save-update')
 
     def to_dict(self):
+        """
+        Return a dictionary describing the block schedule.
+        """
         return {
             "id": self.id,
             "day": self.day,
