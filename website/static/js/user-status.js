@@ -1,4 +1,5 @@
 let userTable; // store DataTable instance
+let allUsers = []; // keep raw data for clipboard actions
 
 async function loadUsers() {
   const container = document.getElementById('user-container');
@@ -14,13 +15,58 @@ async function loadUsers() {
     }
 
     const users = await response.json();
-    allUsers = users; // keep for reference (optional)
+    allUsers = users;
 
     renderTable(users);
 
   } catch (err) {
     console.error('Failed to load users', err);
     container.innerHTML = '<p class="text-danger">Could not load users.</p>';
+  }
+}
+
+function getNoneStatusEmails() {
+  const rows = userTable ? userTable.data().toArray() : allUsers;
+  return rows
+    .filter((u) => {
+      if (!u) return false;
+      const raw = u.status;
+      if (raw === null || raw === undefined) return true;
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim().toLowerCase();
+        return trimmed === '' || trimmed === 'none' || trimmed === 'null';
+      }
+      return false;
+    })
+    .map((u) => u.email)
+    .filter(Boolean);
+}
+
+async function copyNoneStatusEmails() {
+  const emails = getNoneStatusEmails();
+  if (!emails.length) {
+    alert('No attendees with status = None to copy.');
+    return;
+  }
+
+  const text = emails.join(', ');
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      temp.style.position = 'fixed';
+      temp.style.left = '-9999px';
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+    }
+    alert('Copied emails to clipboard. Paste into Gmail To/CC/BCC.');
+  } catch (err) {
+    console.error('Copy failed', err);
+    alert('Could not copy emails.');
   }
 }
 
@@ -145,4 +191,9 @@ async function editUser(userId) {
 // Initialize after DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   loadUsers();
+
+  const copyBtn = document.getElementById('copy-none-status-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', copyNoneStatusEmails);
+  }
 });
