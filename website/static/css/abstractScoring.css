@@ -20,7 +20,7 @@
   }
   
   .review-app .review-app__comic {
-    font-family: "Comic Sans MS", cursive;
+    font-family: "Comic Sans MS";
     white-space: pre-wrap;
     margin: 0;
     padding: 16px;

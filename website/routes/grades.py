@@ -28,21 +28,29 @@ def get_grade(grade_id):
 
 @grades_bp.route('/', methods=['POST'])
 def create_grade():
-    ''' POST create new grade '''
     data = request.get_json()
 
+    existing = Grade.query.filter_by(
+        user_id=data["user_id"],
+        presentation_id=data["presentation_id"]
+    ).first()
+
+    if existing:
+        return jsonify({"error": "Grade already exists"}), 400
+
     new_grade = Grade(
-        user_id=data['user_id'],
-        presentation_id=data['presentation_id'],
-        criteria_1=data['criteria_1'],
-        criteria_2=data['criteria_2'],
-        criteria_3=data['criteria_3']
+        user_id=data["user_id"],
+        presentation_id=data["presentation_id"],
+        criteria_1=data["criteria_1"],
+        criteria_2=data["criteria_2"],
+        criteria_3=data["criteria_3"]
     )
 
     db.session.add(new_grade)
     db.session.commit()
 
     return jsonify(new_grade.to_dict()), 201
+
 
 
 @grades_bp.route('/<int:grade_id>', methods=['PUT'])
