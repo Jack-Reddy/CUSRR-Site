@@ -176,7 +176,6 @@ class Grade(db.Model):
         db.Integer,
         db.ForeignKey('presentations.id'),
         nullable=False)
-        
 
     criteria_1 = db.Column(db.Integer, nullable=False)
     criteria_2 = db.Column(db.Integer, nullable=False)

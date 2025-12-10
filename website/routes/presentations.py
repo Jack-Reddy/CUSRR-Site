@@ -50,9 +50,8 @@ def create_presentation():
     )
 
     db.session.add(new_presentation)
-    db.session.flush()  # ← gives new_presentation.id without commit
+    db.session.flush()  
 
-    # NEW CODE — add partner if there is one
     partner_email = data.get("partner_email")
     if partner_email:
         partner_user = User.query.filter_by(email=partner_email).first()
@@ -60,7 +59,6 @@ def create_presentation():
             db.session.rollback()
             return jsonify({"error": f"No user found with email {partner_email}"}), 400
 
-        # THIS IS THE LINE YOU ASKED ABOUT:
         partner_user.presentation_id = new_presentation.id
 
     db.session.commit()
