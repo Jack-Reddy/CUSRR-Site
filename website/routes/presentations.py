@@ -61,6 +61,32 @@ def update_presentation(presentation_id):
     ''' PUT update presentation '''
     presentation = Presentation.query.get_or_404(presentation_id)
     data = request.get_json()
+
+    schedule_id_raw = data.get('schedule_id') or data.get('scheduleId')
+    if schedule_id_raw is not None:
+        if schedule_id_raw == "":
+            presentation.schedule_id = None
+        else:
+            try:
+                schedule_id_int = int(schedule_id_raw)
+            except (TypeError, ValueError):
+                return jsonify({"error": "Invalid schedule_id"}), 400
+
+            block = BlockSchedule.query.get(schedule_id_int)
+            if not block:
+                return jsonify({"error": "Schedule block not found"}), 404
+            presentation.schedule_id = block.id
+
+    if 'time' in data:
+        time_raw = data.get('time')
+        if time_raw:
+            try:
+                presentation.time = datetime.fromisoformat(time_raw)
+            except ValueError:
+                return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
+        else:
+            presentation.time = None
+
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)

@@ -131,7 +131,7 @@ async function editPresentation(presentationId) {
     const presentation = await response.json();
 
     // Fill modal
-    EditPresentationModal.fillAndShowModal(presentation);
+    await EditPresentationModal.fillAndShowModal(presentation);
 
     // Form submission
     EditPresentationModal.setupFormSubmit(async (data) => {

@@ -4,6 +4,7 @@ Provides CRUD operations and querying by day.
 '''
 from datetime import datetime
 from flask import Blueprint, jsonify, request
+from sqlalchemy import func
 from website.models import BlockSchedule
 from website import db
 
@@ -30,7 +31,19 @@ block_schedule_bp = Blueprint('block_schedule', __name__)
 @block_schedule_bp.route('/', methods=['GET'])
 def get_schedules():
     ''' GET all blocks '''
-    schedules = BlockSchedule.query.all()
+    types_param = request.args.get('types') or request.args.get('type')
+    query = BlockSchedule.query
+
+    if types_param:
+        # Accept comma-separated list; case-insensitive match on block_type
+        type_list = [t.strip().lower() for t in types_param.split(',') if t.strip()]
+        if type_list:
+            query = query.filter(
+                BlockSchedule.block_type.isnot(None),
+                func.lower(BlockSchedule.block_type).in_(type_list)
+            )
+
+    schedules = query.all()
     return jsonify([s.to_dict() for s in schedules])
 
 
