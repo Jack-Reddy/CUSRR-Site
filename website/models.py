@@ -124,6 +124,8 @@ class User(db.Model):
         cascade='all, delete')
 
     def to_dict(self):
+        """turns user object into full dict"""
+        status = "complete" if self.presentation_id else "incomplete"
         """
         Return a full JSON representation of the user.
         """
@@ -136,6 +138,7 @@ class User(db.Model):
             "activity": self.activity,
             "presentation": self.presentation.title if self.presentation else None,
             "presentation_id": self.presentation_id,
+            "status": status,
             "auth": self.auth}
 
     def to_dict_basic(self):
