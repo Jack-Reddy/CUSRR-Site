@@ -36,7 +36,7 @@ def test_get_single_grade_404(client):
 
 
 def test_create_grade(client, sample_user_fixture, sample_presentation_fixture):
-    """POST /api/v1/grades/ creates a new grade."""
+    """POST /api/v1/grades/ creates a new grade and prevents duplicates."""
     payload = {
         "user_id": sample_user_fixture.id,
         "presentation_id": sample_presentation_fixture.id,
@@ -44,11 +44,19 @@ def test_create_grade(client, sample_user_fixture, sample_presentation_fixture):
         "criteria_2": 4,
         "criteria_3": 3
     }
+
+    # First creation should succeed
     res = client.post("/api/v1/grades/", json=payload)
     assert res.status_code == 201
     data = res.get_json()
     assert data["criteria_1"] == 5
     assert data["user_id"] == sample_user_fixture.id
+
+    # Attempt to create a second grade for the same user and presentation
+    res2 = client.post("/api/v1/grades/", json=payload)
+    assert res2.status_code == 400
+    assert "already" in res2.get_json()["error"].lower()
+
 
 
 def test_update_grade(client, sample_grade_fixture):

@@ -52,7 +52,7 @@ function renderOverview(sessions, overviewContainer) {
         <a href="#session-${session.id}" 
            class="card shadow-xs border-0 rounded-4 text-center p-3 text-decoration-none text-dark move-on-hover">
           <h6 class="mb-1 fw-bold">${session.title}</h6>
-          <p class="text-sm text-secondary mb-0">${formatTimeRange(session.startTime, session.endTime)}</p>
+          <p class="text-sm text-secondary mb-0">${formatTimeRange(session.start_time, session.end_time)}</p>
         </a>
       </div>
     `;
@@ -79,7 +79,7 @@ function renderDetails(sessions, detailsContainer, presentations) {
           <h5 class="fw-bold mb-1">${session.title}</h5>
           ${editBlockBtnHtml}
         </div>
-        <p class="text-secondary mb-1">${formatTimeRange(session.startTime, session.endTime)}</p>
+        <p class="text-secondary mb-1">${formatTimeRange(session.start_time, session.end_time)}</p>
         ${session.location ? `<p class="text-secondary mb-1">${session.location}</p>` : ""}
         ${session.description ? `<p class="small mb-0">${session.description}</p>` : ""}
     `;
@@ -278,13 +278,13 @@ async function editBlock(blockId) {
             return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
           }
 
-          if (data.startTime) {
-            data.start_time = toLocalIsoNoTZ(data.startTime);
-            delete data.startTime;
+          if (data.start_time) {
+            data.start_time = toLocalIsoNoTZ(data.start_time);
+            delete data.start_time;
           }
-          if (data.endTime) {
-            data.end_time = toLocalIsoNoTZ(data.endTime);
-            delete data.endTime;
+          if (data.end_time) {
+            data.end_time = toLocalIsoNoTZ(data.end_time);
+            delete data.end_time;
           }
 
         const id = data.id || blockId;
