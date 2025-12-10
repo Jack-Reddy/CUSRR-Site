@@ -11,6 +11,33 @@ function truncate(text, maxLen = 200) {
   return text.slice(0, maxLen).trim() + '…';
 }
 
+// Format a local datetime-local input value to `YYYY-MM-DDTHH:MM:SS` without timezone conversion
+function toLocalIsoNoTZ(val) {
+  if (!val) return val;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) return val + ':00';
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return val;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function normalizeBlockPayload(raw) {
+  const payload = { ...raw };
+
+  if (payload.startTime) payload.start_time = toLocalIsoNoTZ(payload.startTime);
+  else if (payload.start_time) payload.start_time = toLocalIsoNoTZ(payload.start_time);
+
+  if (payload.endTime) payload.end_time = toLocalIsoNoTZ(payload.endTime);
+  else if (payload.end_time) payload.end_time = toLocalIsoNoTZ(payload.end_time);
+
+  delete payload.startTime;
+  delete payload.endTime;
+
+  if (payload.id === '') delete payload.id;
+
+  return payload;
+}
+
 function formatPresenterName(p) {
   if (!p) return '';
   const first = p.firstname || p.first_name || p.first || '';
@@ -227,6 +254,7 @@ async function initializeScheduleUI() {
   const daySelect = document.getElementById('day-select');
   const overview = document.getElementById('schedule-overview');
   const details = document.getElementById('schedule-details');
+  const addBlockBtn = document.getElementById('add-block-btn');
 
   const days = await fetchDays();
 
@@ -248,6 +276,40 @@ async function initializeScheduleUI() {
   daySelect.addEventListener('change', () => {
     loadForDay(daySelect.value, overview, details);
   });
+
+  if (addBlockBtn && window.IS_ORGANIZER) {
+    addBlockBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const label = document.getElementById('editBlockModalLabel');
+      if (label) label.textContent = 'Add Schedule Block';
+
+      if (window.EditBlockModal) {
+        window.EditBlockModal.fillAndShowModal({
+          id: '',
+          day: daySelect.value || '',
+          title: '',
+          description: '',
+          location: '',
+          type: '',
+          sub_length: '',
+          start_time: '',
+          end_time: ''
+        });
+
+        window.EditBlockModal.setupFormSubmit(async (data) => {
+          const payload = normalizeBlockPayload(data);
+          const resp = await fetch('/api/v1/block-schedule/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!resp.ok) throw new Error(`Failed to create block: ${resp.status}`);
+
+          await loadForDay(daySelect.value, overview, details);
+        });
+      }
+    });
+  }
 }
 
 // -----------------------------
@@ -262,36 +324,20 @@ async function editBlock(blockId) {
     if (!resp.ok) throw new Error(`Failed to fetch block: ${resp.status}`);
     const block = await resp.json();
 
+    const label = document.getElementById('editBlockModalLabel');
+    if (label) label.textContent = 'Edit Schedule Block';
+
     if (window.EditBlockModal) {
       window.EditBlockModal.fillAndShowModal(block);
       window.EditBlockModal.setupFormSubmit(async (data) => {
-          // normalize datetime-local values and map to snake_case keys the backend expects
-          // Keep local time intact: datetime-local inputs are like `YYYY-MM-DDTHH:MM`.
-          function toLocalIsoNoTZ(val) {
-            if (!val) return val;
-            // If already in `YYYY-MM-DDTHH:MM` form, just add seconds
-            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) return val + ':00';
-            // Otherwise try to build a local datetime string from Date object without converting to UTC
-            const d = new Date(val);
-            if (Number.isNaN(d.getTime())) return val;
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-          }
+        const payload = normalizeBlockPayload(data);
+        const id = payload.id || blockId;
+        delete payload.id;
 
-          if (data.start_time) {
-            data.start_time = toLocalIsoNoTZ(data.start_time);
-            delete data.start_time;
-          }
-          if (data.end_time) {
-            data.end_time = toLocalIsoNoTZ(data.end_time);
-            delete data.end_time;
-          }
-
-        const id = data.id || blockId;
         const putResp = await fetch(`/api/v1/block-schedule/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify(payload)
         });
         if (!putResp.ok) throw new Error(`Failed to save block: ${putResp.status}`);
 

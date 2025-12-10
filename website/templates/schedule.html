@@ -6,7 +6,7 @@
 <div class="row g-4">
 
   <!-- Left Column -->
-  <div class="col-12 col-lg-8">
+  <!-- <div class="col-12 col-lg-8"> -->
 
     <!-- Day Selector -->
     <div class="mb-3">
@@ -27,16 +27,27 @@
     <!-- Bottom: Full Details -->
     <div id="schedule-details" class="vstack gap-3"></div>
 
-  </div>
+
+    <!-- Add new Schedule Block -->
+    {% if is_organizer %}
+    <div class="d-flex justify-content-end mt-4">
+      <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#editBlockModal" id="add-block-btn">
+        <i class="fas fa-plus me-2"></i>Add Schedule Block
+      </button>
+    </div>
+    {% endif %}
+
+  <!-- </div> -->
+
 
   <!-- Right Column -->
-  <div class="col-12 col-lg-4">
+  <!-- <div class="col-12 col-lg-4">
     <section id="future-content" class="text-secondary">
       <div class="card border-0 shadow-xs rounded-4 p-3 text-center">
         <p class="mb-0">Reserve for generated program at a glance.</p>
       </div>
     </section>
-  </div>
+  </div> -->
 
 </div>
 

@@ -39,6 +39,7 @@
   function setupFormSubmit(onSubmit) {
     const form = document.getElementById('editBlockForm');
     if (!form) return;
+    if (typeof onSubmit !== 'function') return;
 
     // Replace with clone to remove previous listeners
     const newForm = form.cloneNode(true);
@@ -51,15 +52,13 @@
 
       // normalize numeric field
       if (data.sub_length === "") delete data.sub_length;
-      if (data.id) {
-        // send to API
-        try {
-          await onSubmit(data);
-          bootstrap.Modal.getInstance(newForm.closest('.modal')).hide();
-        } catch (err) {
-          console.error('Failed to submit block form:', err);
-          alert('Error saving block changes.');
-        }
+
+      try {
+        await onSubmit(data);
+        bootstrap.Modal.getInstance(newForm.closest('.modal')).hide();
+      } catch (err) {
+        console.error('Failed to submit block form:', err);
+        alert('Error saving block changes.');
       }
     });
   }
