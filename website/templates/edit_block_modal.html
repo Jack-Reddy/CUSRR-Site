@@ -19,7 +19,14 @@
 
             <div class="col-md-6">
               <label for="editBlockType" class="form-label fw-semibold">Type</label>
-              <input type="text" id="editBlockType" name="block_type" class="form-control">
+              <select id="editBlockType" name="block_type" class="form-select">
+                <option value="">— Select Type —</option>
+                <option value="Break">Break</option>
+                <option value="Keynote">Keynote</option>
+                <option value="Poster">Poster</option>
+                <option value="Presentation">Presentation</option>
+                <option value="Blitz">Blitz</option>
+              </select>
             </div>
 
             <div class="col-12">
@@ -38,7 +45,7 @@
             </div>
 
             <div class="col-md-6">
-              <label for="editBlockSubLength" class="form-label fw-semibold">Sub Length (minutes)</label>
+              <label for="editBlockSubLength" class="form-label fw-semibold">Time per Presentation (minutes)</label>
               <input type="number" id="editBlockSubLength" name="sub_length" class="form-control">
             </div>
 
