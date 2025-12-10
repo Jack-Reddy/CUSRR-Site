@@ -4,7 +4,7 @@ Tests for authentication and role-based authorization
 (endpoints in website.__init__ and decorators in website.auth).
 """
 
-from flask import session
+from flask import jsonify
 import pytest
 
 from website import db
@@ -12,6 +12,18 @@ from website.models import User
 
 
 # role-specific user tests
+@pytest.fixture
+def app_with_presenter_route(app):
+    """Adds a test route using presenter_required decorator."""
+    from website.auth import presenter_required  # adjust import as needed
+
+    @app.route("/presenter-only")
+    @presenter_required
+    def presenter_route():
+        return jsonify({"ok": True})
+
+    yield app
+
 
 @pytest.fixture
 def organizer_user(app):
@@ -384,3 +396,67 @@ def test_abstract_grader_required_denies_non_grader_ajax(client, attendee_user):
     assert data["error"] == "forbidden"
     assert data["reason"] == "abstract_grader_required"
 
+
+def test_presenter_required_redirects_anonymous(client, app_with_presenter_route):
+    """Anonymous users are redirected to google login."""
+    res = client.get("/presenter-only", follow_redirects=False)
+    assert res.status_code == 302
+    assert "/google/login" in res.headers["Location"]
+
+
+def test_presenter_required_redirects_unknown_user(client, app_with_presenter_route):
+    """Users with email not in DB are redirected to signup."""
+    with client.session_transaction() as sess:
+        sess["user"] = {"email": "nouser@example.com"}
+
+    res = client.get("/presenter-only", follow_redirects=False)
+    assert res.status_code == 302
+    assert "/signup" in res.headers["Location"]
+
+
+def test_presenter_required_denies_non_presenter(client, app, app_with_presenter_route, sample_user_fixture):
+    """Non-presenter and non-organizer users get 403 JSON error."""
+    sample_user_fixture.auth = "attendee"
+    db.session.commit()
+    with client.session_transaction() as sess:
+        sess["user"] = {"email": sample_user_fixture.email}
+
+    res = client.get("/presenter-only", headers={"X-Requested-With": "XMLHttpRequest"})
+    assert res.status_code == 403
+    data = res.get_json()
+    assert data["error"] == "forbidden"
+    assert data["reason"] == "presenter_required"
+
+
+def test_presenter_required_allows_presenter(client, app, app_with_presenter_route):
+    """Users with presenter role can access the route."""
+    # create presenter user
+    from website.models import User
+    with app.app_context():
+        user = User(firstname="Pres", lastname="User",
+                    email="presenter@example.com", activity="active", auth="presenter")
+        db.session.add(user)
+        db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess["user"] = {"email": "presenter@example.com"}
+
+    res = client.get("/presenter-only")
+    assert res.status_code == 200
+    assert res.get_json()["ok"] is True
+
+
+def test_presenter_required_allows_organizer(client, app, app_with_presenter_route):
+    """Users with organizer role can access the route."""
+    with app.app_context():
+        user = User(firstname="Org", lastname="User",
+                    email="organizer@example.com", activity="active", auth="organizer")
+        db.session.add(user)
+        db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess["user"] = {"email": "organizer@example.com"}
+
+    res = client.get("/presenter-only")
+    assert res.status_code == 200
+    assert res.get_json()["ok"] is True

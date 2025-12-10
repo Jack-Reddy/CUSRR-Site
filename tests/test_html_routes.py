@@ -1,5 +1,6 @@
 # pylint: disable=unused-argument
 """Tests for init.py html routes."""
+from website import db 
 
 def test_root_route_renders(client):
     """GET / should render the root route successfully."""
