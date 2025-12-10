@@ -1,19 +1,13 @@
 (function () {
-  const ASSIGNABLE_BLOCK_TYPES = ['Poster', 'Presentation', 'Blitz'];
-  let blocksPromise = null;
+  const blocksCache = new Map(); // cache blocks per type key
 
-  function toLocalDatetimeValue(val) {
-    if (!val) return '';
-    const d = new Date(val);
-    if (Number.isNaN(d.getTime())) return '';
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
+  async function fetchAssignableBlocks(presentationType) {
+    const normalizedType = (presentationType || '').toLowerCase();
+    const key = normalizedType || '__all__';
+    if (blocksCache.has(key)) return blocksCache.get(key);
 
-  async function fetchAssignableBlocks() {
-    if (blocksPromise) return blocksPromise;
-    const query = ASSIGNABLE_BLOCK_TYPES.length ? `?types=${ASSIGNABLE_BLOCK_TYPES.join(',')}` : '';
-    blocksPromise = fetch(`/api/v1/block-schedule/${query}`)
+    const query = normalizedType ? `?types=${encodeURIComponent(normalizedType)}` : '';
+    const promise = fetch(`/api/v1/block-schedule/${query}`)
       .then((resp) => {
         if (!resp.ok) throw new Error(`Failed to load blocks: ${resp.status}`);
         return resp.json();
@@ -29,7 +23,9 @@
         console.error(err);
         return [];
       });
-    return blocksPromise;
+
+    blocksCache.set(key, promise);
+    return promise;
   }
 
   function populateScheduleOptions(selectEl, blocks, selectedId) {
@@ -51,15 +47,14 @@
   }
 
   async function fillAndShowModal(presentation) {
-    
     const modalEl = document.getElementById('editPresentationModal');
     if (!modalEl) return;
 
     // Store the presentation data to reapply after form cloning
     window._currentPresentationData = presentation;
-    
-    // Pre-fetch blocks so they're ready
-    const blocks = await fetchAssignableBlocks();
+
+    // Pre-fetch blocks filtered by presentation type (if provided)
+    const blocks = await fetchAssignableBlocks(presentation.type || '');
     window._assignableBlocks = blocks;
 
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -73,12 +68,6 @@
     modalEl.querySelector('#editPresentationTitle').value = presentation.title || '';
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
-
-    const typeInput = modalEl.querySelector('#editPresentationType');
-    if (typeInput) typeInput.value = presentation.type || '';
-
-    const timeInput = modalEl.querySelector('#editPresentationTime');
-    if (timeInput) timeInput.value = toLocalDatetimeValue(presentation.time);
 
     const scheduleSelect = modalEl.querySelector('#editPresentationSchedule');
     if (window._assignableBlocks) {
