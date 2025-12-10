@@ -154,7 +154,7 @@ def get_presentations_by_type(category):
     valid_types = {"Poster", "Presentation", "Blitz"}
 
     # normalize input
-    category_lower = category.strip().lower()
+    category_lower = category.strip()
     if category_lower not in valid_types:
         return jsonify(
             {"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
