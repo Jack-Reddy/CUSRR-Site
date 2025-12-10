@@ -1,5 +1,5 @@
 (function () {
-  const ASSIGNABLE_BLOCK_TYPES = ['poster'];
+  const ASSIGNABLE_BLOCK_TYPES = ['poster', 'presentation', 'blitz'];
   let blocksPromise = null;
 
   function toLocalDatetimeValue(val) {
