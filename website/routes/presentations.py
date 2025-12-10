@@ -182,7 +182,9 @@ def get_presentations_by_day(day):
     Get all presentations for a specific day, grouped by poster blocks.
     :param day: The day to filter presentations by (e.g., "Day 1")
     '''
-    blocks = BlockSchedule.query.filter_by(day=day, block_type='poster').all()
+    blocks = BlockSchedule.query.filter(
+    BlockSchedule.day == day,
+    BlockSchedule.block_type.in_(["poster", "presentation", "blitz"])).all()
     result = []
     for block in blocks:
         # Order presentations by `num_in_block` if set, otherwise fallback to
