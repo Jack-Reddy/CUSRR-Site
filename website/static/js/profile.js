@@ -62,28 +62,44 @@ async function account_info() {
   }
 }
 
-// Show/hide partner email + submitter options
 function setupPartnerFields() {
   const yesRadio = document.getElementById('has-partner-yes');
   const noRadio = document.getElementById('has-partner-no');
   const partnerDetails = document.getElementById('partner-details');
+  const abstractMain = document.getElementById('abstract-main-fields');
+  const submitterMe = document.getElementById('submitter-me');
+  const submitterPartner = document.getElementById('submitter-partner');
 
-  if (!yesRadio || !noRadio || !partnerDetails) return;
+  if (!yesRadio || !noRadio || !partnerDetails || !abstractMain) return;
 
   const updateVisibility = () => {
-    if (yesRadio.checked) {
+    const hasPartner = yesRadio.checked;
+
+    // Show partner details only if they have a partner
+    if (hasPartner) {
       partnerDetails.classList.remove('d-none');
     } else {
       partnerDetails.classList.add('d-none');
+    }
+
+    const partnerIsSubmitting = hasPartner && submitterPartner && submitterPartner.checked;
+
+    // If partner is submitting, hide abstract fields (this user isn't submitting anything)
+    if (partnerIsSubmitting) {
+      abstractMain.classList.add('d-none');
+    } else {
+      abstractMain.classList.remove('d-none');
     }
   };
 
   yesRadio.addEventListener('change', updateVisibility);
   noRadio.addEventListener('change', updateVisibility);
+  if (submitterMe) submitterMe.addEventListener('change', updateVisibility);
+  if (submitterPartner) submitterPartner.addEventListener('change', updateVisibility);
 
-  // initial state
   updateVisibility();
 }
+
 
 // Decide which form to show (abstract vs upload) based on /me
 async function setupPresentationField() {
@@ -121,8 +137,6 @@ async function setupPresentationField() {
     console.error('Error setting up presentation field:', err);
   }
 }
-
-// Handle abstract signup logic, including partner behavior
 async function signupAbstract() {
   const div = document.getElementById('abstract-form');
   const messageDivId = 'abstract-message';
@@ -132,7 +146,6 @@ async function signupAbstract() {
     return;
   }
 
-  // Create or get a message container
   let msgDiv = document.getElementById(messageDivId);
   if (!msgDiv) {
     msgDiv = document.createElement('div');
@@ -143,7 +156,7 @@ async function signupAbstract() {
   msgDiv.innerHTML = '';
 
   try {
-    // Fetch user info
+    // 1. Get user
     const meResponse = await fetch('/me');
     if (!meResponse.ok) throw new Error(`Failed to get user info: ${meResponse.status}`);
     const user = await meResponse.json();
@@ -152,68 +165,79 @@ async function signupAbstract() {
       return;
     }
 
-    // Get form values
+    // 2. Partner-related logic
+    const hasPartnerRadio = document.querySelector('input[name="has-partner"]:checked');
+    const hasPartner = hasPartnerRadio ? hasPartnerRadio.value === 'yes' : false;
+
+    const submitterRoleRadio = document.querySelector('input[name="submitter-role"]:checked');
+    const submitterRole = submitterRoleRadio ? submitterRoleRadio.value : 'me';
+
+    const partnerEmailInput = document.getElementById('partner-email');
+    const partnerEmail = partnerEmailInput ? partnerEmailInput.value.trim() : '';
+
+    // CASE 1: Have partner, partner is submitting → no abstract, no email required, no request
+    if (hasPartner && submitterRole === 'partner') {
+      msgDiv.innerHTML = `
+        <p class="text-info">
+          You indicated that your partner will submit the abstract and presentation 
+          for your pair. You do not need to submit anything here.
+        </p>
+      `;
+      return;
+    }
+
+    // CASE 2: Have partner, I am submitting → partner email REQUIRED
+    if (hasPartner && submitterRole === 'me') {
+      if (!partnerEmail) {
+        msgDiv.innerHTML = '<p class="text-danger">Please enter your partner\'s email.</p>';
+        return;
+      }
+    }
+
+    // CASE 3: No partner → ignore email completely
+
+    // 3. Abstract fields (for whoever IS submitting)
     const title = document.getElementById('title').value.trim();
     const abstract = document.getElementById('Abstract').value.trim();
     const subject = document.getElementById('subject').value.trim();
     const typeSelect = document.getElementById('Type');
     const type = typeSelect.options[typeSelect.selectedIndex].text;
 
-    // Partner-related fields
-    const hasPartnerRadio = document.querySelector('input[name="has-partner"]:checked');
-    const hasPartner = hasPartnerRadio ? hasPartnerRadio.value === 'yes' : false;
-    const partnerEmailInput = document.getElementById('partner-email');
-    const partnerEmail = hasPartner && partnerEmailInput ? partnerEmailInput.value.trim() : '';
-
-    const submitterRoleRadio = document.querySelector('input[name="submitter-role"]:checked');
-    const submitterRole = submitterRoleRadio ? submitterRoleRadio.value : 'me';
-
     if (!title || !abstract || !subject) {
       msgDiv.innerHTML = '<p class="text-danger">Please fill in all required fields.</p>';
       return;
     }
 
-    if (hasPartner) {
-      if (!partnerEmail) {
-        msgDiv.innerHTML = '<p class="text-danger">Please enter your partner\'s email.</p>';
-        return;
-      }
+    // 4. Build payload. Only add partner_email in CASE 2.
+    const payload = {
+      title,
+      abstract,
+      subject,
+      time: '2026-11-04 13:30', // still fine for datetime.fromisoformat
+      room: null
+      // type is currently not used in backend; add if you add a column
+    };
 
-      // THIS is the non-submitting partner path:
-      if (submitterRole === 'partner') {
-        msgDiv.innerHTML = `
-          <p class="text-info">
-            You indicated that your partner will submit the abstract and presentation 
-            for your pair. Participants in pairs should only submit 
-            <strong>one</strong> abstract and <strong>one</strong> presentation.
-            You do not need to submit anything here.
-          </p>
-        `;
-        // 👉 Important: do NOT create a presentation, just stop.
-        return;
-      }
+    if (hasPartner && submitterRole === 'me') {
+      payload.partner_email = partnerEmail;
     }
 
-    // Submit abstract (this user is the submitting one)
+    // 5. Create presentation
     const response = await fetch('/api/v1/presentations/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        abstract,
-        subject,
-        type,
-        time: '2026-11-04 13:30', // Placeholder or remove when you add real scheduling
-        room: null,
-        partner_email: hasPartner ? partnerEmail : null
-      })
+      body: JSON.stringify(payload)
     });
 
-    if (!response.ok) throw new Error(`Failed to submit abstract: ${response.status}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      console.error('Submit error:', errData);
+      throw new Error(`Failed to submit abstract: ${response.status}`);
+    }
 
     const resultData = await response.json();
 
-    // Update current user with presentation_id
+    // 6. Tie this presentation to the currently logged-in user
     const userUpdate = await fetch(`/api/v1/users/${user.user_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -222,22 +246,23 @@ async function signupAbstract() {
 
     if (!userUpdate.ok) throw new Error(`Failed to update user: ${userUpdate.status}`);
 
-    // Success
     msgDiv.innerHTML = `
       <p class="text-success">
         Abstract submitted successfully! Title: ${resultData.title}.
-        ${hasPartner ? '<br>Remember: only one abstract and one presentation per pair.' : ''}
+        ${hasPartner && submitterRole === 'me'
+          ? '<br>Remember: only one abstract and one presentation per pair.'
+          : ''}
       </p>
     `;
 
-    // Switch to presentation form
     document.getElementById('abstract-form').classList.add('d-none');
     document.getElementById('presentation-form').classList.remove('d-none');
   } catch (error) {
     console.error('Error during signup:', error);
-    msgDiv.innerHTML = '<p class="text-danger">Signup failed. Please try again later.</p>';
+    msgDiv.innerHTML = '<p class="text-danger">Submission failed. Please try again later.</p>';
   }
 }
+
 
 // Upload final PPT/PPTX
 async function uploadPresentation() {

@@ -59,26 +59,7 @@
         <div id="abstract-form">
           <h5 class="text-center mb-3">Abstract Submission</h5>
 
-          <label for="title" class="form-label w-100">Title</label>
-          <input id="title" type="text" placeholder="Title" class="form-control">
-
-          <label for="subject" class="form-label w-100 mt-3">Subject</label>
-          <input id="subject" type="text" placeholder="Subject" class="form-control">
-
-          <div class="form-group mt-3">
-            <label for="Abstract" class="form-label">Abstract</label>
-            <textarea id="Abstract" name="Abstract" rows="4" class="form-control"></textarea>
-          </div>
-
-          <label for="Type" class="form-label w-100 mt-3">Type</label>
-          <select id="Type" class="form-select">
-            <option selected>Select your presentation type</option>
-            <option value="1">Presentation</option>
-            <option value="2">Blitz</option>
-            <option value="3">Poster</option>
-          </select>
-
-          <!-- Partner question -->
+          <!-- Partner question (NOW AT THE FRONT) -->
           <div class="mt-4">
             <label class="form-label d-block">Are you presenting with a partner?</label>
             <div class="form-check form-check-inline">
@@ -117,10 +98,34 @@
             </p>
           </div>
 
+          <!-- EVERYTHING BELOW HERE IS THE "ABSTRACT SUBMISSION PART" -->
+          <div id="abstract-main-fields" class="mt-4">
+            <label for="title" class="form-label w-100">Title</label>
+            <input id="title" type="text" placeholder="Title" class="form-control">
+
+            <label for="subject" class="form-label w-100 mt-3">Subject</label>
+            <input id="subject" type="text" placeholder="Subject" class="form-control">
+
+            <div class="form-group mt-3">
+              <label for="Abstract" class="form-label">Abstract</label>
+              <textarea id="Abstract" name="Abstract" rows="4" class="form-control"></textarea>
+            </div>
+
+            <label for="Type" class="form-label w-100 mt-3">Type</label>
+            <select id="Type" class="form-select">
+              <option selected>Select your presentation type</option>
+              <option value="1">Presentation</option>
+              <option value="2">Blitz</option>
+              <option value="3">Poster</option>
+            </select>
+          </div>
+
+          <!-- Submit button is now OUTSIDE abstract-main-fields so it's visible even for non-submitting partners -->
           <button id="abstract-submit" class="btn btn-primary mt-4 w-100">
-            Submit Abstract
+            Submit
           </button>
         </div>
+
 
         <!-- FORM B: FULL PRESENTATION UPLOAD (PPT/PPTX) -->
         <div id="presentation-form" class="mt-5 d-none">
