@@ -30,7 +30,7 @@ function getIncompleteStatusEmails() {
   return rows
     .filter((u) => {
       if (!u) return false;
-      if ((u.auth || '').trim().toLowerCase() !== 'attendee') return false;
+      if ((u.auth || '').trim().toLowerCase() !== 'presenter') return false;
       const raw = u.status;
       if (raw === null || raw === undefined) return true;
       if (typeof raw === 'string') {
@@ -46,7 +46,7 @@ function getIncompleteStatusEmails() {
 async function copyIncompleteStatusEmails() {
   const emails = getIncompleteStatusEmails();
   if (!emails.length) {
-    alert('No attendees with status = Incomplete to copy.');
+    alert('No presenters with status = Incomplete to copy.');
     return;
   }
 
