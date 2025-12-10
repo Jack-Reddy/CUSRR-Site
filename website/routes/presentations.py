@@ -183,8 +183,7 @@ def get_presentations_by_day(day):
     :param day: The day to filter presentations by (e.g., "Day 1")
     '''
     blocks = BlockSchedule.query.filter(
-    BlockSchedule.day == day,
-    BlockSchedule.block_type.in_(["Poster", "Presentation", "Blitz"])).all()
+    BlockSchedule.day == day).all()
     result = []
     for block in blocks:
         # Order presentations by `num_in_block` if set, otherwise fallback to

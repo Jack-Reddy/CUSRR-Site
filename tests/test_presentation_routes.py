@@ -126,7 +126,7 @@ def test_get_presentations_by_type(client, sample_block_fixture, app):
         db.session.add(pres)
         db.session.commit()
 
-    res = client.get("/api/v1/presentations/type/poster")
+    res = client.get("/api/v1/presentations/type/Poster")
     assert res.status_code == 200
     assert len(res.get_json()) == 1
     assert res.get_json()[0]["title"] == "Poster Dude"
