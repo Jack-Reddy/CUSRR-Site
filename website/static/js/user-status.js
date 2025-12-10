@@ -30,6 +30,7 @@ function getIncompleteStatusEmails() {
   return rows
     .filter((u) => {
       if (!u) return false;
+      if ((u.auth || '').trim().toLowerCase() !== 'attendee') return false;
       const raw = u.status;
       if (raw === null || raw === undefined) return true;
       if (typeof raw === 'string') {
