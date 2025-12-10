@@ -38,16 +38,35 @@
     blocks.forEach((block) => {
       const label = `${block.day} — ${block.title || 'Untitled'} (${block.start_time || ''})`;
       const opt = document.createElement('option');
-      opt.value = block.id;
+      opt.value = String(block.id);
       opt.textContent = label;
       selectEl.appendChild(opt);
     });
+    
+    // Set the selected value after all options are added
     if (selectedId !== undefined && selectedId !== null && selectedId !== '') {
       selectEl.value = String(selectedId);
+      console.log('Setting schedule dropdown to:', selectedId, 'Result:', selectEl.value);
     }
   }
 
   async function fillAndShowModal(presentation) {
+    
+    const modalEl = document.getElementById('editPresentationModal');
+    if (!modalEl) return;
+
+    // Store the presentation data to reapply after form cloning
+    window._currentPresentationData = presentation;
+    
+    // Pre-fetch blocks so they're ready
+    const blocks = await fetchAssignableBlocks();
+    window._assignableBlocks = blocks;
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+  
+  function populateFormFields(presentation) {
     const modalEl = document.getElementById('editPresentationModal');
     if (!modalEl) return;
 
@@ -62,15 +81,13 @@
     if (timeInput) timeInput.value = toLocalDatetimeValue(presentation.time);
 
     const scheduleSelect = modalEl.querySelector('#editPresentationSchedule');
-    const blocks = await fetchAssignableBlocks();
-    populateScheduleOptions(scheduleSelect, blocks, presentation.schedule_id);
+    if (window._assignableBlocks) {
+      populateScheduleOptions(scheduleSelect, window._assignableBlocks, presentation.schedule_id);
+    }
 
     // populate hidden presentation id so the form includes it explicitly
     const idInput = modalEl.querySelector('#editPresentationId');
     if (idInput) idInput.value = presentation.id || '';
-
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
   }
 
   function setupFormSubmit(onSubmit) {
@@ -81,6 +98,11 @@
     // This prevents multiple submissions being sent when the modal is opened repeatedly.
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
+
+    // After cloning, repopulate the form fields with the stored presentation data
+    if (window._currentPresentationData) {
+      populateFormFields(window._currentPresentationData);
+    }
 
     newForm.addEventListener('submit', async (e) => {
       e.preventDefault();
