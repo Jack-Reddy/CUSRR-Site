@@ -14,7 +14,7 @@ function truncate(str, n) {
 
   function createCard(p) {
     const col = document.createElement('div');
-    col.className = "col";               // <- remove abstract-card from the column
+    col.className = "col";               
     col.dataset.card = "";
     col.dataset.status = p.status;
     col.dataset.id = p.id;
@@ -29,10 +29,9 @@ function truncate(str, n) {
                 ? `<span class="btn btn-success rounded-circle p-0" style="width:36px;height:36px">
                      <i class="fas fa-check"></i>
                    </span>`
-                : `<button class="btn btn-outline-secondary rounded-circle p-0 status-toggle"
-                     style="width:36px;height:36px" aria-pressed="false" title="Mark as completed">
+                : `<span class="btn btn-secondary rounded-circle p-0" style="width:36px;height:36px">
                      <i class="far fa-circle"></i>
-                   </button>`
+                   </span>`
               }
             </div>
   
@@ -45,9 +44,7 @@ function truncate(str, n) {
               <p class="text-sm mb-2">${ truncate(p.abstract || "", 120) }</p>
   
               <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-sm btn-outline-info px-2" href="/abstract_scoring?id=${p.id}">Grade</a>
-
-
+                <a class="btn btn-sm btn-outline-info px-2" href="/abstract_scoring?id=${p.id}">Grade</a>
               </div>
             </div>
           </div>
@@ -56,7 +53,6 @@ function truncate(str, n) {
     return col;
   }
   
-
   // Render cards
   function renderCards() {
     todoGrid.innerHTML = "";
@@ -101,40 +97,6 @@ function truncate(str, n) {
       `${pct}% complete · ${done}/${total}`;
   }
 
-  // Status toggle
-  document.addEventListener('click', e => {
-    const btn = e.target.closest('.status-toggle');
-    if (!btn) return;
-
-    const col = btn.closest('[data-card]');
-    const id = parseInt(col.dataset.id);
-
-    const p = presentations.find(x => x.id === id);
-    if (!p) return;
-
-    if (col.dataset.status === "done") {
-      col.dataset.status = "todo";
-      p.status = "todo";
-      todoGrid.append(col);
-
-      btn.classList.remove("btn-success");
-      btn.classList.add("btn-outline-secondary");
-      btn.innerHTML = '<i class="far fa-circle"></i>';
-
-    } else {
-      col.dataset.status = "done";
-      p.status = "done";
-      completedGrid.append(col);
-
-      btn.classList.remove("btn-outline-secondary");
-      btn.classList.add("btn-success");
-      btn.innerHTML = '<i class="fas fa-check"></i>';
-    }
-
-    updateProgress();
-    applyFilters();
-  });
-
   // Search
   searchInput.addEventListener('input', () => {
     query = searchInput.value.trim().toLowerCase();
@@ -156,11 +118,28 @@ function truncate(str, n) {
     const res = await fetch("/api/v1/presentations");
     presentations = await res.json();
 
-    // Ensure status exists
+    const meRes = await fetch("/me");
+    const meData = await meRes.json();
+
+    if (!meData.authenticated || !meData.user_id) {
+      console.warn("No logged-in user; skipping completion sync.");
+      renderCards();
+      return;
+    }
+
+    const completedRes = await fetch(`/api/v1/abstractgrades/completed/${meData.user_id}`);
+    const completedData = await completedRes.json();
+    const completedIds = new Set(completedData.completed);
+
     presentations.forEach(p => {
-      if (!p.status) p.status = "todo"; // default
+      if (completedIds.has(p.id)) {
+        p.status = "done";
+      } else if (!p.status) {
+        p.status = "todo";
+      }
     });
 
+    // Render
     renderCards();
   }
 
