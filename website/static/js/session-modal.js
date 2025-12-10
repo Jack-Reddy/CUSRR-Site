@@ -74,49 +74,62 @@
     modal.show();
   }
 
-  async function submitGradeForm(ev) {
-    ev.preventDefault();
-    const gm = document.getElementById('gradeModal');
-    const presentationId = gm.querySelector('#gPresentationId').value;
-    const criteria_1 = Number(gm.querySelector('#gScoreOrig').value) || 0;
-    const criteria_2 = Number(gm.querySelector('#gScoreClar').value) || 0;
-    const criteria_3 = Number(gm.querySelector('#gScoreSign').value) || 0;
-    const comments = gm.querySelector('#gComments').value || '';
+async function submitGradeForm(ev) {
+  ev.preventDefault();
+  const gm = document.getElementById('gradeModal');
+  const form = gm.querySelector('form');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
 
-    // get current user id from /me
-    let userId = null;
-    try {
-      const resp = await fetch('/me', { credentials: 'same-origin' });
-      if (!resp.ok) throw new Error('not authenticated');
-      const data = await resp.json();
-      userId = data.user_id;
-    } catch (e) {
-      alert('You must be logged in to submit a grade.');
+  const presentationId = gm.querySelector('#gPresentationId').value;
+  const criteria_1 = Number(gm.querySelector('#gScoreOrig').value) || 0;
+  const criteria_2 = Number(gm.querySelector('#gScoreClar').value) || 0;
+  const criteria_3 = Number(gm.querySelector('#gScoreSign').value) || 0;
+  const comments = gm.querySelector('#gComments').value || '';
+
+  let userId;
+  try {
+    const resp = await fetch('/me', { credentials: 'same-origin' });
+    if (!resp.ok) throw new Error('not authenticated');
+    userId = (await resp.json()).user_id;
+  } catch (e) {
+    alert('You must be logged in to submit a grade.');
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+
+  const payload = { user_id: userId, presentation_id: presentationId, criteria_1, criteria_2, criteria_3, comments };
+
+  try {
+    const resp = await fetch('/api/v1/grades/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'same-origin'
+    });
+
+    let errData = {};
+    try { errData = await resp.json(); } catch (_) {}
+
+    if (!resp.ok) {
+      alert(errData.error || errData.message || 'Failed to submit grade');
+      if (submitBtn) submitBtn.disabled = false;
       return;
     }
 
-    const payload = { user_id: userId, presentation_id: presentationId, criteria_1, criteria_2, criteria_3, comments };
+    // success
+    const modal = bootstrap.Modal.getInstance(gm);
+    if (modal) modal.hide();
+    form.reset();
+    alert('Grade submitted successfully');
 
-    try {
-      const resp = await fetch('/api/v1/grades/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'same-origin'
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to submit grade');
-      }
-      // success
-      const modal = bootstrap.Modal.getInstance(gm);
-      if (modal) modal.hide();
-      alert('Grade submitted successfully');
-    } catch (err) {
-      console.error('Grade submit error', err);
-      alert('Could not submit grade: ' + (err.message || err));
-    }
+  } catch (err) {
+    console.error('Grade submit error', err);
+    alert('Could not submit grade: ' + (err.message || err));
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
+}
 
   function updateGradeScores() {
     const oEl = document.getElementById('gScoreOrig');
