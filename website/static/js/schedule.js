@@ -278,12 +278,29 @@ async function initializeScheduleUI() {
   });
 
   if (addBlockBtn && window.IS_ORGANIZER) {
-    addBlockBtn.addEventListener('click', (e) => {
+    addBlockBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       const label = document.getElementById('editBlockModalLabel');
       if (label) label.textContent = 'Add Schedule Block';
 
       if (window.EditBlockModal) {
+        // Fetch existing blocks for the selected day to extract date info
+        const sessions = await fetchScheduleByDay(daySelect.value);
+        
+        let defaultStartTime = '';
+        let defaultEndTime = '';
+        
+        if (sessions.length > 0) {
+          // Extract the date from the first block's start_time
+          const firstBlockStart = new Date(sessions[0].start_time);
+          const pad = (n) => String(n).padStart(2, '0');
+          const dateStr = `${firstBlockStart.getFullYear()}-${pad(firstBlockStart.getMonth() + 1)}-${pad(firstBlockStart.getDate())}`;
+          
+          // Default to 09:00 start and 10:00 end on that date
+          defaultStartTime = `${dateStr}T09:00`;
+          defaultEndTime = `${dateStr}T10:00`;
+        }
+
         window.EditBlockModal.fillAndShowModal({
           id: '',
           day: daySelect.value || '',
@@ -292,8 +309,8 @@ async function initializeScheduleUI() {
           location: '',
           type: '',
           sub_length: '',
-          start_time: '',
-          end_time: ''
+          start_time: defaultStartTime,
+          end_time: defaultEndTime
         });
 
         window.EditBlockModal.setupFormSubmit(async (data) => {
