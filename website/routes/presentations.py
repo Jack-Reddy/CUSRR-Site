@@ -25,8 +25,6 @@ def get_presentations():
     return jsonify([p.to_dict() for p in presentations])
 
 
-
-
 @presentations_bp.route('/<int:presentation_id>', methods=['GET'])
 def get_presentation(presentation_id):
     ''' GET one presentation '''
@@ -36,12 +34,16 @@ def get_presentation(presentation_id):
 
 @presentations_bp.route('/', methods=['POST'])
 def create_presentation():
-    ''' POST create presentation '''
-    data = request.get_json()
-    
-    # Accept either schedule_id or block_id
+
+    data = request.get_json() or {}
     schedule_id = data.get('schedule_id') or data.get('block_id')
-    
+    time_str = data.get('time')
+
+    try:
+        presentation_time = datetime.fromisoformat(time_str)
+    except ValueError:
+        return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
+
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
@@ -50,8 +52,20 @@ def create_presentation():
     )
 
     db.session.add(new_presentation)
+    db.session.flush()  
+
+    partner_email = data.get("partner_email")
+    if partner_email:
+        partner_user = User.query.filter_by(email=partner_email).first()
+        if not partner_user:
+            db.session.rollback()
+            return jsonify({"error": f"No user found with email {partner_email}"}), 400
+
+        partner_user.presentation_id = new_presentation.id
+
     db.session.commit()
     return jsonify(new_presentation.to_dict()), 201
+
 
 
 @presentations_bp.route('/<int:presentation_id>', methods=['PUT'])

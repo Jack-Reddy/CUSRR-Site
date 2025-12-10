@@ -131,7 +131,7 @@ def create_app(test_config=None):
         '''
         return render_template('dashboard.html')
 
-    @app.route('/abstractGrader')
+    @app.route('/abstract-grader')
     @auth.banned_user_redirect
     @auth.abstract_grader_required
     def abstract_grader():
@@ -139,7 +139,7 @@ def create_app(test_config=None):
         Render the abstract grader page.
         Permissions: Abstract Grader required.
         '''
-        return render_template('abstractGrader.html')
+        return render_template('abstract-grader.html')
 
     @app.route('/organizer-user-status')
     @auth.banned_user_redirect
@@ -346,7 +346,7 @@ def create_app(test_config=None):
 
         return render_template('profile.html', abstract = False)
 
-    @app.route('/abstract_scoring')
+    @app.route('/abstract-scoring')
     @auth.abstract_grader_required
     def abstract_scoring():
         '''
@@ -367,7 +367,7 @@ def create_app(test_config=None):
                 user_id = db_user.id
 
         return render_template(
-            "abstractScoring.html",
+            "abstract-scoring.html",
             presentation=presentation,
             user_id=user_id  # pass user_id to template
         )

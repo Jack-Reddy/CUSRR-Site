@@ -249,6 +249,33 @@ def test_organizer_required_allows_organizer(client, organizer_user):
     res = client.get("/organizer-user-status")
     assert res.status_code == 200
 
+def test_grade_dashboard_accesible_to_organizer(client, organizer_user):
+    """
+    Organizer user should be able to access /abstract-grader.
+    """
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "email": organizer_user.email,
+            "name": "Org User",
+        }
+
+    res = client.get("/abstract-grader")
+    assert res.status_code == 200
+
+def test_grade_dashboard_denies_non_organizer(client, attendee_user):
+    """
+    Non-organizer user should be redirected when accessing /abstract-grader.
+    """
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "email": attendee_user.email,
+            "name": "Attendee User",
+        }
+
+    res = client.get("/abstract-grader", follow_redirects=False)
+    assert res.status_code == 302
+    assert "/dashboard" in res.headers["Location"]
+
 
 def test_organizer_required_denies_non_organizer_html(client, attendee_user):
     """
@@ -291,21 +318,21 @@ def test_organizer_required_denies_non_organizer_ajax(client, attendee_user):
 
 def test_abstract_grader_required_redirects_anonymous(client):
     """
-    /abstractGrader with no session redirects to /google/login.
+    /abstract-grader with no session redirects to /google/login.
     """
-    res = client.get("/abstractGrader", follow_redirects=False)
+    res = client.get("/abstract-grader", follow_redirects=False)
     assert res.status_code == 302
     assert "/google/login" in res.headers["Location"]
 
 
 def test_abstract_grader_required_redirects_unknown_email(client):
     """
-    /abstractGrader with email not in DB redirects to /signup.
+    /abstract-grader with email not in DB redirects to /signup.
     """
     with client.session_transaction() as sess:
         sess["user"] = {"email": "unknown@example.com", "name": "Unknown"}
 
-    res = client.get("/abstractGrader", follow_redirects=False)
+    res = client.get("/abstract-grader", follow_redirects=False)
     assert res.status_code == 302
     assert "/signup" in res.headers["Location"]
 
@@ -320,13 +347,13 @@ def test_abstract_grader_required_allows_abstract_grader(client, abstract_grader
             "name": "Abstract Grader",
         }
 
-    res = client.get("/abstractGrader")
+    res = client.get("/abstract-grader")
     assert res.status_code == 200
 
 
 def test_abstract_grader_required_allows_organizer(client, organizer_user):
     """
-    Organizer also has access to /abstractGrader.
+    Organizer also has access to /abstract-grader.
     """
     with client.session_transaction() as sess:
         sess["user"] = {
@@ -334,7 +361,7 @@ def test_abstract_grader_required_allows_organizer(client, organizer_user):
             "name": "Organizer",
         }
 
-    res = client.get("/abstractGrader")
+    res = client.get("/abstract-grader")
     assert res.status_code == 200
 
 
@@ -349,10 +376,11 @@ def test_abstract_grader_required_denies_non_grader_ajax(client, attendee_user):
         }
 
     res = client.get(
-        "/abstractGrader",
+        "/abstract-grader",
         headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert res.status_code == 403
     data = res.get_json()
     assert data["error"] == "forbidden"
     assert data["reason"] == "abstract_grader_required"
+

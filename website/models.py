@@ -183,7 +183,7 @@ class Grade(db.Model):
 
     grader = db.relationship('User', back_populates='grades_given')
     presentation = db.relationship('Presentation', back_populates='grades')
-
+    
     def to_dict(self):
         """
         Return a dictionary describing the grade.
