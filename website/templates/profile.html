@@ -22,12 +22,6 @@
           </a>
         </li>
 
-        <!-- <li class="nav-item">
-          <a class="nav-link" data-bs-toggle="tab" href="#dashboard" role="tab">
-            Dashboard
-          </a>
-        </li> -->
-
       </ul>
     </div>
   </div>
@@ -38,10 +32,8 @@
 
   <!-- ===================== TAB 1: ACCOUNT INFO ===================== -->
   <div class="tab-pane fade show active" id="account-info" role="tabpanel">
-
     <div class="row">
       <div class="col-12 col-lg-8 mx-auto">
-
         <h4 class="mb-3 text-center">My Account Information</h4>
 
         <div class="card p-4 shadow-sm" id="account-info-container">
@@ -51,10 +43,8 @@
         <div class="text-center py-3 border-top mt-4">
           <button id="delete-account-btn" class="btn btn-danger">Delete Account</button>
         </div>
-
       </div>
     </div>
-
   </div>
 
   <!-- ===================== TAB 2: PRESENTATION REGISTRATION ===================== -->
@@ -67,7 +57,6 @@
 
         <!-- FORM A: ABSTRACT SUBMISSION -->
         <div id="abstract-form">
-
           <h5 class="text-center mb-3">Abstract Submission</h5>
 
           <label for="title" class="form-label w-100">Title</label>
@@ -131,56 +120,44 @@
           <button id="abstract-submit" class="btn btn-primary mt-4 w-100">
             Submit Abstract
           </button>
-
         </div>
 
-        <!-- FORM B: FULL PRESENTATION UPLOAD -->
-    <div id="presentation-form" class="mt-5 d-none">
+        <!-- FORM B: FULL PRESENTATION UPLOAD (PPT/PPTX) -->
+        <div id="presentation-form" class="mt-5 d-none">
+          <h5 class="text-center mb-3">Full Presentation Upload</h5>
 
-      <h5 class="text-center mb-3">Full Presentation Upload</h5>
+          <p class="text-muted text-center mb-4">
+            Please upload a <strong>.PPT</strong> or <strong>.PPTX</strong> version of your final presentation.
+          </p>
 
-      <p class="text-muted text-center mb-4">
-        Please upload a <strong>.PPT or.PPTX</strong> version of your final presentation.
-      </p>
+          <div class="card p-4 shadow-sm">
 
-      <div class="card p-4 shadow-sm">
+            <!-- PPT/PPTX Upload -->
+            <div class="mt-4">
+              <label for="presentation-ppt" class="form-label">Upload Presentation File</label>
+              <input 
+                id="presentation-ppt"
+                type="file" 
+                class="form-control"
+                accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              >
+              <div class="form-text mt-1">
+                Allowed formats: <strong>.ppt</strong>, <strong>.pptx</strong> — Max size: 20MB
+              </div>
+            </div>
 
-        <!-- PPT/PPTX Upload -->
-        <input 
-          id="presentation-ppt"
-          type="file" 
-          class="form-control"
-          accept=".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        />
-      
-          <div class="form-text mt-1">
-            Allowed format: <strong>.ppt, .pptx</strong> — Max size: 20MB
+            <!-- Submit Button -->
+            <button id="presentation-submit" class="btn btn-success mt-4 w-100">
+              Submit Final Presentation
+            </button>
           </div>
         </div>
-      
-        <!-- Submit Button -->
-        <button id="presentation-submit" class="btn btn-success mt-4 w-100">
-          Submit Final Presentation
-        </button>
 
-    </div>
-  </div>
+      </div> <!-- col -->
+    </div> <!-- row -->
+  </div> <!-- tab-pane presentation-registration -->
 
-  <!-- ===================== TAB 3: DASHBOARD ===================== -->  
-  <!--
-  <div class="tab-pane fade" id="dashboard" role="tabpanel">
-    <div class="row">
-      <div class="col-12 col-lg-8 mx-auto">
-        <h4 class="mb-3 text-center">Dashboard</h4>
-        <div class="card p-4 shadow-sm">
-          test
-        </div>
-      </div>
-    </div>
-
-  </div> -->
-
-</div>
+</div> <!-- tab-content -->
 
 {% endblock %}
 
@@ -188,4 +165,3 @@
   {{ super() }}
   <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 {% endblock %}
-

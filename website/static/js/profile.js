@@ -1,5 +1,5 @@
-
-removeUser = async function() {
+// Delete account
+removeUser = async function () {
   if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
     return;
   }
@@ -14,6 +14,7 @@ removeUser = async function() {
       alert('You must be signed in to delete your account.');
       return;
     }
+
     const userId = user.user_id;
 
     const response = await fetch(`/api/v1/users/${userId}`, {
@@ -24,13 +25,104 @@ removeUser = async function() {
       throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
     }
 
-    window.location.href = '/'; // Redirect to homepage after deletion
+    window.location.href = '/';
   } catch (err) {
     console.error('Failed to delete user', err);
     alert('Could not delete user.');
   }
+};
+
+// Load account info into tab 1
+async function account_info() {
+  const div = document.getElementById('account-info-container');
+  if (!div) return;
+
+  try {
+    const meResponse = await fetch('/me');
+    if (!meResponse.ok) {
+      throw new Error(`Failed to get user info: ${meResponse.status} ${meResponse.statusText}`);
+    }
+
+    const user = await meResponse.json();
+    if (!user.authenticated) {
+      div.innerHTML = '<p class="text-danger">You must be signed in to view account information.</p>';
+      return;
+    }
+
+    div.innerHTML = `
+      <p><strong>Name:</strong> ${user.name}</p>
+      <p><strong>Email:</strong> ${user.email}</p>
+      <p><strong>Role:</strong> ${user.auth}</p>
+      <p><strong>Activity:</strong> ${user.activity || 'N/A'}</p>
+      <p><strong>Presentation ID:</strong> ${user.presentation_id || 'N/A'}</p>
+    `;
+  } catch (error) {
+    console.error('Error fetching account info:', error);
+    div.innerHTML = '<p class="text-danger">Could not load account information.</p>';
+  }
 }
 
+// Show/hide partner email + submitter options
+function setupPartnerFields() {
+  const yesRadio = document.getElementById('has-partner-yes');
+  const noRadio = document.getElementById('has-partner-no');
+  const partnerDetails = document.getElementById('partner-details');
+
+  if (!yesRadio || !noRadio || !partnerDetails) return;
+
+  const updateVisibility = () => {
+    if (yesRadio.checked) {
+      partnerDetails.classList.remove('d-none');
+    } else {
+      partnerDetails.classList.add('d-none');
+    }
+  };
+
+  yesRadio.addEventListener('change', updateVisibility);
+  noRadio.addEventListener('change', updateVisibility);
+
+  // initial state
+  updateVisibility();
+}
+
+// Decide which form to show (abstract vs upload) based on /me
+async function setupPresentationField() {
+  try {
+    const meResponse = await fetch('/me');
+    if (!meResponse.ok) {
+      console.error('Failed to get user info for presentation field setup.');
+      return;
+    }
+
+    const user = await meResponse.json();
+    if (!user.authenticated) {
+      console.error('User not authenticated for presentation field setup.');
+      return;
+    }
+
+    const abstractForm = document.getElementById('abstract-form');
+    const presentationForm = document.getElementById('presentation-form');
+
+    if (!abstractForm || !presentationForm) {
+      console.error('Form containers not found!');
+      return;
+    }
+
+    if (user.presentation_id) {
+      // An abstract already exists for this user (or their pair)
+      abstractForm.classList.add('d-none');
+      presentationForm.classList.remove('d-none');
+    } else {
+      // No abstract yet -> show abstract form
+      abstractForm.classList.remove('d-none');
+      presentationForm.classList.add('d-none');
+    }
+  } catch (err) {
+    console.error('Error setting up presentation field:', err);
+  }
+}
+
+// Handle abstract signup logic, including partner behavior
 async function signupAbstract() {
   const div = document.getElementById('abstract-form');
   const messageDivId = 'abstract-message';
@@ -48,7 +140,7 @@ async function signupAbstract() {
     msgDiv.classList.add('mt-3');
     div.prepend(msgDiv);
   }
-  msgDiv.innerHTML = ''; // Clear previous messages
+  msgDiv.innerHTML = '';
 
   try {
     // Fetch user info
@@ -87,7 +179,7 @@ async function signupAbstract() {
         return;
       }
 
-      // If they say the partner is submitting, do not create a presentation
+      // THIS is the non-submitting partner path:
       if (submitterRole === 'partner') {
         msgDiv.innerHTML = `
           <p class="text-info">
@@ -97,6 +189,7 @@ async function signupAbstract() {
             You do not need to submit anything here.
           </p>
         `;
+        // 👉 Important: do NOT create a presentation, just stop.
         return;
       }
     }
@@ -110,7 +203,7 @@ async function signupAbstract() {
         abstract,
         subject,
         type,
-        time: '2026-11-04 13:30', // Placeholder
+        time: '2026-11-04 13:30', // Placeholder or remove when you add real scheduling
         room: null,
         partner_email: hasPartner ? partnerEmail : null
       })
@@ -120,7 +213,7 @@ async function signupAbstract() {
 
     const resultData = await response.json();
 
-    // Update user with presentation_id
+    // Update current user with presentation_id
     const userUpdate = await fetch(`/api/v1/users/${user.user_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -129,7 +222,7 @@ async function signupAbstract() {
 
     if (!userUpdate.ok) throw new Error(`Failed to update user: ${userUpdate.status}`);
 
-    // Show success and switch to full presentation form
+    // Success
     msgDiv.innerHTML = `
       <p class="text-success">
         Abstract submitted successfully! Title: ${resultData.title}.
@@ -137,7 +230,7 @@ async function signupAbstract() {
       </p>
     `;
 
-    // Hide abstract form, show presentation form
+    // Switch to presentation form
     document.getElementById('abstract-form').classList.add('d-none');
     document.getElementById('presentation-form').classList.remove('d-none');
   } catch (error) {
@@ -146,154 +239,83 @@ async function signupAbstract() {
   }
 }
 
-async function account_info() {
-  const div = document.getElementById('account-info-container');
-
-  if (!div) {
-    console.error('Account info container not found!');
+// Upload final PPT/PPTX
+async function uploadPresentation() {
+  const fileInput = document.getElementById('presentation-ppt');
+  if (!fileInput || !fileInput.files.length) {
+    alert("Please select a presentation file first.");
     return;
   }
 
-  try {
-    const meResponse = await fetch('/me');
-    if (!meResponse.ok) {
-      throw new Error(`Failed to get user info: ${meResponse.status} ${meResponse.statusText}`);
-    }
+  // Optional: basic size limit check (20MB)
+  const file = fileInput.files[0];
+  const maxBytes = 20 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    alert("File is too large. Max size is 20MB.");
+    return;
+  }
 
-    const user = await meResponse.json();
-    if (!user.authenticated) {
-      div.innerHTML = '<p class="text-danger">You must be signed in to view account information.</p>';
-      return;
-    }
+  // Get logged-in user (we need presentation_id)
+  const meResponse = await fetch('/me');
+  if (!meResponse.ok) {
+    alert("Unable to verify user.");
+    return;
+  }
 
-    div.innerHTML = `
-      <p><strong>Name:</strong> ${user.name}</p>
-      <p><strong>Email:</strong> ${user.email}</p>
-      <p><strong>Role:</strong> ${user.auth}</p>
-      <p><strong>Activity:</strong> ${user.activity || 'N/A'}</p>
-      <p><strong>Presentation ID:</strong> ${user.presentation_id || 'N/A'}</p>
-    `;
-  } catch (error) {
-    console.error('Error fetching account info:', error);
-    div.innerHTML = '<p class="text-danger">Could not load account information.</p>';
+  const user = await meResponse.json();
+  if (!user.presentation_id) {
+    alert("You must submit an abstract before uploading your final presentation.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  // Optionally send title/notes if you want to use them
+  const finalTitle = document.getElementById('final-title')?.value || '';
+  const notes = document.getElementById('presentation-notes')?.value || '';
+  formData.append("title", finalTitle);
+  formData.append("notes", notes);
+
+  const response = await fetch(`/api/v1/presentations/${user.presentation_id}/upload`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (response.ok) {
+    alert("Presentation uploaded successfully!");
+    fileInput.value = "";
+  } else {
+    const err = await response.json().catch(() => ({ error: "Upload failed" }));
+    alert("Error: " + err.error);
   }
 }
 
-// ✅ This is the function your error said was missing
-async function setupPresentationField() {
-  try {
-    // Fetch user info
-    const meResponse = await fetch('/me');
-    if (!meResponse.ok) {
-      console.error('Failed to get user info for presentation field setup.');
-      return;
-    }
-
-    const user = await meResponse.json();
-
-    if (!user.authenticated) {
-      console.error('User not authenticated for presentation field setup.');
-      return;
-    }
-
-    // Get form containers
-    const abstractForm = document.getElementById('abstract-form');
-    const presentationForm = document.getElementById('presentation-form');
-
-    if (!abstractForm || !presentationForm) {
-      console.error('Form containers not found!');
-      return;
-    }
-
-    if (user.presentation_id) {
-      // User has submitted abstract, show presentation form, hide abstract form
-      abstractForm.classList.add('d-none');
-      presentationForm.classList.remove('d-none');
-    } else {
-      // User has not submitted abstract, show abstract form, hide presentation form
-      abstractForm.classList.remove('d-none');
-      presentationForm.classList.add('d-none');
-    }
-  } catch (err) {
-    console.error('Error setting up presentation field:', err);
-  }
-}
-async function uploadPresentation() {
-    const fileInput = document.getElementById('presentation-ppt');
-
-// Optional: partner show/hide logic
-function setupPartnerFields() {
-  const yesRadio = document.getElementById('has-partner-yes');
-  const noRadio = document.getElementById('has-partner-no');
-  const partnerDetails = document.getElementById('partner-details');
-
-  if (!yesRadio || !noRadio || !partnerDetails) return;
-
-  const updateVisibility = () => {
-    if (yesRadio.checked) {
-      partnerDetails.classList.remove('d-none');
-    } else {
-      partnerDetails.classList.add('d-none');
-    }
-  };
-
-  yesRadio.addEventListener('change', updateVisibility);
-  noRadio.addEventListener('change', updateVisibility);
-
-  // initial state
-  updateVisibility();
-}
-    if (!fileInput || !fileInput.files.length) {
-        alert("Please select a presentation file first.");
-        return;
-    }
-
-    // Get the logged-in user (to get their presentation_id)
-    const meResponse = await fetch('/me');
-    if (!meResponse.ok) {
-        alert("Unable to verify user.");
-        return;
-    }
-
-    const user = await meResponse.json();
-    if (!user.presentation_id) {
-        alert("You must submit an abstract before uploading your final presentation.");
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-
-    const response = await fetch(`/api/v1/presentations/${user.presentation_id}/upload`, {
-        method: "POST",
-        body: formData
-    });
-
-    if (response.ok) {
-        alert("Presentation uploaded successfully!");
-        fileInput.value = "";
-    } else {
-        const err = await response.json().catch(() => ({ error: "Upload failed" }));
-        alert("Error: " + err.error);
-    }
-}
-document.getElementById("presentation-submit")
-    ?.addEventListener("click", (e) => {
-        e.preventDefault();
-        uploadPresentation();
-    });
-
+// Wire everything up
 window.addEventListener('DOMContentLoaded', () => {
   console.log('DOMContentLoaded fired');
-  setupPresentationField();   // ✅ now defined
+  setupPresentationField();
   account_info();
   setupPartnerFields();
+
   const abstractBtn = document.getElementById('abstract-submit');
   if (abstractBtn) {
-    abstractBtn.addEventListener('click', signupAbstract);
+    abstractBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      signupAbstract();
+    });
   }
+
   const deleteBtn = document.getElementById('delete-account-btn');
   if (deleteBtn) {
     deleteBtn.addEventListener('click', removeUser);
+  }
+
+  const presentationBtn = document.getElementById('presentation-submit');
+  if (presentationBtn) {
+    presentationBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      uploadPresentation();
+    });
   }
 });
