@@ -1,10 +1,11 @@
 # pylint: disable=duplicate-code,unused-argument
 """Tests for the /api/v1/presentations endpoints."""
 
+import io
 from datetime import datetime, timedelta
 
-from website.models import Presentation, User
 from website import db
+from website.models import Presentation, User
 
 def test_get_presentations_empty(client):
     """GET /api/v1/presentations/ returns an empty list when no presentations exist."""
@@ -293,3 +294,110 @@ def test_get_presentations_by_day_null_num(client, sample_block_fixture):
         for block in res.json
         for sample_presentation in block["presentations"]
     )
+
+
+def test_upload_presentation_file_success(client, sample_presentation_fixture):
+    """POST /api/v1/presentations/<id>/upload successfully uploads a file."""
+    pres = sample_presentation_fixture
+    data = {
+        "file": (io.BytesIO(b"dummy content"), "test.pptx")
+    }
+
+    res = client.post(f"/api/v1/presentations/{pres.id}/upload", data=data,
+                      content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["message"] == "File uploaded successfully"
+
+    # Verify DB updated
+    uploaded_pres = Presentation.query.get(pres.id)
+    assert uploaded_pres.presentation_file is not None
+    assert uploaded_pres.presentation_file.startswith(b"dummy")
+
+
+def test_upload_presentation_file_invalid_type(client, sample_presentation_fixture):
+    """Rejects non-PPT/PPTX file uploads."""
+    pres = sample_presentation_fixture
+    data = {
+        "file": (io.BytesIO(b"dummy content"), "bad.txt")
+    }
+
+    res = client.post(f"/api/v1/presentations/{pres.id}/upload", data=data,
+                      content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "Invalid file type" in res.get_json()["error"]
+
+
+def test_upload_presentation_file_no_file(client, sample_presentation_fixture):
+    """Rejects request with no file part."""
+    pres = sample_presentation_fixture
+    res = client.post(f"/api/v1/presentations/{pres.id}/upload", data={},
+                      content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "No file part" in res.get_json()["error"]
+
+
+def test_upload_presentation_file_empty_filename(client, sample_presentation_fixture):
+    """Rejects file with empty filename."""
+    pres = sample_presentation_fixture
+    data = {
+        "file": (io.BytesIO(b"dummy content"), "")
+    }
+    res = client.post(f"/api/v1/presentations/{pres.id}/upload", data=data,
+                      content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "No file selected" in res.get_json()["error"]
+
+
+def test_upload_presentation_file_too_large(client, sample_presentation_fixture):
+    """Rejects files over 20MB."""
+    pres = sample_presentation_fixture
+    data = {
+        "file": (io.BytesIO(b"0" * (20 * 1024 * 1024 + 1)), "big.pptx")
+    }
+    res = client.post(f"/api/v1/presentations/{pres.id}/upload", data=data,
+                      content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert "File exceeds 20MB" in res.get_json()["error"]
+
+
+def test_download_all_presentations(client, sample_presentation_fixture):
+    """GET /api/v1/presentations/download-all returns a ZIP with all presentations."""
+    pres = sample_presentation_fixture
+    # Attach a dummy file
+    pres.presentation_file = b"dummy pptx content"
+    db.session.commit()
+
+    res = client.get("/api/v1/presentations/download-all")
+    assert res.status_code == 200
+    assert res.headers["Content-Type"] == "application/zip"
+    assert "attachment" in res.headers["Content-Disposition"]
+
+    # Verify ZIP content
+    import zipfile
+    import io as io_module
+
+    zip_bytes = io_module.BytesIO(res.data)
+    with zipfile.ZipFile(zip_bytes, 'r') as zipf:
+        names = zipf.namelist()
+        assert len(names) == 1
+        assert names[0].endswith(".pptx")
+        content = zipf.read(names[0])
+        assert content == b"dummy pptx content"
+
+
+def test_download_all_presentations_skips_empty(client, sample_presentation_fixture):
+    """Presentations without files are skipped in the ZIP."""
+    pres = sample_presentation_fixture
+    pres.presentation_file = None
+    db.session.commit()
+
+    res = client.get("/api/v1/presentations/download-all")
+    assert res.status_code == 200
+
+    import zipfile
+    import io as io_module
+
+    zip_bytes = io_module.BytesIO(res.data)
+    with zipfile.ZipFile(zip_bytes, 'r') as zipf:
+        # No files in ZIP
+        assert zipf.namelist() == []
