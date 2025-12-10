@@ -3,7 +3,7 @@
 Tests for the /api/v1/block-schedule routes.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from website.models import BlockSchedule
 from website import db 
 
@@ -95,3 +95,80 @@ def test_get_unique_days(client, sample_block_fixture):
     assert res.status_code == 200
     days = res.get_json()
     assert sample_block_fixture.day in days
+
+
+def test_update_schedule_end_time(client, sample_block_fixture):
+    """PUT /api/v1/block-schedule/<id> updates end_time correctly and handles parsing failure."""
+
+    # --- Valid snake_case end_time ---
+    new_end_time = (datetime.now() + timedelta(hours=2)).replace(second=0, microsecond=0)
+    payload_snake = {"end_time": new_end_time.isoformat(timespec='minutes')}
+    
+    res_snake = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=payload_snake)
+    assert res_snake.status_code == 200
+    data_snake = res_snake.get_json()
+    updated_time_snake = datetime.fromisoformat(data_snake["end_time"]).replace(second=0, microsecond=0)
+    assert updated_time_snake == new_end_time
+
+    # --- Invalid snake_case end_time (parsing fails) ---
+    invalid_payload = {"end_time": "invalid-datetime-format"}
+    res_invalid = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=invalid_payload)
+    assert res_invalid.status_code == 200
+    # Ensure DB value did not change
+    updated_schedule = db.session.get(BlockSchedule, sample_block_fixture.id)
+    assert updated_schedule.end_time.replace(second=0, microsecond=0) == new_end_time
+
+    # --- Valid camelCase endTime ---
+    new_end_time2 = (datetime.now() + timedelta(hours=3)).replace(second=0, microsecond=0)
+    payload_camel = {"endTime": new_end_time2.isoformat(timespec='minutes')}
+    
+    res_camel = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=payload_camel)
+    assert res_camel.status_code == 200
+    data_camel = res_camel.get_json()
+    updated_time_camel = datetime.fromisoformat(data_camel["end_time"]).replace(second=0, microsecond=0)
+    assert updated_time_camel == new_end_time2
+
+    # --- Invalid camelCase endTime ---
+    invalid_payload2 = {"endTime": "not-a-date"}
+    res_invalid2 = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=invalid_payload2)
+    assert res_invalid2.status_code == 200
+    updated_schedule = db.session.get(BlockSchedule, sample_block_fixture.id)
+    assert updated_schedule.end_time.replace(second=0, microsecond=0) == new_end_time2
+
+
+def test_update_schedule_start_time(client, sample_block_fixture):
+    """PUT /api/v1/block-schedule/<id> updates start_time correctly and handles parsing failure."""
+
+    # --- Valid snake_case start_time ---
+    new_start_time = (datetime.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
+    payload_snake = {"start_time": new_start_time.isoformat(timespec='minutes')}
+
+    res_snake = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=payload_snake)
+    assert res_snake.status_code == 200
+    data_snake = res_snake.get_json()
+    updated_time_snake = datetime.fromisoformat(data_snake["start_time"]).replace(second=0, microsecond=0)
+    assert updated_time_snake == new_start_time
+
+    # --- Invalid snake_case start_time ---
+    invalid_payload = {"start_time": "invalid-format"}
+    res_invalid = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=invalid_payload)
+    assert res_invalid.status_code == 200
+    updated_schedule = db.session.get(BlockSchedule, sample_block_fixture.id)
+    assert updated_schedule.start_time.replace(second=0, microsecond=0) == new_start_time
+
+    # --- Valid camelCase startTime ---
+    new_start_time2 = (datetime.now() + timedelta(hours=2)).replace(second=0, microsecond=0)
+    payload_camel = {"startTime": new_start_time2.isoformat(timespec='minutes')}
+
+    res_camel = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=payload_camel)
+    assert res_camel.status_code == 200
+    data_camel = res_camel.get_json()
+    updated_time_camel = datetime.fromisoformat(data_camel["start_time"]).replace(second=0, microsecond=0)
+    assert updated_time_camel == new_start_time2
+
+    # --- Invalid camelCase startTime ---
+    invalid_payload2 = {"startTime": "not-a-date"}
+    res_invalid2 = client.put(f"/api/v1/block-schedule/{sample_block_fixture.id}", json=invalid_payload2)
+    assert res_invalid2.status_code == 200
+    updated_schedule = db.session.get(BlockSchedule, sample_block_fixture.id)
+    assert updated_schedule.start_time.replace(second=0, microsecond=0) == new_start_time2

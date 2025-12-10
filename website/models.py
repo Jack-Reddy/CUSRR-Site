@@ -292,6 +292,10 @@ class BlockSchedule(db.Model):
         """
         Return a dictionary describing the block schedule.
         """
+        length = None
+        if self.start_time and self.end_time:
+            length = (self.end_time - self.start_time).total_seconds() / 60
+
         return {
             "id": self.id,
             "day": self.day,
@@ -300,10 +304,7 @@ class BlockSchedule(db.Model):
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "length": (
-                self.end_time -
-                self.start_time).total_seconds() /
-            60,
+            "length": length,
             "type": self.block_type,
             "sub_length": self.sub_length
         }

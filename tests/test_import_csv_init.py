@@ -3,7 +3,7 @@
 import io
 import pytest
 from website.models import User, db
-from website import create_app
+import website
 
 
 @pytest.fixture
