@@ -53,7 +53,7 @@ if (saveBtn) {
       if (!res.ok) throw new Error('Failed to save grade');
 
       // Redirect back to Abstract Grader Dashboard
-      window.location.href = '/abstractGrader';
+      window.location.href = '/abstract_grader';
     } catch (err) {
       console.error(err);
       alert("Error saving grade: " + err.message);
