@@ -24,12 +24,6 @@
         </li>
         {% endif %}
 
-        <!-- <li class="nav-item">
-          <a class="nav-link" data-bs-toggle="tab" href="#dashboard" role="tab">
-            Dashboard
-          </a>
-        </li> -->
-
       </ul>
     </div>
   </div>
@@ -40,10 +34,8 @@
 
   <!-- ===================== TAB 1: ACCOUNT INFO ===================== -->
   <div class="tab-pane fade show active" id="account-info" role="tabpanel">
-
     <div class="row">
       <div class="col-12 col-lg-8 mx-auto">
-
         <h4 class="mb-3 text-center">My Account Information</h4>
 
         <div class="card p-4 shadow-sm" id="account-info-container">
@@ -53,10 +45,8 @@
         <div class="text-center py-3 border-top mt-4">
           <button id="delete-account-btn" class="btn btn-danger">Delete Account</button>
         </div>
-
       </div>
     </div>
-
   </div>
 
   <!-- ===================== TAB 2: PRESENTATION REGISTRATION ===================== -->
@@ -69,84 +59,112 @@
 
         <!-- FORM A: ABSTRACT SUBMISSION -->
         <div id="abstract-form">
-
           <h5 class="text-center mb-3">Abstract Submission</h5>
 
-          <label for="title" class="form-label w-100">Title</label>
-          <input id="title" type="text" placeholder="Title" class="form-control">
-
-          <label for="subject" class="form-label w-100 mt-3">Subject</label>
-          <input id="subject" type="text" placeholder="Subject" class="form-control">
-
-          <div class="form-group mt-3">
-            <label for="Abstract" class="form-label">Abstract</label>
-            <textarea id="Abstract" name="Abstract" rows="4" class="form-control"></textarea>
+          <!-- Partner question (NOW AT THE FRONT) -->
+          <div class="mt-4">
+            <label class="form-label d-block">Are you presenting with a partner?</label>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="has-partner" id="has-partner-no" value="no" checked>
+              <label class="form-check-label" for="has-partner-no">No, I'm presenting alone</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="has-partner" id="has-partner-yes" value="yes">
+              <label class="form-check-label" for="has-partner-yes">Yes, I have a partner</label>
+            </div>
           </div>
 
-          <label for="Type" class="form-label w-100 mt-3">Type</label>
-          <select id="Type" class="form-select">
-            <option selected>Select your presentation type</option>
-            <option value="1">Presentation</option>
-            <option value="2">Blitz</option>
-            <option value="3">Poster</option>
-          </select>
+          <!-- Partner details section (shown only if "Yes") -->
+          <div id="partner-details" class="mt-3 d-none">
+            <label for="partner-email" class="form-label w-100">Partner's Email</label>
+            <input id="partner-email" type="email" class="form-control" placeholder="partner@example.com">
 
+            <label class="form-label d-block mt-3">
+              Who is submitting the abstract and presentation for your pair?
+            </label>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="submitter-role" id="submitter-me" value="me" checked>
+              <label class="form-check-label" for="submitter-me">
+                I am submitting for both of us
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="submitter-role" id="submitter-partner" value="partner">
+              <label class="form-check-label" for="submitter-partner">
+                My partner will submit for both of us
+              </label>
+            </div>
+
+            <p class="text-muted small mt-2 mb-0">
+              Participants in pairs should only submit <strong>one</strong> abstract and <strong>one</strong> presentation per pair.
+            </p>
+          </div>
+
+          <!-- EVERYTHING BELOW HERE IS THE "ABSTRACT SUBMISSION PART" -->
+          <div id="abstract-main-fields" class="mt-4">
+            <label for="title" class="form-label w-100">Title</label>
+            <input id="title" type="text" placeholder="Title" class="form-control">
+
+            <label for="subject" class="form-label w-100 mt-3">Subject</label>
+            <input id="subject" type="text" placeholder="Subject" class="form-control">
+
+            <div class="form-group mt-3">
+              <label for="Abstract" class="form-label">Abstract</label>
+              <textarea id="Abstract" name="Abstract" rows="4" class="form-control"></textarea>
+            </div>
+
+            <label for="Type" class="form-label w-100 mt-3">Type</label>
+            <select id="Type" class="form-select">
+              <option selected>Select your presentation type</option>
+              <option value="1">Presentation</option>
+              <option value="2">Blitz</option>
+              <option value="3">Poster</option>
+            </select>
+          </div>
+
+          <!-- Submit button is now OUTSIDE abstract-main-fields so it's visible even for non-submitting partners -->
           <button id="abstract-submit" class="btn btn-primary mt-4 w-100">
-            Submit Abstract
+            Submit
           </button>
-
         </div>
 
-        <!-- FORM B: FULL PRESENTATION UPLOAD -->
-    <div id="presentation-form" class="mt-5 d-none">
 
-      <h5 class="text-center mb-3">Full Presentation Upload</h5>
+        <!-- FORM B: FULL PRESENTATION UPLOAD (PPT/PPTX) -->
+        <div id="presentation-form" class="mt-5 d-none">
+          <h5 class="text-center mb-3">Full Presentation Upload</h5>
 
-      <p class="text-muted text-center mb-4">
-        Please upload a <strong>.PPT or.PPTX</strong> version of your final presentation.
-      </p>
+          <p class="text-muted text-center mb-4">
+            Please upload a <strong>.PPT</strong> or <strong>.PPTX</strong> version of your final presentation.
+          </p>
 
-      <div class="card p-4 shadow-sm">
+          <div class="card p-4 shadow-sm">
 
-        <!-- PPT/PPTX Upload -->
-        <input 
-          id="presentation-ppt"
-          type="file" 
-          class="form-control"
-          accept=".ppt, .pptx, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        />
-      
-          <div class="form-text mt-1">
-            Allowed format: <strong>.ppt, .pptx</strong> — Max size: 20MB
+            <!-- PPT/PPTX Upload -->
+            <div class="mt-4">
+              <label for="presentation-ppt" class="form-label">Upload Presentation File</label>
+              <input 
+                id="presentation-ppt"
+                type="file" 
+                class="form-control"
+                accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              >
+              <div class="form-text mt-1">
+                Allowed formats: <strong>.ppt</strong>, <strong>.pptx</strong> — Max size: 20MB
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button id="presentation-submit" class="btn btn-success mt-4 w-100">
+              Submit Final Presentation
+            </button>
           </div>
         </div>
 
-        <!-- Submit Button -->
-        <button id="presentation-submit" class="btn btn-success mt-4 w-100">
-          Submit Final Presentation
-        </button>
+      </div> <!-- col -->
+    </div> <!-- row -->
+  </div> <!-- tab-pane presentation-registration -->
 
-    </div>
-  </div>
-
-  <!-- ===================== TAB 3: DASHBOARD ===================== -->  
-  <!-- <div class="tab-pane fade" id="dashboard" role="tabpanel">
-
-    <div class="row">
-      <div class="col-12 col-lg-8 mx-auto">
-
-        <h4 class="mb-3 text-center">Dashboard</h4>
-
-        <div class="card p-4 shadow-sm">
-          test
-        </div>
-
-      </div>
-    </div>
-
-  </div> -->
-
-</div>
+</div> <!-- tab-content -->
 
 {% endblock %}
 

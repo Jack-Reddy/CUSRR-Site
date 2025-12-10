@@ -176,6 +176,7 @@ class Grade(db.Model):
         db.Integer,
         db.ForeignKey('presentations.id'),
         nullable=False)
+        
 
     criteria_1 = db.Column(db.Integer, nullable=False)
     criteria_2 = db.Column(db.Integer, nullable=False)
@@ -183,7 +184,7 @@ class Grade(db.Model):
 
     grader = db.relationship('User', back_populates='grades_given')
     presentation = db.relationship('Presentation', back_populates='grades')
-
+    
     def to_dict(self):
         """
         Return a dictionary describing the grade.
