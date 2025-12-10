@@ -4,11 +4,16 @@ API endpoints for managing presentations.
 '''
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, send_file
 from sqlalchemy import func
+import io
+import zipfile
 
 from website.models import BlockSchedule, Presentation, User
 from website import db
+
+import io
+import zipfile
 
 presentations_bp = Blueprint('presentations', __name__)
 
@@ -59,6 +64,7 @@ def update_presentation(presentation_id):
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
+    presentation.presentation_file = data.get('presentation_file', presentation.presentation_file)
     db.session.commit()
     return jsonify(presentation.to_dict())
 
@@ -212,3 +218,65 @@ def update_presentations_order():
             {"error": "Failed to save order", "details": str(e)}), 500
 
     return jsonify({"ok": True, "updated": updated})
+
+@presentations_bp.route('/<int:presentation_id>/upload', methods=['POST'])
+def upload_presentation_file(presentation_id):
+    """Upload a PPT or PPTX file for a presentation."""
+    presentation = Presentation.query.get_or_404(presentation_id)
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+
+    # Validate extension
+    allowed = ['ppt', 'pptx']
+    if not any(file.filename.lower().endswith(ext) for ext in allowed):
+        return jsonify({"error": "Invalid file type"}), 400
+
+    # Read binary content
+    file_data = file.read()
+    if len(file_data) > 20 * 1024 * 1024:  # 20MB
+        return jsonify({"error": "File exceeds 20MB"}), 400
+
+    # Store in DB
+    presentation.presentation_file = file_data
+    db.session.commit()
+
+    return jsonify({"message": "File uploaded successfully"})
+
+
+@presentations_bp.route('/download-all', methods=['GET'])
+def download_all_presentations():
+    """
+    Download all presentations as a ZIP, ordered by Presentation.time.
+    """
+    # In-memory buffer for ZIP
+    zip_buffer = io.BytesIO()
+
+    # Fetch presentations ordered by time
+    presentations = Presentation.query.order_by(Presentation.time.asc()).all()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for pres in presentations:
+            if not pres.presentation_file:
+                continue  # skip presentations with no uploaded file
+
+            # Sanitize filename
+            safe_title = "".join(c for c in pres.title if c.isalnum() or c in (" ", "_", "-")).strip()
+            timestamp = pres.time.strftime("%Y-%m-%d_%H%M") if pres.time else "no_time"
+            filename = f"{timestamp} - {safe_title}.pptx"
+
+            zipf.writestr(filename, pres.presentation_file)
+
+    zip_buffer.seek(0)
+
+    return send_file(
+        zip_buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="presentations.zip"
+    )
