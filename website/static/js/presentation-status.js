@@ -36,7 +36,6 @@ function renderPresentationTable(presentations) {
             <th>Title</th>
             <th>Subject</th>
             <th>Type</th>
-            <th>Room</th>
             <th>Time</th>
             <th>Presenters</th>
             <th>Actions</th>
@@ -58,7 +57,6 @@ function renderPresentationTable(presentations) {
       { data: 'title', defaultContent: '—' },
       { data: 'subject', defaultContent: '—' },
       { data: 'type', defaultContent: '—' },
-      { data: 'room', defaultContent: '—' },
       { 
         data: 'time',
         defaultContent: '—',
@@ -158,6 +156,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.getElementById("download-presentations")?.addEventListener("click", async () => {
+  const btn = document.getElementById("download-presentations");
+  if (btn) {
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Downloading...';
+  }
   try {
     const response = await fetch("/api/v1/presentations/download-all");
 
@@ -178,5 +182,10 @@ document.getElementById("download-presentations")?.addEventListener("click", asy
   } catch (err) {
     console.error(err);
     alert("Could not download presentations.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Download Presentations';
+    }
   }
 });
