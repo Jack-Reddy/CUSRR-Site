@@ -31,7 +31,7 @@
 
 
     {% set profile_href = url_for('signup') %}
-    {% if is_authenticated and db_user and (is_presenter or is_organizer) %}
+    {% if is_authenticated and db_user %}
       {% set profile_href = url_for('profile') %}
     {% endif %}
 
