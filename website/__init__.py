@@ -329,7 +329,22 @@ def create_app(test_config=None):
         Render the profile page.
         Permissions: Presenter required.
         '''
-        return render_template('profile.html')
+
+        if 'user' not in session:
+            return redirect(url_for('google_login'))
+        
+        #if user presenter show abstract submission
+        user_info = session['user']
+        email = user_info.get('email')
+
+        db_user = User.query.filter_by(email=email).first()
+        if not db_user:
+            return redirect(url_for('signup'))
+
+        if db_user.auth in ('presenter', 'organizer'):
+            return render_template('profile.html', abstract = True)
+
+        return render_template('profile.html', abstract = False)
 
     @app.route('/abstract_scoring')
     @auth.abstract_grader_required
