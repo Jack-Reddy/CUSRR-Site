@@ -8,7 +8,6 @@
     modalEl.querySelector('#editBlockTitle').value = block.title || '';
     modalEl.querySelector('#editBlockDescription').value = block.description || '';
     modalEl.querySelector('#editBlockLocation').value = block.location || '';
-    modalEl.querySelector('#editBlockType').value = block.type || '';
     modalEl.querySelector('#editBlockSubLength').value = block.sub_length || '';
 
     // start/end times in block may be returned as `startTime` (camelCase) or `start_time`.
@@ -30,6 +29,19 @@
       if (endInput) endInput.value = toLocalDatetimeValue(endVal);
     } catch (err) {
       // ignore formatting errors
+    }
+
+    // Handle both block_type and type, with validation for dropdown
+    // Set this after other fields to ensure DOM is ready
+    const blockType = block.block_type || block.type || '';
+    const typeSelect = modalEl.querySelector('#editBlockType');
+    const validTypes = ['Break', 'Keynote', 'Poster', 'Presentation', 'Blitz'];
+    if (typeSelect && blockType) {
+      // Find matching type case-insensitively
+      const matchedType = validTypes.find(t => t.toLowerCase() === blockType.toLowerCase());
+      if (matchedType) {
+        typeSelect.value = matchedType;
+      }
     }
 
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);

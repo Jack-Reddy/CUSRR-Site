@@ -151,7 +151,7 @@ def get_recent_presentations():
 @presentations_bp.route('/type/<string:category>', methods=['GET'])
 def get_presentations_by_type(category):
     """Return all presentations of a given type (Poster, Blitz, Presentation)."""
-    valid_types = {"poster", "presentation", "blitz"}
+    valid_types = {"Poster", "Presentation", "Blitz"}
 
     # normalize input
     category_lower = category.strip().lower()
@@ -184,7 +184,7 @@ def get_presentations_by_day(day):
     '''
     blocks = BlockSchedule.query.filter(
     BlockSchedule.day == day,
-    BlockSchedule.block_type.in_(["poster", "presentation", "blitz"])).all()
+    BlockSchedule.block_type.in_(["Poster", "Presentation", "Blitz"])).all()
     result = []
     for block in blocks:
         # Order presentations by `num_in_block` if set, otherwise fallback to
