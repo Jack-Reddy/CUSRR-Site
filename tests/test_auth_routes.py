@@ -249,6 +249,33 @@ def test_organizer_required_allows_organizer(client, organizer_user):
     res = client.get("/organizer-user-status")
     assert res.status_code == 200
 
+def test_grade_dashboard_accesible_to_organizer(client, organizer_user):
+    """
+    Organizer user should be able to access /abstract-grader.
+    """
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "email": organizer_user.email,
+            "name": "Org User",
+        }
+
+    res = client.get("/abstract-grader")
+    assert res.status_code == 200
+
+def test_grade_dashboard_denies_non_organizer(client, attendee_user):
+    """
+    Non-organizer user should be redirected when accessing /abstract-grader.
+    """
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "email": attendee_user.email,
+            "name": "Attendee User",
+        }
+
+    res = client.get("/abstract-grader", follow_redirects=False)
+    assert res.status_code == 302
+    assert "/dashboard" in res.headers["Location"]
+
 
 def test_organizer_required_denies_non_organizer_html(client, attendee_user):
     """
@@ -356,3 +383,4 @@ def test_abstract_grader_required_denies_non_grader_ajax(client, attendee_user):
     data = res.get_json()
     assert data["error"] == "forbidden"
     assert data["reason"] == "abstract_grader_required"
+
