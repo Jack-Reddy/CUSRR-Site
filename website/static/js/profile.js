@@ -67,12 +67,46 @@ async function signupAbstract() {
         const abstract = document.getElementById('Abstract').value.trim();
         const subject = document.getElementById('subject').value.trim();
         const typeSelect = document.getElementById('Type');
-        const type = typeSelect.options[typeSelect.selectedIndex].text;
+        const type = typeSelect.value.trim();
 
-        if (!title || !abstract || !subject) {
+        if (!title || !abstract || !subject || !type) {
             msgDiv.innerHTML = '<p class="text-danger">Please fill in all required fields.</p>';
             return;
         }
+        
+        console.log('Selected type:', type);
+        
+        // Get Unassigned block for the selected type
+        let assignedBlockId = null;
+        try {
+            const response2 = await fetch('/api/v1/block-schedule/day/Unassigned');
+            if (response2.ok) {
+                const unassignedBlocks = await response2.json();
+                console.log('Unassigned blocks:', unassignedBlocks);
+                console.log('Looking for type:', type);
+                
+                // Match block_type case-insensitively with selected type
+                const unassignedBlock = unassignedBlocks.find(b => {
+                    console.log('Checking block:', b.id, 'type:', b.type);
+                    return (b.type && b.type.toLowerCase() === type.toLowerCase()) ||
+                           (b.block_type && b.block_type.toLowerCase() === type.toLowerCase());
+                });
+                
+                if (unassignedBlock) {
+                    assignedBlockId = unassignedBlock.id;
+                    console.log('Found matching block:', assignedBlockId);
+                } else {
+                    console.log('No matching block found for type:', type);
+                }
+            } else {
+                console.log('Failed to fetch unassigned blocks:', response2.status);
+            }
+        } catch (err) {
+            console.warn('Could not fetch unassigned blocks:', err);
+            // Continue without assigning to a block
+        }
+        
+        console.log('Final assignedBlockId:', assignedBlockId);
 
         // Submit abstract
         const response = await fetch('/api/v1/presentations/', {
@@ -82,9 +116,7 @@ async function signupAbstract() {
                 title,
                 abstract,
                 subject,
-                type,
-                time: "2026-11-04 13:30", // Placeholder
-                room: null
+                schedule_id: assignedBlockId
             })
         });
 

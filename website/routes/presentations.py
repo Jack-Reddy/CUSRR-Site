@@ -38,17 +38,15 @@ def get_presentation(presentation_id):
 def create_presentation():
     ''' POST create presentation '''
     data = request.get_json()
-    time_str = data.get('time')
-    try:
-        presentation_time = datetime.fromisoformat(time_str)
-    except ValueError:
-        return jsonify(
-            {"error": "Invalid datetime format. Use ISO 8601."}), 400
+    
+    # Accept either schedule_id or block_id
+    schedule_id = data.get('schedule_id') or data.get('block_id')
+    
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
         subject=data.get('subject'),
-        time=presentation_time
+        schedule_id=schedule_id
     )
 
     db.session.add(new_presentation)

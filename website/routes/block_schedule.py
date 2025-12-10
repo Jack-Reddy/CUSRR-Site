@@ -136,7 +136,7 @@ def get_schedules_by_day(day):
 
 @block_schedule_bp.route('/days', methods=['GET'])
 def get_unique_days():
-    ''' GET unique days '''
-    days = db.session.query(BlockSchedule.day).distinct().all()
+    ''' GET unique days - do not return "Unassigned" day '''
+    days = db.session.query(BlockSchedule.day).distinct().filter(BlockSchedule.day != "Unassigned").all()
     unique_days = [day[0] for day in days]
     return jsonify(unique_days)
