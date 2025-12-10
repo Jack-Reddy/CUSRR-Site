@@ -1,4 +1,4 @@
-# pylint: disable=unused-argument,redefined-outer-name
+# pylint: disable=unused-argument,redefined-outer-name,import-error
 """
 Tests for Google OAuth authentication with mocked Google API responses.
 Tests the OAuth flow, token exchange, userinfo retrieval, and session management.
@@ -6,7 +6,6 @@ Tests the OAuth flow, token exchange, userinfo retrieval, and session management
 
 from unittest.mock import patch, MagicMock
 import pytest
-from flask import session
 from website import db
 from website.models import User
 
@@ -58,7 +57,7 @@ def existing_user(app):
 def test_google_login_redirects_to_oauth(client):
     """GET /google/login should redirect to Google OAuth authorization."""
     response = client.get('/google/login', follow_redirects=False)
-    
+
     # Should redirect to authorize
     assert response.status_code == 302
     # The actual redirect URL contains Google's OAuth endpoint
@@ -92,23 +91,23 @@ def test_google_auth_no_id_token_falls_back_to_userinfo(
         'token_type': 'Bearer',
         'expires_in': 3600,
     }
-    
+
     mock_token_resp = MagicMock()
     mock_token_resp.json.return_value = token_response
     mock_post.return_value = mock_token_resp
-    
+
     # Mock userinfo endpoint
     mock_userinfo_resp = MagicMock()
     mock_userinfo_resp.json.return_value = mock_google_userinfo
     mock_get.return_value = mock_userinfo_resp
-    
+
     response = client.get('/google/auth?code=test_auth_code', follow_redirects=False)
-    
+
     assert response.status_code == 302
-    
+
     # Should have called userinfo endpoint
     mock_get.assert_called()
-    
+
     # Verify session
     with client.session_transaction() as sess:
         user_info = sess.get('user')
@@ -119,10 +118,10 @@ def test_google_auth_no_id_token_falls_back_to_userinfo(
 def test_google_logout_when_not_logged_in(client):
     """GET /google/logout when not logged in should still redirect to home."""
     response = client.get('/google/logout', follow_redirects=False)
-    
+
     assert response.status_code == 302
     assert response.location == '/'
-    
+
     # Verify no error occurs
     with client.session_transaction() as sess:
         assert 'user' not in sess
