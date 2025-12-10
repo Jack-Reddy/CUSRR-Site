@@ -10,7 +10,11 @@
     <h2 class="mb-0">Organizer Dashboard</h2>
 
     <!-- Import CSV Users -->
-    <div>
+    <div class="d-flex flex-column flex-md-row gap-2">
+      <button id="copy-none-status-btn" class="btn btn-outline-secondary d-flex align-items-center gap-2 w-100 w-md-auto" type="button">
+        <img class="icon-img" src="{{ url_for('static', filename='icons/attendees.svg') }}" alt="" aria-hidden="true" style="height: 1rem; width: auto;"> Copy None-Status Emails
+      </button>
+
       <button id="import-csv-btn" class="btn btn-primary d-flex align-items-center gap-1 w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#importCsvModal">
         <img class="icon-img" src="{{ url_for('static', filename='icons/upload.svg') }}" alt="" aria-hidden="true"  style="height: 1rem; width: auto; filter: brightness(0) invert(1);"> Import Users (CSV)
       </button>

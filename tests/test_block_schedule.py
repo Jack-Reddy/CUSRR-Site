@@ -5,6 +5,7 @@ Tests for the /api/v1/block-schedule routes.
 
 from datetime import datetime
 from website.models import BlockSchedule
+from website import db 
 
 def test_get_schedules_empty(client):
     """GET /api/v1/block-schedule/ returns an empty list when no schedules exist."""
@@ -76,8 +77,8 @@ def test_delete_schedule(client, sample_block_fixture):
     assert res.status_code == 200
     data = res.get_json()
     assert data["message"] == "Schedule deleted"
-    assert BlockSchedule.query.get(sample_block_fixture.id) is None
-
+    assert db.session.get(BlockSchedule, sample_block_fixture.id) is None 
+    
 
 def test_get_schedules_by_day(client, sample_block_fixture):
     """GET /api/v1/block-schedule/day/<day> returns schedules for that day."""

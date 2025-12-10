@@ -3,6 +3,8 @@
 Tests for the /api/v1/abstractgrades routes.
 """
 from website.models import AbstractGrade
+from website import db
+
 
 def test_get_abstract_grades_empty(client):
     """GET /api/v1/abstractgrades/ returns empty list when no grades exist."""
@@ -65,7 +67,7 @@ def test_delete_abstract_grade(client, sample_abstract_grade_fixture):
     res = client.delete(f"/api/v1/abstractgrades/{sample_abstract_grade_fixture.id}")
     assert res.status_code == 200
     assert res.get_json()["message"] == "Abstract grade deleted"
-    assert AbstractGrade.query.get(sample_abstract_grade_fixture.id) is None
+    assert db.session.get(AbstractGrade, sample_abstract_grade_fixture.id) is None
 
 
 def test_delete_abstract_grade_404(client):
@@ -85,3 +87,33 @@ def test_get_average_abstract_grades_by_presentation(client, multiple_abstract_g
         g.criteria_1 + g.criteria_2 + g.criteria_3 for g in multiple_abstract_grades_fixture
     ) / len(multiple_abstract_grades_fixture), 2)
     assert data[0]["average_score"] == avg_score
+
+def test_get_completed_presentations_for_user(client, 
+                                              sample_user_fixture, 
+                                              sample_presentation_fixture):
+    """
+    GET /api/v1/abstractgrades/completed/<user_id> returns presentations graded by a user.
+    """
+    # Create 2 grades by sample_user_fixture
+    payload = {
+        "user_id": sample_user_fixture.id,
+        "presentation_id": sample_presentation_fixture.id,
+        "criteria_1": 5,
+        "criteria_2": 4,
+        "criteria_3": 3
+    }
+
+    # grade the same presentation twice (should dedupe)
+    client.post("/api/v1/abstractgrades/", json=payload)
+    client.post("/api/v1/abstractgrades/", json=payload)
+
+    # Hit the new route
+    res = client.get(f"/api/v1/abstractgrades/completed/{sample_user_fixture.id}")
+
+    assert res.status_code == 200
+    data = res.get_json()
+
+    # Expected shape: {"completed": [<presentation_id>]}
+    assert isinstance(data, dict)
+    assert "completed" in data
+    assert data["completed"] == [sample_presentation_fixture.id]

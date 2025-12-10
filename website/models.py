@@ -1,5 +1,9 @@
-# pylint: disable=too-few-public-methods
-'''db models for all tables within the db'''
+"""
+SQLAlchemy models for the CUSRR application.
+
+Includes Presentation, User, Grade, AbstractGrade, and BlockSchedule.
+Each model provides a `to_dict()` method for JSON-ready serialization.
+"""
 from datetime import timedelta, datetime
 from sqlalchemy import DateTime
 from website import db
@@ -46,7 +50,7 @@ class Presentation(db.Model):
 
     def to_dict(self):
         """
-        turns the presentation into a dict
+        Return a JSON-serializable dictionary representation of the presentation.
         """
         calculated_time = None
         if self.time:
@@ -59,12 +63,12 @@ class Presentation(db.Model):
                 calculated_time = self.schedule.start_time
         # Format datetimes as naive local ISO strings (no timezone suffix)
 
-        def fmt(date_time):
-            if not date_time:
+        def fmt(dt):
+            if not dt:
                 return None
-            if isinstance(date_time, datetime):
-                return date_time.strftime('%Y-%m-%dT%H:%M:%S')
-            return str(date_time)
+            if isinstance(dt, datetime):
+                return dt.strftime('%Y-%m-%dT%H:%M:%S')
+            return str(dt)
 
         return {
             "id": self.id,
@@ -120,7 +124,9 @@ class User(db.Model):
         cascade='all, delete')
 
     def to_dict(self):
-        """turns user object into full dict"""
+        """
+        Return a full JSON representation of the user.
+        """
         return {
             "id": self.id,
             "firstname": self.firstname,
@@ -133,7 +139,9 @@ class User(db.Model):
             "auth": self.auth}
 
     def to_dict_basic(self):
-        """turns user into simple dict"""
+        """
+        Return a minimal dictionary with ID, first name, last name, and email.
+        """
         return {
             "id": self.id,
             "firstname": self.firstname,
@@ -175,7 +183,9 @@ class Grade(db.Model):
     presentation = db.relationship('Presentation', back_populates='grades')
     
     def to_dict(self):
-        """turns grade into dict"""
+        """
+        Return a dictionary describing the grade.
+        """
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -225,7 +235,9 @@ class AbstractGrade(db.Model):
         back_populates='abstract_grades')
 
     def to_dict(self):
-        """turns abstract grade into dict"""
+        """
+        Return a dictionary describing the abstract grade.
+        """
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -275,18 +287,20 @@ class BlockSchedule(db.Model):
         cascade='save-update')
 
     def to_dict(self):
-        """turns block schedule into a dictionary"""
+        """
+        Return a dictionary describing the block schedule.
+        """
         return {
             "id": self.id,
             "day": self.day,
-            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') 
-                        if self.start_time else None,
-            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') 
-                        if self.end_time else None,
+            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
+            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "length": (self.end_time - self.start_time).total_seconds() / 60,
-            "block_type": self.block_type,
-            "sub_length": self.sub_length
-    }
+            "length": (
+                self.end_time -
+                self.start_time).total_seconds() /
+            60,
+            "type": self.block_type,
+            "sub_length": self.sub_length}

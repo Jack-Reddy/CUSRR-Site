@@ -129,6 +129,11 @@
           <img class="icon-img" src="{{ url_for('static', filename='icons/program.svg') }}" alt="" aria-hidden="true">
           <span class="label">Presentations</span>
         </a>
+        <a class="btn btn-outline-secondary mb-2 nav-link"
+          href="{{ url_for('grades_dashboard') }}">
+          <img class="icon-img" src="{{ url_for('static', filename='icons/grades.svg') }}" alt="" aria-hidden="true" style="width:25px; height:25px;">
+          <span class="label">Grades Dashboard</span>
+        </a>
       </div>
     {% endif %}
 

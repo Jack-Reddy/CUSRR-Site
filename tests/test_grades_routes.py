@@ -4,6 +4,7 @@ Tests for the /api/v1/grades routes.
 """
 
 from website.models import Grade
+from website import db
 
 def test_get_grades_empty(client):
     """GET /api/v1/grades/ returns an empty list when no grades exist."""
@@ -35,7 +36,7 @@ def test_get_single_grade_404(client):
 
 
 def test_create_grade(client, sample_user_fixture, sample_presentation_fixture):
-    """POST /api/v1/grades/ creates a new grade."""
+    """POST /api/v1/grades/ creates a new grade and prevents duplicates."""
     payload = {
         "user_id": sample_user_fixture.id,
         "presentation_id": sample_presentation_fixture.id,
@@ -43,11 +44,19 @@ def test_create_grade(client, sample_user_fixture, sample_presentation_fixture):
         "criteria_2": 4,
         "criteria_3": 3
     }
+
+    # First creation should succeed
     res = client.post("/api/v1/grades/", json=payload)
     assert res.status_code == 201
     data = res.get_json()
     assert data["criteria_1"] == 5
     assert data["user_id"] == sample_user_fixture.id
+
+    # Attempt to create a second grade for the same user and presentation
+    res2 = client.post("/api/v1/grades/", json=payload)
+    assert res2.status_code == 400
+    assert "already" in res2.get_json()["error"].lower()
+
 
 
 def test_update_grade(client, sample_grade_fixture):
@@ -66,7 +75,7 @@ def test_delete_grade(client, sample_grade_fixture):
     res = client.delete(f"/api/v1/grades/{sample_grade_fixture.id}")
     assert res.status_code == 200
     assert res.get_json()["message"] == "Grade deleted"
-    assert Grade.query.get(sample_grade_fixture.id) is None
+    assert db.session.get(Grade, sample_grade_fixture.id) is None
 
 
 def test_delete_grade_404(client):
