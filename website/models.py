@@ -29,9 +29,9 @@ class Presentation(db.Model):
     abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
     time = db.Column(DateTime)
-    # New field to track number of presentations in the same block
     num_in_block = db.Column(db.Integer)
     schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
+    presentation_file = db.Column(db.LargeBinary)
 
     presenters = db.relationship('User', back_populates='presentation')
     grades = db.relationship(
@@ -289,3 +289,4 @@ class BlockSchedule(db.Model):
             "block_type": self.block_type,
             "sub_length": self.sub_length
     }
+    

@@ -190,7 +190,48 @@ async function setupPresentationField() {
         console.error('Error setting up presentation field:', err);
     }
 }
+async function uploadPresentation() {
+    const fileInput = document.getElementById('presentation-ppt');
 
+    if (!fileInput || !fileInput.files.length) {
+        alert("Please select a presentation file first.");
+        return;
+    }
+
+    // Get the logged-in user (to get their presentation_id)
+    const meResponse = await fetch('/me');
+    if (!meResponse.ok) {
+        alert("Unable to verify user.");
+        return;
+    }
+
+    const user = await meResponse.json();
+    if (!user.presentation_id) {
+        alert("You must submit an abstract before uploading your final presentation.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    const response = await fetch(`/api/v1/presentations/${user.presentation_id}/upload`, {
+        method: "POST",
+        body: formData
+    });
+
+    if (response.ok) {
+        alert("Presentation uploaded successfully!");
+        fileInput.value = "";
+    } else {
+        const err = await response.json().catch(() => ({ error: "Upload failed" }));
+        alert("Error: " + err.error);
+    }
+}
+document.getElementById("presentation-submit")
+    ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        uploadPresentation();
+    });
 
 window.addEventListener('DOMContentLoaded', () => {
     setupPresentationField();

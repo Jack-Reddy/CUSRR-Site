@@ -156,3 +156,27 @@ async function editPresentation(presentationId) {
 document.addEventListener('DOMContentLoaded', () => {
   loadPresentations();
 });
+
+document.getElementById("download-presentations")?.addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/v1/presentations/download-all");
+
+    if (!response.ok) {
+      throw new Error("Failed to download presentations");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "presentations.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+  } catch (err) {
+    console.error(err);
+    alert("Could not download presentations.");
+  }
+});
