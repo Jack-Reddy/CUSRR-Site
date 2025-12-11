@@ -38,7 +38,6 @@ function truncate(str, n) {
             <div class="flex-grow-1 ms-3">
               <div class="d-flex justify-content-between align-items-start">
                 <h6 class="mb-1">${p.title}</h6>
-                <span class="badge bg-gray-100 text-secondary">${p.time || '—'}</span>
               </div>
   
               <p class="text-sm mb-2">${ truncate(p.abstract || "", 120) }</p>

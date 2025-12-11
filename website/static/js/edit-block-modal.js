@@ -85,8 +85,36 @@
     });
   }
 
+  function setupDeleteButton(onDelete) {
+    const deleteBtn = document.getElementById('deleteBlockBtn');
+    if (!deleteBtn) return;
+    if (typeof onDelete !== 'function') return;
+
+    // Clone to remove previous listeners
+    const newBtn = deleteBtn.cloneNode(true);
+    deleteBtn.parentNode.replaceChild(newBtn, deleteBtn);
+
+    newBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to delete this block? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        await onDelete();
+        const modalEl = document.getElementById('editBlockModal');
+        if (modalEl) {
+          bootstrap.Modal.getInstance(modalEl).hide();
+        }
+      } catch (err) {
+        console.error('Failed to delete block:', err);
+        alert('Error deleting block.');
+      }
+    });
+  }
+
   window.EditBlockModal = {
     fillAndShowModal,
     setupFormSubmit,
+    setupDeleteButton,
   };
 })();
