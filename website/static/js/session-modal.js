@@ -20,9 +20,12 @@
     card.className = `card shadow-xs border-0 rounded-4 ${cardClass}`;
     card.role = 'button';
 
+    // format time once
+    const timeDisplay = formatTimeNoYear(item.time);
+
     // store data for modal
     card.dataset.title = item.title || 'Untitled';
-    card.dataset.time = formatTimeNoYear(item.time);
+    card.dataset.time = timeDisplay;
     card.dataset.room = item.room || '';
     card.dataset.subject = item.subject || '';
     card.dataset.type = item.type || '';
@@ -30,8 +33,6 @@
     card.dataset.abstract = item.abstract || '';
     card.dataset.id = item.id || '';
     //card.dataset.img = item.image_url || DEFAULT_IMG;
-
-    const timeDisplay = card.dataset.time || '';
 
     card.innerHTML = `
       <div class="card-body py-3">

@@ -283,6 +283,10 @@ async function initializeScheduleUI() {
       const label = document.getElementById('editBlockModalLabel');
       if (label) label.textContent = 'Add Schedule Block';
 
+      // Hide delete button for new blocks
+      const deleteBtn = document.getElementById('deleteBlockBtn');
+      if (deleteBtn) deleteBtn.style.display = 'none';
+
       if (window.EditBlockModal) {
         // Fetch existing blocks for the selected day to extract date info
         const sessions = await fetchScheduleByDay(daySelect.value);
@@ -344,6 +348,10 @@ async function editBlock(blockId) {
     const label = document.getElementById('editBlockModalLabel');
     if (label) label.textContent = 'Edit Schedule Block';
 
+    // Show delete button for existing blocks
+    const deleteBtn = document.getElementById('deleteBlockBtn');
+    if (deleteBtn) deleteBtn.style.display = 'block';
+
     if (window.EditBlockModal) {
       window.EditBlockModal.fillAndShowModal(block);
       window.EditBlockModal.setupFormSubmit(async (data) => {
@@ -357,6 +365,20 @@ async function editBlock(blockId) {
           body: JSON.stringify(payload)
         });
         if (!putResp.ok) throw new Error(`Failed to save block: ${putResp.status}`);
+
+        // Reload the current day's schedule
+        const daySelect = document.getElementById('day-select');
+        const overview = document.getElementById('schedule-overview');
+        const details = document.getElementById('schedule-details');
+        await loadForDay(daySelect.value, overview, details);
+      });
+
+      window.EditBlockModal.setupDeleteButton(async () => {
+        const deleteResp = await fetch(`/api/v1/block-schedule/${blockId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!deleteResp.ok) throw new Error(`Failed to delete block: ${deleteResp.status}`);
 
         // Reload the current day's schedule
         const daySelect = document.getElementById('day-select');

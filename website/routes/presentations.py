@@ -135,8 +135,7 @@ def get_recent_presentations():
 
     def effective_time(pres):
         '''If presentation has explicit time, use it'''
-        if pres.time:
-            return pres.time
+
         # Otherwise, attempt to compute from schedule start + num_in_block *
         # sub_length (in minutes)
         sched = pres.schedule

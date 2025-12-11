@@ -53,9 +53,8 @@ class Presentation(db.Model):
         Return a JSON-serializable dictionary representation of the presentation.
         """
         calculated_time = None
-        if self.time:
-            calculated_time = self.time
-        elif self.schedule:
+
+        if self.schedule:
             if self.num_in_block is not None and self.schedule.sub_length is not None:
                 calculated_time = self.schedule.start_time + \
                     timedelta(minutes=self.num_in_block * self.schedule.sub_length)
