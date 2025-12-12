@@ -9,7 +9,7 @@
 
 # Running it on Heroku/On the cloud: 
 - https://cusrr-app-403f0d6a73c9.herokuapp.com/
-    - **NEW** : Mobile Friendly to an extent!
+    - **NEW** : Mobile Friendly
 
 # Features!
 ## _sidebar.html
