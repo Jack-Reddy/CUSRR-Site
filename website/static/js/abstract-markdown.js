@@ -1,4 +1,6 @@
 (function () {
+  let activeTextarea = null;
+
   function ensureMarkedOptions() {
     if (window.marked && typeof window.marked.setOptions === 'function') {
       window.marked.setOptions({
@@ -48,6 +50,46 @@
     typesetMath(element);
   }
 
+  function getSelectionRange(textarea) {
+    const storedStart = Number.parseInt(textarea?.dataset?.mdSelectionStart || '', 10);
+    const storedEnd = Number.parseInt(textarea?.dataset?.mdSelectionEnd || '', 10);
+
+    if (Number.isFinite(storedStart) && Number.isFinite(storedEnd)) {
+      return { start: storedStart, end: storedEnd };
+    }
+
+    return {
+      start: textarea?.selectionStart ?? textarea?.value.length ?? 0,
+      end: textarea?.selectionEnd ?? textarea?.value.length ?? 0,
+    };
+  }
+
+  function rememberSelection(textarea) {
+    if (!textarea) return;
+
+    const capture = () => {
+      textarea.dataset.mdSelectionStart = String(textarea.selectionStart ?? 0);
+      textarea.dataset.mdSelectionEnd = String(textarea.selectionEnd ?? 0);
+    };
+
+    ['keyup', 'mouseup', 'select', 'focus', 'blur', 'input'].forEach((eventName) => {
+      textarea.addEventListener(eventName, capture);
+    });
+
+    capture();
+  }
+
+  function setActiveTextarea(textarea) {
+    activeTextarea = textarea || null;
+    if (activeTextarea) {
+      rememberSelection(activeTextarea);
+    }
+  }
+
+  function getActiveTextarea() {
+    return activeTextarea;
+  }
+
   function plainText(source) {
     const preview = document.createElement('div');
     preview.innerHTML = renderMarkdown(source);
@@ -57,8 +99,7 @@
   function insertAtCursor(textarea, before, after = '', placeholder = '') {
     if (!textarea) return;
 
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
+    const { start, end } = getSelectionRange(textarea);
     const selected = textarea.value.slice(start, end) || placeholder;
     const inserted = `${before}${selected}${after}`;
 
@@ -70,18 +111,10 @@
   function insertTextAtCursor(textarea, text) {
     if (!textarea) return;
 
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
+    const { start, end } = getSelectionRange(textarea);
     textarea.setRangeText(text, start, end, 'end');
     textarea.focus();
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  function insertLink(textarea) {
-    const url = window.prompt('Enter the link URL:');
-    if (!url) return;
-    const label = window.prompt('Enter the link text:', 'link text') || 'link text';
-    insertAtCursor(textarea, '[', `](${url})`, label);
   }
 
   function markdownImage(url, altText) {
@@ -106,57 +139,95 @@
     });
   }
 
-  function uploadImagesIntoAbstract(textarea) {
-    return new Promise((resolve, reject) => {
-      const fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'image/*';
-      fileInput.multiple = true;
-      fileInput.style.display = 'none';
-
-      fileInput.addEventListener('change', async () => {
-        try {
-          const files = fileInput.files ? Array.from(fileInput.files) : [];
-          if (!files.length) {
-            resolve([]);
-            return;
-          }
-
-          const uploaded = await uploadImageFiles(files);
-          uploaded.forEach((item) => {
-            const imageMarkdown = markdownImage(item.url, item.filename);
-            insertTextAtCursor(textarea, `${imageMarkdown}\n\n`);
-          });
-          resolve(uploaded);
-        } catch (error) {
-          reject(error);
-        } finally {
-          fileInput.remove();
-        }
-      });
-
-      document.body.appendChild(fileInput);
-      fileInput.click();
+  async function uploadImagesIntoAbstract(textarea, files) {
+    const uploaded = await uploadImageFiles(files);
+    uploaded.forEach((item) => {
+      const imageMarkdown = markdownImage(item.url, item.filename);
+      insertTextAtCursor(textarea, `${imageMarkdown}\n\n`);
     });
+    return uploaded;
   }
 
-  async function insertImage(textarea) {
-    const choice = window.prompt('Type an image URL or enter upload to add files:', 'upload');
-    if (!choice) return;
+  function openBootstrapModal(modalId) {
+    const modalElement = document.getElementById(modalId);
+    if (!modalElement || !window.bootstrap || !window.bootstrap.Modal) return null;
 
-    if (choice.trim().toLowerCase() === 'upload') {
-      try {
-        await uploadImagesIntoAbstract(textarea);
-      } catch (error) {
-        console.error('Image upload failed', error);
-        window.alert(error.message || 'Could not upload image(s).');
-      }
-      return;
+    const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+    modal.show();
+    return modal;
+  }
+
+  function setupImageModals(textarea) {
+    const linkModal = document.getElementById('image-link-modal');
+    const uploadModal = document.getElementById('image-upload-modal');
+    const linkForm = document.getElementById('image-link-form');
+    const uploadForm = document.getElementById('image-upload-form');
+    const linkUrl = document.getElementById('image-link-url');
+    const linkAlt = document.getElementById('image-link-alt');
+    const uploadFiles = document.getElementById('image-upload-files');
+    const uploadStatus = document.getElementById('image-upload-status');
+    const uploadButton = document.getElementById('image-upload-submit');
+
+    if (linkForm && !linkForm.dataset.mdBound) {
+      linkForm.dataset.mdBound = 'true';
+      linkForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const targetTextarea = getActiveTextarea() || textarea;
+        const url = linkUrl?.value.trim();
+        const alt = linkAlt?.value.trim() || 'image';
+        if (!targetTextarea || !url) return;
+
+        insertTextAtCursor(targetTextarea, `${markdownImage(url, alt)}\n\n`);
+        if (window.bootstrap && linkModal) {
+          window.bootstrap.Modal.getOrCreateInstance(linkModal).hide();
+        }
+        linkForm.reset();
+      });
     }
 
-    const url = choice.trim();
-    const alt = window.prompt('Enter alt text for the image:', 'image description') || 'image description';
-    insertTextAtCursor(textarea, markdownImage(url, alt));
+    if (uploadForm && !uploadForm.dataset.mdBound) {
+      uploadForm.dataset.mdBound = 'true';
+      uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const targetTextarea = getActiveTextarea() || textarea;
+        const files = uploadFiles?.files ? Array.from(uploadFiles.files) : [];
+
+        if (!targetTextarea || !files.length) {
+          if (uploadStatus) {
+            uploadStatus.textContent = 'Choose one or more image files first.';
+          }
+          return;
+        }
+
+        if (uploadButton) {
+          uploadButton.disabled = true;
+        }
+        if (uploadStatus) {
+          uploadStatus.textContent = 'Uploading...';
+        }
+
+        try {
+          await uploadImagesIntoAbstract(targetTextarea, files);
+          if (window.bootstrap && uploadModal) {
+            window.bootstrap.Modal.getOrCreateInstance(uploadModal).hide();
+          }
+          uploadForm.reset();
+          if (uploadStatus) {
+            uploadStatus.textContent = '';
+          }
+        } catch (error) {
+          console.error('Image upload failed', error);
+          if (uploadStatus) {
+            uploadStatus.textContent = error.message || 'Could not upload image(s).';
+          }
+          window.alert(error.message || 'Could not upload image(s).');
+        } finally {
+          if (uploadButton) {
+            uploadButton.disabled = false;
+          }
+        }
+      });
+    }
   }
 
   function insertMathInline(textarea) {
@@ -170,6 +241,16 @@
   function wireToolbar(textarea, toolbar) {
     if (!textarea || !toolbar) return;
 
+    setActiveTextarea(textarea);
+    rememberSelection(textarea);
+
+    textarea.addEventListener('focus', () => setActiveTextarea(textarea));
+    textarea.addEventListener('click', () => setActiveTextarea(textarea));
+    textarea.addEventListener('keyup', () => setActiveTextarea(textarea));
+    textarea.addEventListener('mouseup', () => setActiveTextarea(textarea));
+
+    setupImageModals(textarea);
+
     toolbar.querySelectorAll('[data-md-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.mdAction;
@@ -178,8 +259,8 @@
         if (action === 'code') insertAtCursor(textarea, '`', '`', 'code');
         if (action === 'heading') insertAtCursor(textarea, '## ', '', 'Section title');
         if (action === 'list') insertAtCursor(textarea, '- ', '', 'List item');
-        if (action === 'link') insertLink(textarea);
-        if (action === 'image') insertImage(textarea);
+        if (action === 'link') openBootstrapModal('image-link-modal');
+        if (action === 'image-upload') openBootstrapModal('image-upload-modal');
         if (action === 'math-inline') insertMathInline(textarea);
         if (action === 'math-block') insertMathBlock(textarea);
       });
