@@ -67,6 +67,16 @@
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function insertTextAtCursor(textarea, text) {
+    if (!textarea) return;
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    textarea.setRangeText(text, start, end, 'end');
+    textarea.focus();
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   function insertLink(textarea) {
     const url = window.prompt('Enter the link URL:');
     if (!url) return;
@@ -74,11 +84,79 @@
     insertAtCursor(textarea, '[', `](${url})`, label);
   }
 
-  function insertImage(textarea) {
-    const url = window.prompt('Enter the image URL:');
-    if (!url) return;
+  function markdownImage(url, altText) {
+    const safeAlt = String(altText || 'image').trim() || 'image';
+    return `![${safeAlt}](${url})`;
+  }
+
+  function uploadImageFiles(files) {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => formData.append('files', file));
+
+    return fetch('/api/v1/presentations/abstract-images', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Image upload failed');
+      }
+      return data.uploaded || [];
+    });
+  }
+
+  function uploadImagesIntoAbstract(textarea) {
+    return new Promise((resolve, reject) => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.multiple = true;
+      fileInput.style.display = 'none';
+
+      fileInput.addEventListener('change', async () => {
+        try {
+          const files = fileInput.files ? Array.from(fileInput.files) : [];
+          if (!files.length) {
+            resolve([]);
+            return;
+          }
+
+          const uploaded = await uploadImageFiles(files);
+          uploaded.forEach((item) => {
+            const imageMarkdown = markdownImage(item.url, item.filename);
+            insertTextAtCursor(textarea, `${imageMarkdown}\n\n`);
+          });
+          resolve(uploaded);
+        } catch (error) {
+          reject(error);
+        } finally {
+          fileInput.remove();
+        }
+      });
+
+      document.body.appendChild(fileInput);
+      fileInput.click();
+    });
+  }
+
+  async function insertImage(textarea) {
+    const choice = window.prompt('Type an image URL or enter upload to add files:', 'upload');
+    if (!choice) return;
+
+    if (choice.trim().toLowerCase() === 'upload') {
+      try {
+        await uploadImagesIntoAbstract(textarea);
+      } catch (error) {
+        console.error('Image upload failed', error);
+        window.alert(error.message || 'Could not upload image(s).');
+      }
+      return;
+    }
+
+    const url = choice.trim();
     const alt = window.prompt('Enter alt text for the image:', 'image description') || 'image description';
-    insertAtCursor(textarea, '![', `](${url})`, alt);
+    insertTextAtCursor(textarea, markdownImage(url, alt));
   }
 
   function insertMathInline(textarea) {
@@ -129,7 +207,12 @@
     const source = document.querySelector(sourceSelector);
     const target = document.querySelector(targetSelector);
     if (!source || !target) return;
-    renderToElement(target, source.dataset.abstract || source.textContent || '');
+
+    const sourceText = typeof source.value === 'string'
+      ? source.value
+      : (source.dataset.abstract || source.textContent || '');
+
+    renderToElement(target, sourceText);
   }
 
   window.AbstractMarkdownEditor = {

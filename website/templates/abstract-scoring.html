@@ -6,9 +6,8 @@
 <div class="review-app">
   <div class="review-app__page"> 
     <div class="review-app__left">
-      <div id="txt"
-           class="review-app__comic"
-           data-abstract="{{ presentation.abstract|e }}"></div>
+      <textarea id="txt-source" class="d-none" aria-hidden="true">{{ presentation.abstract }}</textarea>
+      <div id="txt" class="review-app__comic"></div>
     </div>
 
     <!-- Right: grading panel -->

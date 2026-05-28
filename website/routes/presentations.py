@@ -2,12 +2,15 @@
 API endpoints for managing presentations.
 
 '''
+import os
+import uuid
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request, session, send_file
+from flask import Blueprint, current_app, jsonify, request, session, send_file
 from sqlalchemy import func
 import io
 import zipfile
+from werkzeug.utils import secure_filename
 
 from website.models import BlockSchedule, Presentation, User
 from website import db
@@ -285,6 +288,60 @@ def upload_presentation_file(presentation_id):
     db.session.commit()
 
     return jsonify({"message": "File uploaded successfully"})
+
+
+@presentations_bp.route('/abstract-images', methods=['POST'])
+def upload_abstract_images():
+    """Upload one or more abstract images and return their public URLs."""
+    user_info = session.get('user')
+    if not user_info:
+        return jsonify({"error": "Authentication required"}), 401
+
+    email = user_info.get('email')
+    if not email:
+        return jsonify({"error": "Authentication required"}), 401
+
+    db_user = User.query.filter_by(email=email).first()
+    if not db_user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    files = request.files.getlist('files') or request.files.getlist('files[]')
+    if not files:
+        return jsonify({"error": "No files uploaded"}), 400
+
+    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'abstract-images')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    uploaded = []
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
+
+    for file in files:
+        if not file or file.filename == '':
+            continue
+
+        filename = secure_filename(file.filename)
+        extension = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if extension not in allowed_extensions:
+            return jsonify({"error": f"Unsupported image type: {file.filename}"}), 400
+
+        raw_data = file.read()
+        if len(raw_data) > 10 * 1024 * 1024:
+            return jsonify({"error": f"Image is too large: {file.filename}"}), 400
+
+        unique_name = f"{uuid.uuid4().hex}_{filename}"
+        path = os.path.join(upload_dir, unique_name)
+        with open(path, 'wb') as out_file:
+            out_file.write(raw_data)
+
+        uploaded.append({
+            "filename": filename,
+            "url": f"/static/uploads/abstract-images/{unique_name}",
+        })
+
+    if not uploaded:
+        return jsonify({"error": "No valid image files uploaded"}), 400
+
+    return jsonify({"uploaded": uploaded})
 
 
 @presentations_bp.route('/download-all', methods=['GET'])
