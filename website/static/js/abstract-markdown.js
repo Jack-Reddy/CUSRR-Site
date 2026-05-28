@@ -33,6 +33,9 @@
   function typesetMath(element) {
     if (!element) return;
     if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+      if (typeof window.MathJax.typesetClear === 'function') {
+        window.MathJax.typesetClear([element]);
+      }
       window.MathJax.typesetPromise([element]).catch((error) => {
         console.error('MathJax typeset failed', error);
       });
@@ -83,7 +86,7 @@
   }
 
   function insertMathBlock(textarea) {
-    insertAtCursor(textarea, '$$\n', '\n$$', 'E = mc^2');
+    insertAtCursor(textarea, '\n\n$$\n', '\n$$\n\n', 'E = mc^2');
   }
 
   function wireToolbar(textarea, toolbar) {

@@ -38,3 +38,14 @@
 .review-app__comic p:last-child {
   margin-bottom: 0;
 }
+
+.abstract-preview .mjx-merror,
+.session-abstract .mjx-merror,
+.review-app__comic .mjx-merror,
+.abstract-preview .MathJax_Error,
+.session-abstract .MathJax_Error,
+.review-app__comic .MathJax_Error {
+  color: inherit !important;
+  background: transparent !important;
+  border: 0 !important;
+}
