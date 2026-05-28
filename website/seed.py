@@ -20,18 +20,11 @@ def setup_permissions():
         print("permissions.csv file not found. Skipping permissions setup.")
 
 
-def seed_data():
+def _seed_data_impl():
     '''
     Seed initial schedule, presentations, and users into the database.
     '''
     from .models import User, Presentation, BlockSchedule
-
-    print("Seeding schedule...")
-
-    # Avoid duplicating schedules
-    if BlockSchedule.query.count() > 0:
-        print("Schedules already exist, skipping.")
-        return
 
     # Helper to parse string into datetime
     def parse_time(time_str):
@@ -213,9 +206,46 @@ def seed_data():
             email="isaac@example.com",
             presentation_id=p3.id,
             activity="Rafting"),
+        User(
+            firstname="Jack",
+            lastname="Reddy",
+            email="jeredd27@colby.edu",
+            activity="Rafting",
+            auth="organizer"),
+        User(
+            firstname="Yang",
+            lastname="Fan",
+            email="yffan@colby.edu",
+            activity="Rafting",
+            auth="organizer"),
     ]
 
     db.session.add_all(users)
     db.session.commit()
 
     print("✔ Schedule & users seeded successfully!")
+
+
+def seed_data():
+    '''
+    Seed initial schedule, presentations, and users into the database if empty.
+    '''
+    from .models import BlockSchedule
+
+    print("Seeding schedule...")
+
+    if BlockSchedule.query.count() > 0:
+        print("Schedules already exist, skipping.")
+        return
+
+    _seed_data_impl()
+
+
+def reseed_data():
+    '''
+    Clear existing tables and seed the database from scratch.
+    '''
+    print("Reseeding database...")
+    db.drop_all()
+    db.create_all()
+    _seed_data_impl()

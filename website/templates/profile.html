@@ -110,8 +110,32 @@
             <input id="subject" type="text" placeholder="Subject" class="form-control">
 
             <div class="form-group mt-3">
-              <label for="Abstract" class="form-label">Abstract</label>
-              <textarea id="Abstract" name="Abstract" rows="4" class="form-control"></textarea>
+              <label for="Abstract" class="form-label d-flex justify-content-between align-items-center">
+                <span>Abstract</span>
+                <small class="text-muted">Markdown, images, and LaTeX are supported</small>
+              </label>
+              <div id="abstract-toolbar" class="btn-group flex-wrap gap-2 mb-2" role="toolbar" aria-label="Abstract formatting toolbar">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="bold"><strong>B</strong></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="italic"><em>I</em></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="heading">H</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="list">List</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="link">Link</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="image">Image</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="math-inline">$x$</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="math-block">$$x$$</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-md-action="code">Code</button>
+              </div>
+              <textarea id="Abstract" name="Abstract" rows="8" class="form-control" placeholder="Write in Markdown, e.g. **bold**, ![image](url), $x^2$"></textarea>
+              <div class="form-text">Tip: paste an image URL with the Image button, or write <code>![caption](url)</code> directly.</div>
+              <div class="card mt-3 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                  <span class="fw-semibold">Live Preview</span>
+                  <small class="text-muted">Rendered the same way it will appear later</small>
+                </div>
+                <div class="card-body">
+                  <div id="abstract-preview" class="abstract-preview"></div>
+                </div>
+              </div>
             </div>
 
             <label for="Type" class="form-label w-100 mt-3">Type</label>
@@ -122,7 +146,6 @@
               <option value="Poster">Poster</option>
             </select>
           </div>
-          <!-- Submit button is now OUTSIDE abstract-main-fields so it's visible even for non-submitting partners -->
           <button id="abstract-submit" class="btn btn-primary mt-4 w-100">
             Submit
           </button>

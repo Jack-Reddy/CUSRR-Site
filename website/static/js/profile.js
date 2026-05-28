@@ -315,6 +315,14 @@ async function uploadPresentation() {
 window.addEventListener('DOMContentLoaded', () => {
   console.log('DOMContentLoaded fired');
 
+  if (window.AbstractMarkdownEditor) {
+    window.AbstractMarkdownEditor.initEditor({
+      textareaId: 'Abstract',
+      toolbarId: 'abstract-toolbar',
+      previewId: 'abstract-preview',
+    });
+  }
+
   setupPresentationField();
   account_info();
   setupPartnerFields();

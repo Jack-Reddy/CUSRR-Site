@@ -1,0 +1,40 @@
+.abstract-preview,
+.session-abstract,
+.review-app__comic {
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.abstract-preview img,
+.session-abstract img,
+.review-app__comic img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75rem 0;
+  border-radius: 0.75rem;
+}
+
+.abstract-preview pre,
+.session-abstract pre,
+.review-app__comic pre,
+.abstract-preview code,
+.session-abstract code,
+.review-app__comic code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.abstract-preview blockquote,
+.session-abstract blockquote,
+.review-app__comic blockquote {
+  padding-left: 1rem;
+  border-left: 0.25rem solid rgba(0, 0, 0, 0.15);
+  color: #6c757d;
+}
+
+.abstract-preview p:last-child,
+.session-abstract p:last-child,
+.review-app__comic p:last-child {
+  margin-bottom: 0;
+}

@@ -6,7 +6,9 @@
 <div class="review-app">
   <div class="review-app__page"> 
     <div class="review-app__left">
-      <pre id="txt" class="review-app__comic">{{ presentation.abstract }}</pre>
+      <div id="txt"
+           class="review-app__comic"
+           data-abstract="{{ presentation.abstract|e }}"></div>
     </div>
 
     <!-- Right: grading panel -->

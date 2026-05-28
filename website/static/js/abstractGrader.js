@@ -2,6 +2,13 @@ function truncate(str, n) {
   return str.length > n ? str.slice(0, n) + "..." : str;
 }
 
+function abstractSnippet(source, maxLength = 120) {
+  if (window.AbstractMarkdownEditor) {
+    return truncate(window.AbstractMarkdownEditor.plainText(source || ''), maxLength);
+  }
+  return truncate(source || '', maxLength);
+}
+
 (function () {
   const todoGrid = document.getElementById('todoGrid');
   const completedGrid = document.getElementById('completedGrid');
@@ -40,7 +47,7 @@ function truncate(str, n) {
                 <h6 class="mb-1">${p.title}</h6>
               </div>
   
-              <p class="text-sm mb-2">${ truncate(p.abstract || "", 120) }</p>
+              <p class="text-sm mb-2">${ abstractSnippet(p.abstract || "", 120) }</p>
   
               <div class="d-flex align-items-center gap-2">
               <a class="btn btn-sm btn-outline-info px-2" href="/abstract-scoring?id=${p.id}">Grade</a>

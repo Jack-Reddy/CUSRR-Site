@@ -167,7 +167,12 @@ async function submitGradeForm(ev) {
     m.querySelector('#mRoom').textContent = cardEl.dataset.room || '';
     m.querySelector('#mSubject').textContent = cardEl.dataset.subject || '';
     m.querySelector('#mType').textContent = cardEl.dataset.type || '';
-    m.querySelector('#mAbstract').textContent = cardEl.dataset.abstract || '';
+    const abstractEl = m.querySelector('#mAbstract');
+    if (window.AbstractMarkdownEditor) {
+      window.AbstractMarkdownEditor.renderToElement(abstractEl, cardEl.dataset.abstract || '');
+    } else {
+      abstractEl.textContent = cardEl.dataset.abstract || '';
+    }
 
     const presentersEl = m.querySelector('#mPresenters');
     if (cardEl.dataset.presenters) {

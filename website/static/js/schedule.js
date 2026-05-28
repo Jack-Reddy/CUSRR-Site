@@ -48,6 +48,14 @@ function formatPresenterName(p) {
   return '';
 }
 
+function abstractSnippet(source, maxLength = 75) {
+  if (window.AbstractMarkdownEditor) {
+    const text = window.AbstractMarkdownEditor.plainText(source || '');
+    return text.length > maxLength ? text.slice(0, maxLength) + '…' : text;
+  }
+  return source && source.length > maxLength ? source.slice(0, maxLength) + '…' : (source || '');
+}
+
 
 // -----------------------------
 // Fetch Data
@@ -133,7 +141,7 @@ function renderDetails(sessions, detailsContainer, presentations) {
             <div class="card border-0 shadow-xs rounded-4 h-100 p-3" id="poster-${presentation.id}">
               <h6 class="fw-bold mb-1">${presentation.title}</h6>
               <p class="text-sm text-secondary mb-1">${(presentation.presenters || []).map(formatPresenterName).filter(Boolean).join(", ")}</p>
-              <p class="text-sm mb-0">${presentation.abstract ? truncate(presentation.abstract, 75) : ""}</p>
+              <p class="text-sm mb-0">${presentation.abstract ? abstractSnippet(presentation.abstract, 75) : ""}</p>
             </div>
           </div>
         `;

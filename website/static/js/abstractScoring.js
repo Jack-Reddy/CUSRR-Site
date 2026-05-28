@@ -2,6 +2,14 @@
 const critInputs = document.querySelectorAll('.crit');
 const totalEl = document.getElementById('scoreTotal');
 
+const abstractTarget = document.getElementById('txt');
+if (window.AbstractMarkdownEditor && abstractTarget) {
+  window.AbstractMarkdownEditor.renderToElement(
+    abstractTarget,
+    abstractTarget.dataset.abstract || ''
+  );
+}
+
 function updateScores() {
   const o = +document.getElementById('scoreOrig').value;
   const c = +document.getElementById('scoreClar').value;

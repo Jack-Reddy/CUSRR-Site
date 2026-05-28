@@ -1,0 +1,139 @@
+(function () {
+  function ensureMarkedOptions() {
+    if (window.marked && typeof window.marked.setOptions === 'function') {
+      window.marked.setOptions({
+        breaks: true,
+        gfm: true,
+        headerIds: false,
+        mangle: false,
+      });
+    }
+  }
+
+  function renderMarkdown(source) {
+    const text = String(source || '');
+    if (!text) return '';
+
+    ensureMarkedOptions();
+
+    if (!window.marked || typeof window.marked.parse !== 'function') {
+      return text;
+    }
+
+    const html = window.marked.parse(text);
+    if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+      return window.DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true },
+      });
+    }
+
+    return html;
+  }
+
+  function typesetMath(element) {
+    if (!element) return;
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+      window.MathJax.typesetPromise([element]).catch((error) => {
+        console.error('MathJax typeset failed', error);
+      });
+    }
+  }
+
+  function renderToElement(element, source) {
+    if (!element) return;
+    element.innerHTML = renderMarkdown(source);
+    typesetMath(element);
+  }
+
+  function plainText(source) {
+    const preview = document.createElement('div');
+    preview.innerHTML = renderMarkdown(source);
+    return (preview.textContent || preview.innerText || '').trim();
+  }
+
+  function insertAtCursor(textarea, before, after = '', placeholder = '') {
+    if (!textarea) return;
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const selected = textarea.value.slice(start, end) || placeholder;
+    const inserted = `${before}${selected}${after}`;
+
+    textarea.setRangeText(inserted, start, end, 'end');
+    textarea.focus();
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function insertLink(textarea) {
+    const url = window.prompt('Enter the link URL:');
+    if (!url) return;
+    const label = window.prompt('Enter the link text:', 'link text') || 'link text';
+    insertAtCursor(textarea, '[', `](${url})`, label);
+  }
+
+  function insertImage(textarea) {
+    const url = window.prompt('Enter the image URL:');
+    if (!url) return;
+    const alt = window.prompt('Enter alt text for the image:', 'image description') || 'image description';
+    insertAtCursor(textarea, '![', `](${url})`, alt);
+  }
+
+  function insertMathInline(textarea) {
+    insertAtCursor(textarea, '$', '$', 'x^2');
+  }
+
+  function insertMathBlock(textarea) {
+    insertAtCursor(textarea, '$$\n', '\n$$', 'E = mc^2');
+  }
+
+  function wireToolbar(textarea, toolbar) {
+    if (!textarea || !toolbar) return;
+
+    toolbar.querySelectorAll('[data-md-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.mdAction;
+        if (action === 'bold') insertAtCursor(textarea, '**', '**', 'bold text');
+        if (action === 'italic') insertAtCursor(textarea, '_', '_', 'italic text');
+        if (action === 'code') insertAtCursor(textarea, '`', '`', 'code');
+        if (action === 'heading') insertAtCursor(textarea, '## ', '', 'Section title');
+        if (action === 'list') insertAtCursor(textarea, '- ', '', 'List item');
+        if (action === 'link') insertLink(textarea);
+        if (action === 'image') insertImage(textarea);
+        if (action === 'math-inline') insertMathInline(textarea);
+        if (action === 'math-block') insertMathBlock(textarea);
+      });
+    });
+  }
+
+  function wirePreview(textarea, preview) {
+    if (!textarea || !preview) return;
+
+    const update = () => renderToElement(preview, textarea.value);
+    textarea.addEventListener('input', update);
+    update();
+  }
+
+  function initEditor({ textareaId, toolbarId, previewId }) {
+    const textarea = document.getElementById(textareaId);
+    const toolbar = document.getElementById(toolbarId);
+    const preview = document.getElementById(previewId);
+
+    wireToolbar(textarea, toolbar);
+    wirePreview(textarea, preview);
+  }
+
+  function initRenderedAbstract({ sourceSelector, targetSelector }) {
+    const source = document.querySelector(sourceSelector);
+    const target = document.querySelector(targetSelector);
+    if (!source || !target) return;
+    renderToElement(target, source.dataset.abstract || source.textContent || '');
+  }
+
+  window.AbstractMarkdownEditor = {
+    initEditor,
+    initRenderedAbstract,
+    renderToElement,
+    renderMarkdown,
+    plainText,
+  };
+})();
