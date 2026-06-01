@@ -31,7 +31,15 @@ def get_all_presentations():
     Return all presentations as JSON, ordered by ID.
     Used by the front-end for navigation.
     """
-    presentations = Presentation.query.order_by(Presentation.id.asc()).all()
+    presentations = (
+        Presentation.query
+        .outerjoin(Presentation.schedule)
+        .filter(
+            (Presentation.schedule_id.is_(None)) | (Presentation.schedule.has(is_presentation=True))
+        )
+        .order_by(Presentation.id.asc())
+        .all()
+    )
     return jsonify([p.to_dict() for p in presentations])
 
 

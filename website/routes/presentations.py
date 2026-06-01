@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request, session, send_file
-from sqlalchemy import func
+from sqlalchemy import func, or_
 import io
 import zipfile
 from werkzeug.utils import secure_filename
@@ -24,7 +24,14 @@ presentations_bp = Blueprint('presentations', __name__)
 @presentations_bp.route('/', methods=['GET'])
 def get_presentations():
     ''' GET all presentations '''
-    presentations = Presentation.query.all()
+    presentations = (
+        Presentation.query
+        .outerjoin(Presentation.schedule)
+        .filter(
+            or_(Presentation.schedule_id.is_(None), BlockSchedule.is_presentation.is_(True))
+        )
+        .all()
+    )
     return jsonify([p.to_dict() for p in presentations])
 
 
@@ -130,11 +137,14 @@ def get_recent_presentations():
     now = datetime.now()
 
     candidates = (
-        Presentation.query .join(
-            Presentation.schedule) .filter(
-            func.coalesce(
-                Presentation.time,
-                BlockSchedule.start_time) >= now) .all())
+        Presentation.query
+        .join(Presentation.schedule)
+        .filter(
+            BlockSchedule.is_presentation.is_(True),
+            func.coalesce(Presentation.time, BlockSchedule.start_time) >= now
+        )
+        .all()
+    )
 
     def effective_time(pres):
         '''If presentation has explicit time, use it'''
@@ -180,12 +190,18 @@ def get_presentations_by_type(category):
     # order by the effective time: explicit Presentation.time or the
     # BlockSchedule.start_time
     results = (
-        Presentation.query .join(
-            Presentation.schedule) .filter(
-            BlockSchedule.block_type.ilike(formatted_type)) .order_by(
-                func.coalesce(
-                    Presentation.time,
-                    BlockSchedule.start_time).asc()) .all())
+        Presentation.query
+        .join(Presentation.schedule)
+        .filter(
+            BlockSchedule.is_presentation.is_(True),
+            BlockSchedule.block_type.ilike(formatted_type)
+        )
+        .order_by(
+            func.coalesce(
+                Presentation.time,
+                BlockSchedule.start_time).asc())
+        .all()
+    )
 
     return jsonify([p.to_dict() for p in results])
 

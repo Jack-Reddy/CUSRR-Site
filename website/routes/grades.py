@@ -4,7 +4,7 @@ Provides CRUD operations and average score calculations.
 '''
 from sqlalchemy import func, desc
 from flask import Blueprint, jsonify, request
-from website.models import Grade, Presentation
+from website.models import Grade, Presentation, BlockSchedule
 from website import db
 from .utils import format_average_grades
 
@@ -91,9 +91,13 @@ def get_average_grades_by_presentation():
                 Grade.criteria_2 +
                 Grade.criteria_3).label('average_score'),
             func.count(
-                Grade.id).label('num_grades')) .group_by(
-                    Grade.presentation_id) .order_by(
-                        desc('average_score')) .all())
+                Grade.id).label('num_grades'))
+        .join(Grade.presentation)
+        .join(Presentation.schedule)
+        .filter(BlockSchedule.is_presentation.is_(True))
+        .group_by(Grade.presentation_id)
+        .order_by(desc('average_score'))
+        .all())
 
     # Attach presentation info
     return format_average_grades(averages)
