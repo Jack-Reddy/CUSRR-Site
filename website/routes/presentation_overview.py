@@ -5,12 +5,18 @@ import io
 import textwrap
 
 from flask import Blueprint, render_template, jsonify, send_file
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 
 from website.models import Presentation, User
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
+
+
+def _user_full_name(user):
+    """Return a safe full name for a user."""
+    first = (user.firstname or '').strip()
+    last = (user.lastname or '').strip()
+    full_name = f"{first} {last}".strip()
+    return full_name or user.email
 
 
 @presentation_overview_bp.route('/overview', methods=['GET'])
@@ -40,7 +46,7 @@ def get_presentation_detail(presentation_id):
     presenters = User.query.filter_by(presentation_id=presentation_id).all()
     presenters_info = [
         {
-            'name': p.name,
+            'name': _user_full_name(p),
             'email': p.email,
             'department': p.activity,
         }
@@ -56,6 +62,9 @@ def get_presentation_detail(presentation_id):
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
     """Download a PDF with all presentation overviews."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
     presentations = Presentation.query.order_by(Presentation.id.asc()).all()
 
     pdf_buffer = io.BytesIO()
@@ -98,7 +107,7 @@ def download_overview_pdf():
 
     for index, presentation in enumerate(presentations, start=1):
         presenters = User.query.filter_by(presentation_id=presentation.id).all()
-        authors = ', '.join([p.name for p in presenters if p.name]) or '-'
+        authors = ', '.join([_user_full_name(p) for p in presenters]) or '-'
 
         departments = sorted(
             {p.activity.strip() for p in presenters if p.activity and p.activity.strip()}
