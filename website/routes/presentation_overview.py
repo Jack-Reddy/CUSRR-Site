@@ -35,33 +35,9 @@ def get_all_presentations():
     return jsonify([p.to_dict() for p in presentations])
 
 
-@presentation_overview_bp.route('/overview/<int:presentation_id>', methods=['GET'])
-def get_presentation_detail(presentation_id):
-    """
-    Return a single presentation with its presenter details.
-    """
-    presentation = Presentation.query.get_or_404(presentation_id)
-
-    # Get all presenters for this presentation
-    presenters = User.query.filter_by(presentation_id=presentation_id).all()
-    presenters_info = [
-        {
-            'name': _user_full_name(p),
-            'email': p.email,
-            'department': p.activity,
-        }
-        for p in presenters
-    ]
-
-    result = presentation.to_dict()
-    result['presenters'] = presenters_info
-
-    return jsonify(result)
-
-
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
-    """Download a PDF with all presentation overviews"""
+    """Download a PDF with all presentation overviews (one per page)."""
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
 
@@ -139,3 +115,27 @@ def download_overview_pdf():
         as_attachment=True,
         download_name='presentation_overviews.pdf',
     )
+
+
+@presentation_overview_bp.route('/overview/<int:presentation_id>', methods=['GET'])
+def get_presentation_detail(presentation_id):
+    """
+    Return a single presentation with its presenter details.
+    """
+    presentation = Presentation.query.get_or_404(presentation_id)
+
+    # Get all presenters for this presentation
+    presenters = User.query.filter_by(presentation_id=presentation_id).all()
+    presenters_info = [
+        {
+            'name': _user_full_name(p),
+            'email': p.email,
+            'department': p.activity,
+        }
+        for p in presenters
+    ]
+
+    result = presentation.to_dict()
+    result['presenters'] = presenters_info
+
+    return jsonify(result)
