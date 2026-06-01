@@ -113,6 +113,12 @@ def update_presentation(presentation_id):
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
     presentation.presentation_file = data.get('presentation_file', presentation.presentation_file)
+
+    if 'is_presentation' in data and presentation.schedule_id:
+        block = BlockSchedule.query.get(presentation.schedule_id)
+        if block:
+            block.is_presentation = bool(data.get('is_presentation'))
+
     db.session.commit()
     return jsonify(presentation.to_dict())
 

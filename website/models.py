@@ -77,6 +77,7 @@ class Presentation(db.Model):
             "time": fmt(calculated_time),
             "room": self.schedule.location if self.schedule else None,
             "type": self.schedule.block_type if self.schedule else None,
+            "schedule_is_presentation": self.schedule.is_presentation if self.schedule else None,
             "num_in_block": self.num_in_block,
             "presenters": [p.to_dict_basic() for p in self.presenters],
             "schedule_id": self.schedule_id

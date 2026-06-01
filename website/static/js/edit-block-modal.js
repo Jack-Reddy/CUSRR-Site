@@ -29,12 +29,6 @@
     modalEl.querySelector('#editBlockLocation').value = block.location || '';
     modalEl.querySelector('#editBlockSubLength').value = block.sub_length || '';
 
-    // Set is_presentation checkbox
-    const isPresentationCheckbox = modalEl.querySelector('#editBlockIsPresentation');
-    if (isPresentationCheckbox) {
-      isPresentationCheckbox.checked = block.is_presentation !== false;
-    }
-
     try {
       const startVal = block.startTime || block.start_time || block.start || null;
       const endVal = block.endTime || block.end_time || block.end || null;
@@ -80,12 +74,6 @@
 
       // normalize numeric field
       if (data.sub_length === "") delete data.sub_length;
-
-      // Convert is_presentation checkbox to boolean
-      const isPresentationCheckbox = newForm.querySelector('#editBlockIsPresentation');
-      if (isPresentationCheckbox) {
-        data.is_presentation = isPresentationCheckbox.checked;
-      }
 
       try {
         await onSubmit(data);

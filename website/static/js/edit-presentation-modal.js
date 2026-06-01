@@ -69,6 +69,11 @@
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
 
+    const isPresentationCheckbox = modalEl.querySelector('#editPresentationIsPresentation');
+    if (isPresentationCheckbox) {
+      isPresentationCheckbox.checked = Boolean(presentation.schedule_id) && presentation.schedule_is_presentation !== false;
+    }
+
     const scheduleSelect = modalEl.querySelector('#editPresentationSchedule');
     if (window._assignableBlocks) {
       populateScheduleOptions(scheduleSelect, window._assignableBlocks, presentation.schedule_id);
@@ -101,6 +106,11 @@
       const data = Object.fromEntries(formData.entries());
 
       if (data.schedule_id === '') delete data.schedule_id;
+
+      const isPresentationCheckbox = newForm.querySelector('#editPresentationIsPresentation');
+      if (isPresentationCheckbox) {
+        data.is_presentation = isPresentationCheckbox.checked;
+      }
 
       try {
         await onSubmit(data);
