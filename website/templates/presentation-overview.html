@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Presentation Overview{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-5 mb-5">
+  <div class="row">
+    <div class="col-12 col-lg-10 mx-auto">
+
+      <!-- Navigation Controls -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <button id="prev-btn" class="btn btn-outline-primary" aria-label="Previous presentation">
+          ← Previous
+        </button>
+        <h3 class="mb-0" id="presentation-counter">Loading...</h3>
+        <button id="next-btn" class="btn btn-outline-primary" aria-label="Next presentation">
+          Next →
+        </button>
+      </div>
+
+      <!-- Presentation Cards -->
+      <div id="presentation-container">
+        <!-- Session ID Card -->
+        <div class="card border-dark mb-3 shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Session ID</h6>
+            <p id="session-id" class="card-text mb-0">-</p>
+          </div>
+        </div>
+
+        <!-- Title Card -->
+        <div class="card border-dark mb-3 shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Title</h6>
+            <p id="presentation-title" class="card-text mb-0">-</p>
+          </div>
+        </div>
+
+        <!-- Author(s) Card -->
+        <div class="card border-dark mb-3 shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Author(s)</h6>
+            <p id="presentation-authors" class="card-text mb-0">-</p>
+          </div>
+        </div>
+
+        <!-- Department Card -->
+        <div class="card border-dark mb-3 shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Department</h6>
+            <p id="presentation-department" class="card-text mb-0">-</p>
+          </div>
+        </div>
+
+        <!-- Abstract Card -->
+        <div class="card border-dark mb-3 shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Abstract</h6>
+            <div id="presentation-abstract" class="card-text abstract-preview"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ url_for('static', filename='js/presentation-overview.js') }}"></script>
+{% endblock %}

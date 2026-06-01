@@ -93,6 +93,14 @@
       <span class="label">Schedule</span>
     </a>
 
+    <a class="btn btn-outline-secondary mb-2 nav-link" href="/overview">
+      <img class="icon-img"
+           src="{{ url_for('static', filename='icons/program.svg') }}"
+           alt=""
+           aria-hidden="true">
+      <span class="label">Presentation Overview</span>
+    </a>
+
     {# ONLY for abstract graders and organizers #}
     {% if 'abstract-grader' in roles or is_organizer %}
       <div id="abstractGrader">

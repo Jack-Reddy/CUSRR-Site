@@ -44,6 +44,7 @@ def create_app(test_config=None):
     from .routes.block_schedule import block_schedule_bp
     from .routes.abstract_grades import abstract_grades_bp
     from .routes.grades import grades_bp
+    from .routes.presentation_overview import presentation_overview_bp
 
     # Register API blueprints under `/api/v1/...` so frontend endpoints match
     app.register_blueprint(users_bp, url_prefix='/api/v1/users')
@@ -57,6 +58,7 @@ def create_app(test_config=None):
         abstract_grades_bp,
         url_prefix='/api/v1/abstractgrades')
     app.register_blueprint(grades_bp, url_prefix='/api/v1/grades')
+    app.register_blueprint(presentation_overview_bp, url_prefix='')
 
     (auth.organizer_required,
     auth.abstract_grader_required,
