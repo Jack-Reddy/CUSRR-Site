@@ -7,6 +7,13 @@
   let allPresentations = [];
   let currentIndex = 0;
 
+  function setCounter(text) {
+    const counter = document.getElementById('presentation-counter');
+    if (counter) {
+      counter.textContent = text;
+    }
+  }
+
   /**
    * Fetch all presentations from the API.
    */
@@ -15,6 +22,8 @@
       const response = await fetch('/overview/all');
       if (!response.ok) {
         console.error('Failed to fetch presentations:', response.statusText);
+        setCounter('Load failed');
+        showError('Could not load presentations.');
         return;
       }
       allPresentations = await response.json();
@@ -22,10 +31,12 @@
         currentIndex = 0;
         renderPresentation();
       } else {
+        setCounter('0 / 0');
         showError('No presentations found.');
       }
     } catch (error) {
       console.error('Error loading presentations:', error);
+      setCounter('Load failed');
       showError('Could not load presentations.');
     }
   }
@@ -44,13 +55,14 @@
       const response = await fetch(`/overview/${pres.id}`);
       if (!response.ok) {
         console.error('Failed to fetch presentation detail:', response.statusText);
+        setCounter('Load failed');
+        showError('Could not load this presentation.');
         return;
       }
       const detail = await response.json();
 
       // Update counter
-      document.getElementById('presentation-counter').textContent =
-        `${currentIndex + 1} / ${allPresentations.length}`;
+      setCounter(`${currentIndex + 1} / ${allPresentations.length}`);
 
       // Update cards
       document.getElementById('session-id').textContent = detail.id;
@@ -89,6 +101,7 @@
       document.getElementById('next-btn').disabled = currentIndex === allPresentations.length - 1;
     } catch (error) {
       console.error('Error rendering presentation:', error);
+      setCounter('Load failed');
       showError('Could not render presentation.');
     }
   }

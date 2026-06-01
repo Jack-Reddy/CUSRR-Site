@@ -1,7 +1,13 @@
 """
 Routes for presentation overview page.
 """
-from flask import Blueprint, render_template, jsonify, request
+import io
+import textwrap
+
+from flask import Blueprint, render_template, jsonify, send_file
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
 from website.models import Presentation, User
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
@@ -36,7 +42,7 @@ def get_presentation_detail(presentation_id):
         {
             'name': p.name,
             'email': p.email,
-            'department': p.department,
+            'department': p.activity,
         }
         for p in presenters
     ]
@@ -45,3 +51,83 @@ def get_presentation_detail(presentation_id):
     result['presenters'] = presenters_info
 
     return jsonify(result)
+
+
+@presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
+def download_overview_pdf():
+    """Download a PDF with all presentation overviews."""
+    presentations = Presentation.query.order_by(Presentation.id.asc()).all()
+
+    pdf_buffer = io.BytesIO()
+    pdf = canvas.Canvas(pdf_buffer, pagesize=letter)
+    width, height = letter
+
+    margin_x = 50
+    box_width = width - (2 * margin_x)
+    y_cursor = height - 50
+
+    def draw_box(label, value):
+        nonlocal y_cursor
+        label_text = f"{label}:"
+        value_text = str(value or '-')
+
+        wrapped = textwrap.wrap(value_text, width=90) or ['-']
+        line_height = 14
+        box_height = 26 + (len(wrapped) * line_height)
+
+        if y_cursor - box_height < 45:
+            pdf.showPage()
+            y_cursor = height - 50
+
+        y_top = y_cursor
+        y_bottom = y_cursor - box_height
+
+        pdf.setLineWidth(1)
+        pdf.rect(margin_x, y_bottom, box_width, box_height)
+
+        pdf.setFont('Helvetica-Bold', 11)
+        pdf.drawString(margin_x + 10, y_top - 18, label_text)
+
+        pdf.setFont('Helvetica', 10)
+        text_y = y_top - 34
+        for line in wrapped:
+            pdf.drawString(margin_x + 10, text_y, line)
+            text_y -= line_height
+
+        y_cursor = y_bottom - 10
+
+    for index, presentation in enumerate(presentations, start=1):
+        presenters = User.query.filter_by(presentation_id=presentation.id).all()
+        authors = ', '.join([p.name for p in presenters if p.name]) or '-'
+
+        departments = sorted(
+            {p.activity.strip() for p in presenters if p.activity and p.activity.strip()}
+        )
+        department_text = ', '.join(departments) if departments else '-'
+
+        draw_box('Session ID', presentation.id)
+        draw_box('Abstract Title', presentation.title)
+        draw_box('Author(s)', authors)
+        draw_box('Department', department_text)
+        draw_box('Abstract', presentation.abstract or '-')
+
+        if index < len(presentations):
+            if y_cursor < 80:
+                pdf.showPage()
+                y_cursor = height - 50
+            else:
+                y_cursor -= 12
+
+    if not presentations:
+        pdf.setFont('Helvetica', 12)
+        pdf.drawString(margin_x, height - 70, 'No presentations available.')
+
+    pdf.save()
+    pdf_buffer.seek(0)
+
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name='presentation_overviews.pdf',
+    )
