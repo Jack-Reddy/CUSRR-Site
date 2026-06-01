@@ -26,6 +26,20 @@
     if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
       return window.DOMPurify.sanitize(html, {
         USE_PROFILES: { html: true },
+        ALLOWED_TAGS: [
+          'a', 'abbr', 'acronym', 'b', 'blockquote', 'br', 'code', 'dd', 'del',
+          'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'i',
+          'img', 'ins', 'kbd', 'li', 'ol', 'p', 'pre', 'samp', 'small', 'span',
+          'strong', 'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead',
+          'tr', 'ul', 'var', 'svg', 'g', 'path', 'circle', 'rect', 'line', 'polyline',
+          'polygon', 'text', 'tspan', 'defs', 'use', 'style'
+        ],
+        ALLOWED_ATTR: [
+          'href', 'title', 'alt', 'src', 'width', 'height', 'viewBox', 'xmlns',
+          'preserveAspectRatio', 'fill', 'stroke', 'stroke-width', 'd', 'x', 'y',
+          'cx', 'cy', 'r', 'x1', 'y1', 'x2', 'y2', 'points', 'class', 'id', 'data-*'
+        ],
+        ALLOW_DATA_ATTR: true,
       });
     }
 

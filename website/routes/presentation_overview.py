@@ -61,7 +61,7 @@ def get_presentation_detail(presentation_id):
 
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
-    """Download a PDF with all presentation overviews."""
+    """Download a PDF with all presentation overviews"""
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
 
@@ -84,6 +84,7 @@ def download_overview_pdf():
         line_height = 14
         box_height = 26 + (len(wrapped) * line_height)
 
+        # Always create a new page if we don't have enough space
         if y_cursor - box_height < 45:
             pdf.showPage()
             y_cursor = height - 50
@@ -106,6 +107,11 @@ def download_overview_pdf():
         y_cursor = y_bottom - 10
 
     for index, presentation in enumerate(presentations, start=1):
+        # Start each presentation on a new page
+        if index > 1:
+            pdf.showPage()
+            y_cursor = height - 50
+
         presenters = User.query.filter_by(presentation_id=presentation.id).all()
         authors = ', '.join([_user_full_name(p) for p in presenters]) or '-'
 
@@ -119,13 +125,6 @@ def download_overview_pdf():
         draw_box('Author(s)', authors)
         draw_box('Department', department_text)
         draw_box('Abstract', presentation.abstract or '-')
-
-        if index < len(presentations):
-            if y_cursor < 80:
-                pdf.showPage()
-                y_cursor = height - 50
-            else:
-                y_cursor -= 12
 
     if not presentations:
         pdf.setFont('Helvetica', 12)

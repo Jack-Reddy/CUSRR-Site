@@ -94,6 +94,7 @@ class User(db.Model):
         presentation_id: Foreign key to Presentation
         activity: User's activity
         auth: User's authorization role
+        student_year: Student year (e.g., Freshman, Sophomore, Junior, Senior, or Other)
         presentation: Relationship to Presentation model
         grades_given: Relationship to Grade model
         abstract_grades_given: Relationship to AbstractGrade model
@@ -110,6 +111,7 @@ class User(db.Model):
     presentation_id = db.Column(db.Integer, db.ForeignKey('presentations.id'))
     activity = db.Column(db.String(80))
     auth = db.Column(db.String(80), default='attendee')
+    student_year = db.Column(db.String(50))
 
     # Relationship to Presentation
     presentation = db.relationship('Presentation', back_populates='presenters')
@@ -135,6 +137,7 @@ class User(db.Model):
             "name": f"{self.firstname} {self.lastname}",
             "email": self.email,
             "activity": self.activity,
+            "student_year": self.student_year,
             "presentation": self.presentation.title if self.presentation else None,
             "presentation_id": self.presentation_id,
             "status": status,
@@ -266,6 +269,7 @@ class BlockSchedule(db.Model):
         location: Location of the block
         block_type: Type of the block
         sub_length: Length of each presentation in the block (in minutes)
+        is_presentation: Boolean indicating if this block contains presentations (True) or other events (False)
         presentations: Relationship to Presentation model
     Methods:
         to_dict: Convert block schedule to dictionary format
@@ -281,6 +285,7 @@ class BlockSchedule(db.Model):
     location = db.Column(db.String(100))
     block_type = db.Column(db.String(50))
     sub_length = db.Column(db.Integer)
+    is_presentation = db.Column(db.Boolean, default=True)
 
     presentations = db.relationship(
         'Presentation',
@@ -305,5 +310,6 @@ class BlockSchedule(db.Model):
             "location": self.location,
             "length": length,
             "type": self.block_type,
-            "sub_length": self.sub_length
+            "sub_length": self.sub_length,
+            "is_presentation": self.is_presentation
         }

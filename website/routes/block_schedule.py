@@ -74,7 +74,8 @@ def create_schedule():
         description=data.get('description'),
         location=data.get('location'),
         block_type=data.get('block_type') or data.get('type'),
-        sub_length=data.get('sub_length')
+        sub_length=data.get('sub_length'),
+        is_presentation=data.get('is_presentation', True)
     )
 
     db.session.add(new_schedule)
@@ -111,6 +112,10 @@ def update_schedule(block_id):
         'block_type', data.get(
             'type', schedule.block_type))
     schedule.sub_length = data.get('sub_length', schedule.sub_length)
+    
+    # Update is_presentation if provided
+    if 'is_presentation' in data:
+        schedule.is_presentation = data.get('is_presentation', True)
 
     db.session.commit()
     return jsonify(schedule.to_dict())

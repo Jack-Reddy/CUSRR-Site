@@ -193,11 +193,13 @@ def get_presentations_by_type(category):
 @presentations_bp.route("/day/<string:day>")
 def get_presentations_by_day(day):
     '''
-    Get all presentations for a specific day, grouped by poster blocks.
+    Get all presentations for a specific day, grouped by presentation blocks.
+    Non-presentation schedule blocks (where is_presentation=False) are excluded.
     :param day: The day to filter presentations by (e.g., "Day 1")
     '''
     blocks = BlockSchedule.query.filter(
-    BlockSchedule.day == day).all()
+    BlockSchedule.day == day,
+    BlockSchedule.is_presentation == True).all()
     result = []
     for block in blocks:
         # Order presentations by `num_in_block` if set, otherwise fallback to

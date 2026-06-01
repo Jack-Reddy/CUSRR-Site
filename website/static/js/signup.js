@@ -26,6 +26,7 @@ async function signup(e) {
 
         const firstName = document.getElementById('first-name')?.value.trim();
         const lastName  = document.getElementById('last-name')?.value.trim();
+        const studentYearSelect = document.getElementById('student-year');
         const activitySelect = document.getElementById('activity');
 
         // Validate fields
@@ -34,11 +35,17 @@ async function signup(e) {
             return;
         }
 
+        if (!studentYearSelect || studentYearSelect.selectedIndex === 0) {
+            flash('Please select your student year.');
+            return;
+        }
+
         if (!activitySelect || activitySelect.selectedIndex === 0) {
             flash('Please select an activity.');
             return;
         }
 
+        const selectedYear = studentYearSelect.options[studentYearSelect.selectedIndex].value;
         const selectedActivity = activitySelect.options[activitySelect.selectedIndex].text;
 
         // Send signup request
@@ -48,6 +55,7 @@ async function signup(e) {
             body: JSON.stringify({
                 firstname: firstName,
                 lastname: lastName,
+                student_year: selectedYear,
                 activity: selectedActivity,
                 email: user.email
             })
@@ -78,3 +86,4 @@ function setupSignupButton() {
 }
 
 window.addEventListener('DOMContentLoaded', setupSignupButton);
+

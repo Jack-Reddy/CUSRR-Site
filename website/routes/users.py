@@ -41,6 +41,7 @@ def create_user():
             lastname=data['lastname'],
             email=data['email'],
             activity=data.get('activity'),
+            student_year=data.get('student_year'),
             presentation_id=data.get('presentation_id'),
             auth=data.get('auth')
         )
@@ -70,6 +71,7 @@ def update_user(user_id):
     user.lastname = data.get('lastname', user.lastname)
     user.email = data.get('email', user.email)
     user.activity = data.get('activity', user.activity)
+    user.student_year = data.get('student_year', user.student_year)
     user.presentation_id = data.get('presentation_id', user.presentation_id)
 
     auth_val = data.get('auth', user.auth)

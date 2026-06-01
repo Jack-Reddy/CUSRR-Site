@@ -22,6 +22,16 @@
       <label for="last-name" class="form-label text-start w-100 mt-3">Last Name</label>
       <input id="last-name" type="text" placeholder="Last Name" class="form-control">
 
+      <label for="student-year" class="form-label text-start w-100 mt-3">Student Year</label>
+      <select id="student-year" class="form-select" aria-label="Student year select">
+        <option selected>Select your year</option>
+        <option value="Freshman">Freshman</option>
+        <option value="Sophomore">Sophomore</option>
+        <option value="Junior">Junior</option>
+        <option value="Senior">Senior</option>
+        <option value="Other">Other</option>
+      </select>
+
       <label for="activity" class="form-label text-start w-100 mt-3">Activity</label>
       <select id="activity" class="form-select" aria-label="Activity select">
         <option selected>Select your activity</option>
@@ -41,3 +51,4 @@
   {{ super() }}
   <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
 {% endblock %}
+

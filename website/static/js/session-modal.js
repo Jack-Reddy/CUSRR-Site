@@ -170,6 +170,15 @@ async function submitGradeForm(ev) {
     const abstractEl = m.querySelector('#mAbstract');
     if (window.AbstractMarkdownEditor) {
       window.AbstractMarkdownEditor.renderToElement(abstractEl, cardEl.dataset.abstract || '');
+      // Re-process MathJax after rendering
+      if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        if (typeof window.MathJax.typesetClear === 'function') {
+          window.MathJax.typesetClear([abstractEl]);
+        }
+        window.MathJax.typesetPromise([abstractEl]).catch((error) => {
+          console.error('MathJax typeset failed in modal', error);
+        });
+      }
     } else {
       abstractEl.textContent = cardEl.dataset.abstract || '';
     }
