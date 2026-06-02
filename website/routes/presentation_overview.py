@@ -132,7 +132,7 @@ def _append_markdown_to_story(story, abstract, styles):
         if image_data:
             try:
                 image = Image(io.BytesIO(image_data))
-                max_width = 6.5 * inch
+                max_width = 6.2 * inch
                 max_height = 3.5 * inch
                 scale = min(max_width / image.imageWidth, max_height / image.imageHeight, 1)
                 image.drawWidth = image.imageWidth * scale
@@ -147,6 +147,24 @@ def _append_markdown_to_story(story, abstract, styles):
         position = match.end()
 
     add_text_block((abstract or '')[position:])
+
+
+def _boxed_section(flowables, width):
+    """Wrap a group of PDF flowables in a black bordered box."""
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Table, TableStyle
+
+    box = Table([[flowables]], colWidths=[width])
+    box.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    return [box, Table([['']], colWidths=[width], rowHeights=[0.12 * inch])]
 
 
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
@@ -168,10 +186,11 @@ def download_overview_pdf():
         bottomMargin=0.65 * inch,
     )
     styles = getSampleStyleSheet()
-    story = [Paragraph('CUSRR Program', styles['Title']), Spacer(1, 0.25 * inch)]
+    content_width = 7.2 * inch
+    story = []
 
     if not presentations:
-        story.append(Paragraph('No presentations available.', styles['BodyText']))
+        story.extend(_boxed_section([Paragraph('No presentations available.', styles['BodyText'])], content_width))
     else:
         for index, presentation in enumerate(presentations):
             presenters = User.query.filter_by(presentation_id=presentation.id).all()
@@ -181,13 +200,15 @@ def download_overview_pdf():
             )
             department_text = ', '.join(departments) if departments else '-'
 
-            story.append(Paragraph(escape(presentation.title or 'Untitled'), styles['Heading1']))
-            story.append(Paragraph(f'<b>Session ID:</b> {presentation.id}', styles['BodyText']))
-            story.append(Paragraph(f'<b>Author(s):</b> {escape(authors)}', styles['BodyText']))
-            story.append(Paragraph(f'<b>Department:</b> {escape(department_text)}', styles['BodyText']))
-            story.append(Spacer(1, 0.15 * inch))
-            story.append(Paragraph('<b>Abstract</b>', styles['Heading2']))
-            _append_markdown_to_story(story, presentation.abstract or '-', styles)
+            section = []
+            section.append(Paragraph(escape(presentation.title or 'Untitled'), styles['Heading1']))
+            section.append(Paragraph(f'<b>Session ID:</b> {presentation.id}', styles['BodyText']))
+            section.append(Paragraph(f'<b>Author(s):</b> {escape(authors)}', styles['BodyText']))
+            section.append(Paragraph(f'<b>Department:</b> {escape(department_text)}', styles['BodyText']))
+            section.append(Spacer(1, 0.15 * inch))
+            section.append(Paragraph('<b>Abstract</b>', styles['Heading2']))
+            _append_markdown_to_story(section, presentation.abstract or '-', styles)
+            story.extend(_boxed_section(section, content_width))
 
             if index < len(presentations) - 1:
                 story.append(PageBreak())
