@@ -42,7 +42,6 @@
     // Set the selected value after all options are added
     if (selectedId !== undefined && selectedId !== null && selectedId !== '') {
       selectEl.value = String(selectedId);
-      console.log('Setting schedule dropdown to:', selectedId, 'Result:', selectEl.value);
     }
   }
 
@@ -69,9 +68,9 @@
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
 
-    const isPresentationCheckbox = modalEl.querySelector('#editPresentationIsPresentation');
-    if (isPresentationCheckbox) {
-      isPresentationCheckbox.checked = presentation.is_presentation === true;
+    const showOnScheduleCheckbox = modalEl.querySelector('#editPresentationShowOnSchedule');
+    if (showOnScheduleCheckbox) {
+      showOnScheduleCheckbox.checked = presentation.show_on_schedule !== false;
     }
 
     const scheduleSelect = modalEl.querySelector('#editPresentationSchedule');
@@ -107,9 +106,9 @@
 
       if (data.schedule_id === '') delete data.schedule_id;
 
-      const isPresentationCheckbox = newForm.querySelector('#editPresentationIsPresentation');
-      if (isPresentationCheckbox) {
-        data.is_presentation = isPresentationCheckbox.checked;
+      const showOnScheduleCheckbox = newForm.querySelector('#editPresentationShowOnSchedule');
+      if (showOnScheduleCheckbox) {
+        data.show_on_schedule = showOnScheduleCheckbox.checked;
       }
 
       try {
