@@ -5,7 +5,7 @@ import io
 from datetime import datetime, timedelta
 
 from website import db
-from website.models import Presentation, User
+from website.models import BlockSchedule, Presentation, User
 
 def test_get_presentations_empty(client):
     """GET /api/v1/presentations/ returns an empty list when no presentations exist."""
@@ -21,6 +21,38 @@ def test_get_presentations_nonempty(client, sample_presentation_fixture):
     assert res.status_code == 200
     assert len(data) == 1
     assert data[0]["title"] == "Test Presentation"
+
+
+def test_get_presentations_includes_non_presentation_blocks(client, app):
+    """GET /api/v1/presentations/ includes presentations on non-presentation blocks."""
+    with app.app_context():
+        block = BlockSchedule(
+            day="Day 2",
+            start_time=datetime.now() + timedelta(hours=2),
+            end_time=datetime.now() + timedelta(hours=3),
+            title="Non Presentation Block",
+            description="A block marked as not presenting",
+            location="Room B",
+            block_type="poster",
+            sub_length=15,
+            is_presentation=False,
+        )
+        db.session.add(block)
+        db.session.flush()
+
+        presentation = Presentation(
+            title="Hidden Session",
+            abstract="Still should appear in organizer view",
+            subject="Testing",
+            schedule_id=block.id,
+        )
+        db.session.add(presentation)
+        db.session.commit()
+
+    res = client.get("/api/v1/presentations/")
+    data = res.get_json()
+    assert res.status_code == 200
+    assert any(item["title"] == "Hidden Session" for item in data)
 
 
 def test_get_single_presentation(client, sample_presentation_fixture):

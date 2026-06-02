@@ -24,14 +24,7 @@ presentations_bp = Blueprint('presentations', __name__)
 @presentations_bp.route('/', methods=['GET'])
 def get_presentations():
     ''' GET all presentations '''
-    presentations = (
-        Presentation.query
-        .outerjoin(Presentation.schedule)
-        .filter(
-            or_(Presentation.schedule_id.is_(None), BlockSchedule.is_presentation.is_(True))
-        )
-        .all()
-    )
+    presentations = Presentation.query.order_by(Presentation.id.asc()).all()
     return jsonify([p.to_dict() for p in presentations])
 
 
