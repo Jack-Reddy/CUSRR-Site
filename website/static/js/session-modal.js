@@ -6,7 +6,6 @@
     const d = new Date(value);
     if (!isNaN(d.getTime())) {
       try {
-        // show day/month + time, omit year
         return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
                ' ' +
                d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -15,15 +14,31 @@
     return String(value);
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function abstractPreview(source, maxLength = 100) {
+    const raw = String(source || '');
+    const plain = window.AbstractMarkdownEditor
+      ? window.AbstractMarkdownEditor.plainText(raw)
+      : raw.replace(/[#*_`$!\[\]()]/g, '');
+    return plain.length > maxLength ? plain.slice(0, maxLength).trim() + '…' : plain;
+  }
+
   function buildCard(item, index, cardClass = 'session-card') {
     const card = document.createElement('div');
     card.className = `card shadow-xs border-0 rounded-4 ${cardClass}`;
     card.role = 'button';
 
-    // format time once
     const timeDisplay = formatTimeNoYear(item.time);
+    const preview = abstractPreview(item.abstract, 100);
 
-    // store data for modal
     card.dataset.title = item.title || 'Untitled';
     card.dataset.time = timeDisplay;
     card.dataset.room = item.room || '';
@@ -32,22 +47,19 @@
     card.dataset.presenters = JSON.stringify(item.presenters || []);
     card.dataset.abstract = item.abstract || '';
     card.dataset.id = item.id || '';
-    //card.dataset.img = item.image_url || DEFAULT_IMG;
 
     card.innerHTML = `
       <div class="card-body py-3">
         <div class="d-flex align-items-start gap-3">
           <div class="flex-grow-1">
             <div class="d-flex justify-content-between align-items-start">
-              <h6 class="mb-1">${card.dataset.title}</h6>
+              <h6 class="mb-1">${escapeHtml(card.dataset.title)}</h6>
               <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-gray-100 text-secondary">${timeDisplay}</span>
-                <button type="button" class="btn btn-sm btn-outline-primary grade-btn" data-presentation-id="${card.dataset.id}">Grade</button>
+                <span class="badge bg-gray-100 text-secondary">${escapeHtml(timeDisplay)}</span>
+                <button type="button" class="btn btn-sm btn-outline-primary grade-btn" data-presentation-id="${escapeHtml(card.dataset.id)}">Grade</button>
               </div>
             </div>
-            <p class="text-sm text-secondary mb-0">
-              ${item.abstract ? (item.abstract.length > 100 ? item.abstract.slice(0, 100) + '…' : item.abstract) : ''}
-            </p>
+            <p class="text-sm text-secondary mb-0">${escapeHtml(preview)}</p>
           </div>
         </div>
       </div>
@@ -55,13 +67,11 @@
     return card;
   }
 
-  // Open the grading modal and populate with basic info
   function openGradeModal(presentationId, title) {
     const gm = document.getElementById('gradeModal');
     if (!gm) return;
     gm.querySelector('#gPresentationId').value = presentationId || '';
     gm.querySelector('#gPresentationTitle').textContent = title || '';
-    // reset inputs / set defaults for sliders
     const orig = gm.querySelector('#gScoreOrig');
     const clar = gm.querySelector('#gScoreClar');
     const sign = gm.querySelector('#gScoreSign');
@@ -75,62 +85,61 @@
     modal.show();
   }
 
-async function submitGradeForm(ev) {
-  ev.preventDefault();
-  const gm = document.getElementById('gradeModal');
-  const form = gm.querySelector('form');
-  const submitBtn = form.querySelector('button[type="submit"]');
-  if (submitBtn) submitBtn.disabled = true;
+  async function submitGradeForm(ev) {
+    ev.preventDefault();
+    const gm = document.getElementById('gradeModal');
+    const form = gm.querySelector('form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
 
-  const presentationId = gm.querySelector('#gPresentationId').value;
-  const criteria_1 = Number(gm.querySelector('#gScoreOrig').value) || 0;
-  const criteria_2 = Number(gm.querySelector('#gScoreClar').value) || 0;
-  const criteria_3 = Number(gm.querySelector('#gScoreSign').value) || 0;
-  const comments = gm.querySelector('#gComments').value || '';
+    const presentationId = gm.querySelector('#gPresentationId').value;
+    const criteria_1 = Number(gm.querySelector('#gScoreOrig').value) || 0;
+    const criteria_2 = Number(gm.querySelector('#gScoreClar').value) || 0;
+    const criteria_3 = Number(gm.querySelector('#gScoreSign').value) || 0;
+    const comments = gm.querySelector('#gComments').value || '';
 
-  let userId;
-  try {
-    const resp = await fetch('/me', { credentials: 'same-origin' });
-    if (!resp.ok) throw new Error('not authenticated');
-    userId = (await resp.json()).user_id;
-  } catch (e) {
-    alert('You must be logged in to submit a grade.');
-    if (submitBtn) submitBtn.disabled = false;
-    return;
-  }
-
-  const payload = { user_id: userId, presentation_id: presentationId, criteria_1, criteria_2, criteria_3, comments };
-
-  try {
-    const resp = await fetch('/api/v1/grades/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      credentials: 'same-origin'
-    });
-
-    let errData = {};
-    try { errData = await resp.json(); } catch (_) {}
-
-    if (!resp.ok) {
-      alert(errData.error || errData.message || 'Failed to submit grade');
+    let userId;
+    try {
+      const resp = await fetch('/me', { credentials: 'same-origin' });
+      if (!resp.ok) throw new Error('not authenticated');
+      userId = (await resp.json()).user_id;
+    } catch (e) {
+      alert('You must be logged in to submit a grade.');
       if (submitBtn) submitBtn.disabled = false;
       return;
     }
 
-    // success
-    const modal = bootstrap.Modal.getInstance(gm);
-    if (modal) modal.hide();
-    form.reset();
-    alert('Grade submitted successfully');
+    const payload = { user_id: userId, presentation_id: presentationId, criteria_1, criteria_2, criteria_3, comments };
 
-  } catch (err) {
-    console.error('Grade submit error', err);
-    alert('Could not submit grade: ' + (err.message || err));
-  } finally {
-    if (submitBtn) submitBtn.disabled = false;
+    try {
+      const resp = await fetch('/api/v1/grades/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin'
+      });
+
+      let errData = {};
+      try { errData = await resp.json(); } catch (_) {}
+
+      if (!resp.ok) {
+        alert(errData.error || errData.message || 'Failed to submit grade');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      const modal = bootstrap.Modal.getInstance(gm);
+      if (modal) modal.hide();
+      form.reset();
+      alert('Grade submitted successfully');
+
+    } catch (err) {
+      console.error('Grade submit error', err);
+      alert('Could not submit grade: ' + (err.message || err));
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
   }
-}
 
   function updateGradeScores() {
     const oEl = document.getElementById('gScoreOrig');
@@ -150,7 +159,6 @@ async function submitGradeForm(ev) {
     totalEl.textContent = o + c + s;
   }
 
-  // attach listeners to grade modal sliders when DOM ready
   document.addEventListener('DOMContentLoaded', () => {
     ['gScoreOrig', 'gScoreClar', 'gScoreSign'].forEach(id => {
       const el = document.getElementById(id);
@@ -170,15 +178,6 @@ async function submitGradeForm(ev) {
     const abstractEl = m.querySelector('#mAbstract');
     if (window.AbstractMarkdownEditor) {
       window.AbstractMarkdownEditor.renderToElement(abstractEl, cardEl.dataset.abstract || '');
-      // Re-process MathJax after rendering
-      if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-        if (typeof window.MathJax.typesetClear === 'function') {
-          window.MathJax.typesetClear([abstractEl]);
-        }
-        window.MathJax.typesetPromise([abstractEl]).catch((error) => {
-          console.error('MathJax typeset failed in modal', error);
-        });
-      }
     } else {
       abstractEl.textContent = cardEl.dataset.abstract || '';
     }
@@ -187,17 +186,13 @@ async function submitGradeForm(ev) {
     if (cardEl.dataset.presenters) {
       try {
         const presenters = JSON.parse(cardEl.dataset.presenters);
-        presentersEl.innerHTML = presenters.map(p => `${p.firstname} ${p.lastname} (${p.email}${p.activity ? ', ' + p.activity : ''})`).join('<br>');
+        presentersEl.innerHTML = presenters.map(p => `${escapeHtml(p.firstname || p.name || '')} ${escapeHtml(p.lastname || '')}${p.email ? ` (${escapeHtml(p.email)}${p.activity ? ', ' + escapeHtml(p.activity) : ''})` : ''}`).join('<br>');
       } catch {
         presentersEl.textContent = cardEl.dataset.presenters;
       }
     } else {
       presentersEl.textContent = '';
     }
-
-    // const img = m.querySelector('#mImg');
-    // if (cardEl.dataset.img) { img.src = cardEl.dataset.img; img.classList.remove('d-none'); }
-    // else { img.classList.add('d-none'); }
 
     const modal = bootstrap.Modal.getOrCreateInstance(m, { backdrop: true });
     modal.show();
@@ -211,6 +206,7 @@ async function submitGradeForm(ev) {
       .then(resp => resp.ok ? resp.json() : Promise.reject(resp))
       .then(items => {
         container.innerHTML = '';
+        items = (items || []).filter(item => item.show_on_schedule !== false);
         if (!items || items.length === 0) {
           container.innerHTML = '<p class="text-secondary">No sessions found.</p>';
           return;
@@ -227,29 +223,27 @@ async function submitGradeForm(ev) {
 
   function setupDelegatedClicks(containerSelector) {
     const container = document.querySelector(containerSelector);
-    if (!container) return;
+    if (!container || container.dataset.sessionModalBound === 'true') return;
+    container.dataset.sessionModalBound = 'true';
+
     container.addEventListener('click', (e) => {
       if (e.target.closest('.dropdown, [data-bs-toggle="dropdown"]')) return;
 
-      // grade button click
       const gradeBtn = e.target.closest('.grade-btn');
       if (gradeBtn) {
         const pid = gradeBtn.dataset.presentationId;
-        // find title from closest card
         const card = gradeBtn.closest('.session-card, .poster-card, .blitz-card');
         const title = card ? card.dataset.title : '';
         openGradeModal(pid, title);
         return;
       }
 
-      // ignore clicks on links/buttons
       if (e.target.closest('button, a')) return;
       const card = e.target.closest('.session-card, .poster-card, .blitz-card');
       if (card) fillAndShowModal(card);
     });
   }
 
-  // wire up grade modal submission when present on the page
   document.addEventListener('DOMContentLoaded', () => {
     const gm = document.getElementById('gradeModal');
     if (gm) {
@@ -266,7 +260,7 @@ async function submitGradeForm(ev) {
     try {
       const resp = await fetch(apiEndpoint);
       if (!resp.ok) throw new Error(`Network response not ok: ${resp.status}`);
-      const items = await resp.json();
+      const items = (await resp.json()).filter(item => item.show_on_schedule !== false);
       const now = new Date();
 
       const upcoming = items.filter(i => new Date(i.time) >= now).sort((a,b) => new Date(a.time) - new Date(b.time));
@@ -287,13 +281,11 @@ async function submitGradeForm(ev) {
   }
 
   window.SessionModal = {
-  buildCard,
-  fillAndShowModal,
-  loadSessions,       
-  setupDelegatedClicks,
-  loadCards,          
-  formatTimeNoYear
-};
+    buildCard,
+    fillAndShowModal,
+    loadSessions,
+    setupDelegatedClicks,
+    loadCards,
+    formatTimeNoYear
+  };
 })();
-
-

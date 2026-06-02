@@ -7,6 +7,7 @@ import textwrap
 from flask import Blueprint, render_template, jsonify, send_file
 
 from website.models import Presentation, User
+from website.routes.presentations import get_show_on_schedule, presentation_to_dict
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
 
@@ -28,7 +29,7 @@ def overview():
 @presentation_overview_bp.route('/overview/all', methods=['GET'])
 def get_all_presentations():
     """
-    Return all presentations as JSON, ordered by ID.
+    Return all visible presentations as JSON, ordered by ID.
     Used by the front-end for navigation.
     """
     presentations = (
@@ -40,16 +41,20 @@ def get_all_presentations():
         .order_by(Presentation.id.asc())
         .all()
     )
-    return jsonify([p.to_dict() for p in presentations])
+    presentations = [p for p in presentations if get_show_on_schedule(p.id)]
+    return jsonify([presentation_to_dict(p) for p in presentations])
 
 
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
-    """Download a PDF with all presentation overviews (one per page)."""
+    """Download a PDF with all visible presentation overviews (one per page)."""
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
 
-    presentations = Presentation.query.order_by(Presentation.id.asc()).all()
+    presentations = [
+        p for p in Presentation.query.order_by(Presentation.id.asc()).all()
+        if get_show_on_schedule(p.id)
+    ]
 
     pdf_buffer = io.BytesIO()
     pdf = canvas.Canvas(pdf_buffer, pagesize=letter)
@@ -68,7 +73,6 @@ def download_overview_pdf():
         line_height = 14
         box_height = 26 + (len(wrapped) * line_height)
 
-        # Always create a new page if we don't have enough space
         if y_cursor - box_height < 45:
             pdf.showPage()
             y_cursor = height - 50
@@ -91,7 +95,6 @@ def download_overview_pdf():
         y_cursor = y_bottom - 10
 
     for index, presentation in enumerate(presentations, start=1):
-        # Start each presentation on a new page
         if index > 1:
             pdf.showPage()
             y_cursor = height - 50
@@ -128,11 +131,12 @@ def download_overview_pdf():
 @presentation_overview_bp.route('/overview/<int:presentation_id>', methods=['GET'])
 def get_presentation_detail(presentation_id):
     """
-    Return a single presentation with its presenter details.
+    Return a single visible presentation with its presenter details.
     """
     presentation = Presentation.query.get_or_404(presentation_id)
+    if not get_show_on_schedule(presentation.id):
+        return jsonify({"error": "Presentation hidden"}), 404
 
-    # Get all presenters for this presentation
     presenters = User.query.filter_by(presentation_id=presentation_id).all()
     presenters_info = [
         {
@@ -143,7 +147,7 @@ def get_presentation_detail(presentation_id):
         for p in presenters
     ]
 
-    result = presentation.to_dict()
+    result = presentation_to_dict(presentation)
     result['presenters'] = presenters_info
 
     return jsonify(result)

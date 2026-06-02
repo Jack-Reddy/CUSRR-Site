@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request, session, send_file
-from sqlalchemy import func, or_
+from sqlalchemy import func, text
 import io
 import zipfile
 from werkzeug.utils import secure_filename
@@ -15,24 +15,65 @@ from werkzeug.utils import secure_filename
 from website.models import BlockSchedule, Presentation, User
 from website import db
 
-import io
-import zipfile
-
 presentations_bp = Blueprint('presentations', __name__)
+
+
+def ensure_presentation_visibility_table():
+    """Create the per-presentation visibility table if it does not exist."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS presentation_visibility (
+                presentation_id INTEGER PRIMARY KEY,
+                show_on_schedule BOOLEAN NOT NULL DEFAULT TRUE
+            )
+            """
+        ))
+
+
+def get_show_on_schedule(presentation_id):
+    """Return whether a presentation should show on public schedule/program views."""
+    ensure_presentation_visibility_table()
+    row = db.session.execute(
+        text("SELECT show_on_schedule FROM presentation_visibility WHERE presentation_id = :pid"),
+        {"pid": presentation_id}
+    ).fetchone()
+    return bool(row[0]) if row else True
+
+
+def set_show_on_schedule(presentation_id, value):
+    """Persist per-presentation visibility."""
+    ensure_presentation_visibility_table()
+    result = db.session.execute(
+        text("UPDATE presentation_visibility SET show_on_schedule = :value WHERE presentation_id = :pid"),
+        {"pid": presentation_id, "value": bool(value)}
+    )
+    if result.rowcount == 0:
+        db.session.execute(
+            text("INSERT INTO presentation_visibility (presentation_id, show_on_schedule) VALUES (:pid, :value)"),
+            {"pid": presentation_id, "value": bool(value)}
+        )
+
+
+def presentation_to_dict(presentation):
+    """Serialize a presentation and include its per-presentation visibility flag."""
+    data = presentation.to_dict()
+    data["show_on_schedule"] = get_show_on_schedule(presentation.id)
+    return data
 
 
 @presentations_bp.route('/', methods=['GET'])
 def get_presentations():
     ''' GET all presentations '''
     presentations = Presentation.query.order_by(Presentation.id.asc()).all()
-    return jsonify([p.to_dict() for p in presentations])
+    return jsonify([presentation_to_dict(p) for p in presentations])
 
 
 @presentations_bp.route('/<int:presentation_id>', methods=['GET'])
 def get_presentation(presentation_id):
     ''' GET one presentation '''
     presentation = Presentation.query.get_or_404(presentation_id)
-    return jsonify(presentation.to_dict())
+    return jsonify(presentation_to_dict(presentation))
 
 
 @presentations_bp.route('/', methods=['POST'])
@@ -42,10 +83,11 @@ def create_presentation():
     schedule_id = data.get('schedule_id') or data.get('block_id')
     time_str = data.get('time')
 
-    try:
-        presentation_time = datetime.fromisoformat(time_str)
-    except ValueError:
-        return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
+    if time_str:
+        try:
+            datetime.fromisoformat(time_str)
+        except ValueError:
+            return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
 
     new_presentation = Presentation(
         title=data['title'],
@@ -55,7 +97,8 @@ def create_presentation():
     )
 
     db.session.add(new_presentation)
-    db.session.flush()  
+    db.session.flush()
+    set_show_on_schedule(new_presentation.id, data.get('show_on_schedule', True))
 
     partner_email = data.get("partner_email")
     if partner_email:
@@ -67,15 +110,14 @@ def create_presentation():
         partner_user.presentation_id = new_presentation.id
 
     db.session.commit()
-    return jsonify(new_presentation.to_dict()), 201
-
+    return jsonify(presentation_to_dict(new_presentation)), 201
 
 
 @presentations_bp.route('/<int:presentation_id>', methods=['PUT'])
 def update_presentation(presentation_id):
     ''' PUT update presentation '''
     presentation = Presentation.query.get_or_404(presentation_id)
-    data = request.get_json()
+    data = request.get_json() or {}
 
     schedule_id_raw = data.get('schedule_id') or data.get('scheduleId')
     if schedule_id_raw is not None:
@@ -107,14 +149,11 @@ def update_presentation(presentation_id):
     presentation.subject = data.get('subject', presentation.subject)
     presentation.presentation_file = data.get('presentation_file', presentation.presentation_file)
 
-    if 'is_presentation' in data and presentation.schedule_id:
-        block = BlockSchedule.query.get(presentation.schedule_id)
-        if block:
-            block.is_presentation = bool(data.get('is_presentation'))
+    if 'show_on_schedule' in data:
+        set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
 
     db.session.commit()
-    return jsonify(presentation.to_dict())
-
+    return jsonify(presentation_to_dict(presentation))
 
 
 @presentations_bp.route('/<int:presentation_id>', methods=['DELETE'])
@@ -122,17 +161,18 @@ def delete_presentation(presentation_id):
     ''' DELETE presentation '''
     presentation = Presentation.query.get_or_404(presentation_id)
     db.session.delete(presentation)
+    ensure_presentation_visibility_table()
+    db.session.execute(
+        text("DELETE FROM presentation_visibility WHERE presentation_id = :pid"),
+        {"pid": presentation_id}
+    )
     db.session.commit()
     return jsonify({"message": "Presentation deleted"})
 
 
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():
-    """Return upcoming presentations sorted by Presentation.time first, 
-    then BlockSchedule.start_time.
-    Fetch candidates where either the explicit time or the block start time
-    is in the future
-    """
+    """Return upcoming presentations sorted by Presentation.time first, then BlockSchedule.start_time."""
     now = datetime.now()
 
     candidates = (
@@ -144,31 +184,24 @@ def get_recent_presentations():
         )
         .all()
     )
+    candidates = [p for p in candidates if get_show_on_schedule(p.id)]
 
     def effective_time(pres):
-        '''If presentation has explicit time, use it'''
-
-        # Otherwise, attempt to compute from schedule start + num_in_block *
-        # sub_length (in minutes)
         sched = pres.schedule
         if sched and sched.start_time:
             num = pres.num_in_block if pres.num_in_block is not None else 0
             sub = sched.sub_length if sched.sub_length is not None else 0
             try:
-                return sched.start_time + \
-                    timedelta(minutes=(int(num) * int(sub)))
+                return sched.start_time + timedelta(minutes=(int(num) * int(sub)))
             except (TypeError, ValueError):
                 return sched.start_time
         return None
 
-    # Attach effective times and sort in Python to ensure correct ordering
-    # even when computed
-    decorated = [(pres, effective_time(pres) or datetime.max)
-                 for pres in candidates]
+    decorated = [(pres, effective_time(pres) or datetime.max) for pres in candidates]
     decorated.sort(key=lambda t: t[1])
     ordered = [p for p, _ in decorated]
 
-    return jsonify([p.to_dict() for p in ordered])
+    return jsonify([presentation_to_dict(p) for p in ordered])
 
 
 @presentations_bp.route('/type/<string:category>', methods=['GET'])
@@ -176,33 +209,24 @@ def get_presentations_by_type(category):
     """Return all presentations of a given type (Poster, Blitz, Presentation)."""
     valid_types = {"Poster", "Presentation", "Blitz"}
 
-    # normalize input
     category_lower = category.strip()
     if category_lower not in valid_types:
         return jsonify(
             {"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
 
-    # use the block_type field on BlockSchedule (may be stored lowercase)
-    formatted_type = category_lower
-
-    # join the schedule table and filter by its block_type column
-    # order by the effective time: explicit Presentation.time or the
-    # BlockSchedule.start_time
     results = (
         Presentation.query
         .join(Presentation.schedule)
         .filter(
             BlockSchedule.is_presentation.is_(True),
-            BlockSchedule.block_type.ilike(formatted_type)
+            BlockSchedule.block_type.ilike(category_lower)
         )
-        .order_by(
-            func.coalesce(
-                Presentation.time,
-                BlockSchedule.start_time).asc())
+        .order_by(func.coalesce(Presentation.time, BlockSchedule.start_time).asc())
         .all()
     )
+    results = [p for p in results if get_show_on_schedule(p.id)]
 
-    return jsonify([p.to_dict() for p in results])
+    return jsonify([presentation_to_dict(p) for p in results])
 
 
 @presentations_bp.route("/day/<string:day>")
@@ -210,51 +234,43 @@ def get_presentations_by_day(day):
     '''
     Get all presentations for a specific day, grouped by presentation blocks.
     Non-presentation schedule blocks (where is_presentation=False) are excluded.
-    :param day: The day to filter presentations by (e.g., "Day 1")
     '''
     blocks = BlockSchedule.query.filter(
-    BlockSchedule.day == day,
-    BlockSchedule.is_presentation == True).all()
+        BlockSchedule.day == day,
+        BlockSchedule.is_presentation == True).all()
     result = []
     for block in blocks:
-        # Order presentations by `num_in_block` if set, otherwise fallback to
-        # id
         presentations = (
-            Presentation.query .filter_by(
-                schedule_id=block.id) .order_by(
+            Presentation.query.filter_by(schedule_id=block.id)
+            .order_by(
                 Presentation.num_in_block.asc().nullsfirst(),
-                Presentation.id.asc()) .all())
+                Presentation.id.asc())
+            .all())
+        presentations = [p for p in presentations if get_show_on_schedule(p.id)]
         result.append({
             "block": block.to_dict(),
-            "presentations": [p.to_dict() for p in presentations]
+            "presentations": [presentation_to_dict(p) for p in presentations]
         })
     return jsonify(result)
 
 
 @presentations_bp.route('/order', methods=['POST'])
 def update_presentations_order():
-    """Accepts JSON: { orders: [{ presentation_id, schedule_id, num_in_block }, ...] }
-    Updates Presentation.num_in_block for each provided presentation.
-    """
-    # Organizer-only check (inline to avoid circular imports)
+    """Accepts JSON: { orders: [{ presentation_id, schedule_id, num_in_block }, ...] }"""
     user_info = session.get('user')
     if not user_info:
-        return jsonify(
-            {"error": "forbidden", "reason": "organizer_required"}), 403
+        return jsonify({"error": "forbidden", "reason": "organizer_required"}), 403
     email = user_info.get('email')
     if not email:
-        return jsonify(
-            {"error": "forbidden", "reason": "organizer_required"}), 403
+        return jsonify({"error": "forbidden", "reason": "organizer_required"}), 403
     db_user = User.query.filter_by(email=email).first()
     if not db_user or db_user.auth != 'organizer':
-        return jsonify(
-            {"error": "forbidden", "reason": "organizer_required"}), 403
+        return jsonify({"error": "forbidden", "reason": "organizer_required"}), 403
 
     data = request.get_json() or {}
     orders = data.get('orders')
     if not orders or not isinstance(orders, list):
-        return jsonify(
-            {"error": "Invalid payload; expected 'orders' list."}), 400
+        return jsonify({"error": "Invalid payload; expected 'orders' list."}), 400
 
     updated = []
     for item in orders:
@@ -272,10 +288,10 @@ def update_presentations_order():
         db.session.commit()
     except (TypeError, ValueError) as e:
         db.session.rollback()
-        return jsonify(
-            {"error": "Failed to save order", "details": str(e)}), 500
+        return jsonify({"error": "Failed to save order", "details": str(e)}), 500
 
     return jsonify({"ok": True, "updated": updated})
+
 
 @presentations_bp.route('/<int:presentation_id>/upload', methods=['POST'])
 def upload_presentation_file(presentation_id):
@@ -290,17 +306,14 @@ def upload_presentation_file(presentation_id):
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
 
-    # Validate extension
     allowed = ['ppt', 'pptx']
     if not any(file.filename.lower().endswith(ext) for ext in allowed):
         return jsonify({"error": "Invalid file type"}), 400
 
-    # Read binary content
     file_data = file.read()
-    if len(file_data) > 20 * 1024 * 1024:  # 20MB
+    if len(file_data) > 20 * 1024 * 1024:
         return jsonify({"error": "File exceeds 20MB"}), 400
 
-    # Store in DB
     presentation.presentation_file = file_data
     db.session.commit()
 
@@ -366,18 +379,14 @@ def download_all_presentations():
     """
     Download all presentations as a ZIP, ordered by Presentation.time.
     """
-    # In-memory buffer for ZIP
     zip_buffer = io.BytesIO()
-
-    # Fetch presentations ordered by time
     presentations = Presentation.query.order_by(Presentation.time.asc()).all()
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for pres in presentations:
             if not pres.presentation_file:
-                continue  # skip presentations with no uploaded file
+                continue
 
-            # Sanitize filename
             safe_title = "".join(c for c in pres.title if c.isalnum() or c in (" ", "_", "-")).strip()
             timestamp = pres.time.strftime("%Y-%m-%d_%H%M") if pres.time else "no_time"
             filename = f"{timestamp} - {safe_title}.pptx"
