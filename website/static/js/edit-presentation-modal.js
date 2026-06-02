@@ -71,7 +71,7 @@
 
     const isPresentationCheckbox = modalEl.querySelector('#editPresentationIsPresentation');
     if (isPresentationCheckbox) {
-      isPresentationCheckbox.checked = Boolean(presentation.schedule_id) && presentation.schedule_is_presentation !== false;
+      isPresentationCheckbox.checked = presentation.is_presentation === true;
     }
 
     const scheduleSelect = modalEl.querySelector('#editPresentationSchedule');
