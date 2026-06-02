@@ -115,22 +115,9 @@
     }
   }
 
-  async function printRenderedOverview() {
-    const abstractElement = document.getElementById('presentation-abstract');
-    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function' && abstractElement) {
-      try {
-        await window.MathJax.typesetPromise([abstractElement]);
-      } catch (error) {
-        console.error('MathJax typeset before print failed', error);
-      }
-    }
-    window.print();
-  }
-
   function init() {
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
-    const printBtn = document.getElementById('print-overview-btn');
 
     if (prevBtn) {
       prevBtn.addEventListener('click', previousPresentation);
@@ -138,10 +125,6 @@
 
     if (nextBtn) {
       nextBtn.addEventListener('click', nextPresentation);
-    }
-
-    if (printBtn) {
-      printBtn.addEventListener('click', printRenderedOverview);
     }
 
     loadPresentations();

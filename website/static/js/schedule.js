@@ -96,15 +96,11 @@ function renderDetails(sessions, detailsContainer, presentations) {
     const editBlockBtnHtml = (typeof window !== 'undefined' && window.IS_ORGANIZER) ?
       `<button type="button" class="btn btn-sm btn-outline-primary float-end ms-2" onclick="editBlock(${session.id})">Edit Block</button>` : '';
 
-    const nonPresentationLabel = session.is_presentation === false
-      ? `<span class="badge bg-secondary ms-2">Not a Presentation Block</span>`
-      : '';
-
     let html = `
       <section id="session-${session.id}" class="card shadow-xs border-0 rounded-4 p-3 mb-3">
         <div class="d-flex align-items-start justify-content-between">
           <div>
-            <h5 class="fw-bold mb-1">${session.title}${nonPresentationLabel}</h5>
+            <h5 class="fw-bold mb-1">${session.title}</h5>
           </div>
           ${editBlockBtnHtml}
         </div>
