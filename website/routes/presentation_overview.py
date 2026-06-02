@@ -4,7 +4,7 @@ Routes for presentation overview page.
 import io
 import textwrap
 
-from flask import Blueprint, render_template, jsonify, send_file
+from flask import Blueprint, render_template, jsonify, send_file, redirect, url_for
 
 from website.models import Presentation, User
 from website.routes.presentations import get_show_on_schedule, presentation_to_dict
@@ -47,7 +47,13 @@ def get_all_presentations():
 
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
-    """Download a PDF with all visible presentation overviews (one per page)."""
+    """Keep the old URL working, but use the browser-rendered page for PDFs."""
+    return redirect(url_for('presentation_overview.overview'))
+
+
+@presentation_overview_bp.route('/overview/plain.pdf', methods=['GET'])
+def download_plain_overview_pdf():
+    """Download a fallback plain-text PDF with all visible presentation overviews."""
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
 
@@ -124,7 +130,7 @@ def download_overview_pdf():
         pdf_buffer,
         mimetype='application/pdf',
         as_attachment=True,
-        download_name='presentation_overviews.pdf',
+        download_name='presentation_overviews_plain.pdf',
     )
 
 

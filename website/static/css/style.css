@@ -3,13 +3,17 @@ body * {
   font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+.main-content {
+  background: #fff !important;
+  min-height: 100vh;
+}
 
-  .card {
-    cursor: move;
-  }
-  .sortable-ghost {
-    opacity: 0.5;
-  }
+.card {
+  cursor: move;
+}
+.sortable-ghost {
+  opacity: 0.5;
+}
 
 /* Horizontal scroll for Program strip */
 @media (max-width: 991.98px) {
@@ -27,7 +31,7 @@ body * {
   }
 
   .program-cards .scroll-row > .col {
-    flex: 0 0 50vw;   
+    flex: 0 0 50vw;
     max-width: 50vw;
     scroll-snap-align: start;
   }
@@ -46,7 +50,6 @@ body * {
 
 /* Safety net for the page */
 html, body { overflow-x: hidden; }
-
 
 /* .modal-content { box-shadow: 0 8px 30px rgba(0,0,0,.18); border: none; }
 .rounded-top-4 { border-top-left-radius: 1rem; border-top-right-radius: 1rem; }
@@ -113,11 +116,60 @@ html, body { overflow-x: hidden; }
   border: 1px solid black !important;
 }
 
-  .card-image {
-    height: 220px;            /* Set the same height for all images */
+.card-image {
+  height: 220px;
+}
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.abstract-preview img,
+.session-abstract img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media print {
+  body,
+  .main-content {
+    background: #fff !important;
   }
-  .card-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;        /* Crop to fit nicely */
+
+  #sidenav-main,
+  .sidebar-toggle-mobile,
+  .overview-controls,
+  .overview-actions,
+  .modal,
+  script {
+    display: none !important;
   }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  .overview-page {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #presentation-container {
+    display: block !important;
+  }
+
+  #presentation-container .card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+
+  #presentation-abstract img,
+  .abstract-preview img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}

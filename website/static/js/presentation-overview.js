@@ -14,9 +14,6 @@
     }
   }
 
-  /**
-   * Fetch all presentations from the API.
-   */
   async function loadPresentations() {
     try {
       const response = await fetch('/overview/all');
@@ -41,9 +38,6 @@
     }
   }
 
-  /**
-   * Render the current presentation.
-   */
   async function renderPresentation() {
     if (allPresentations.length === 0) {
       return;
@@ -61,14 +55,11 @@
       }
       const detail = await response.json();
 
-      // Update counter
       setCounter(`${currentIndex + 1} / ${allPresentations.length}`);
 
-      // Update cards
       document.getElementById('session-id').textContent = detail.id;
       document.getElementById('presentation-title').textContent = detail.title || '-';
 
-      // Authors
       if (detail.presenters && detail.presenters.length > 0) {
         document.getElementById('presentation-authors').textContent =
           detail.presenters.map((p) => p.name || p.email).join(', ');
@@ -76,7 +67,6 @@
         document.getElementById('presentation-authors').textContent = '-';
       }
 
-      // Department (from first presenter)
       if (detail.presenters && detail.presenters.length > 0 && detail.presenters[0].department) {
         document.getElementById('presentation-department').textContent =
           detail.presenters[0].department;
@@ -84,7 +74,6 @@
         document.getElementById('presentation-department').textContent = '-';
       }
 
-      // Abstract (render markdown if available)
       const abstractElement = document.getElementById('presentation-abstract');
       if (detail.abstract) {
         if (window.AbstractMarkdownEditor && typeof window.AbstractMarkdownEditor.renderToElement === 'function') {
@@ -96,7 +85,6 @@
         abstractElement.textContent = '-';
       }
 
-      // Update button states
       document.getElementById('prev-btn').disabled = currentIndex === 0;
       document.getElementById('next-btn').disabled = currentIndex === allPresentations.length - 1;
     } catch (error) {
@@ -106,9 +94,6 @@
     }
   }
 
-  /**
-   * Show error message.
-   */
   function showError(message) {
     const container = document.getElementById('presentation-container');
     if (container) {
@@ -116,9 +101,6 @@
     }
   }
 
-  /**
-   * Navigate to previous presentation.
-   */
   function previousPresentation() {
     if (currentIndex > 0) {
       currentIndex--;
@@ -126,9 +108,6 @@
     }
   }
 
-  /**
-   * Navigate to next presentation.
-   */
   function nextPresentation() {
     if (currentIndex < allPresentations.length - 1) {
       currentIndex++;
@@ -136,12 +115,22 @@
     }
   }
 
-  /**
-   * Initialize the page.
-   */
+  async function printRenderedOverview() {
+    const abstractElement = document.getElementById('presentation-abstract');
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function' && abstractElement) {
+      try {
+        await window.MathJax.typesetPromise([abstractElement]);
+      } catch (error) {
+        console.error('MathJax typeset before print failed', error);
+      }
+    }
+    window.print();
+  }
+
   function init() {
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
+    const printBtn = document.getElementById('print-overview-btn');
 
     if (prevBtn) {
       prevBtn.addEventListener('click', previousPresentation);
@@ -151,9 +140,12 @@
       nextBtn.addEventListener('click', nextPresentation);
     }
 
+    if (printBtn) {
+      printBtn.addEventListener('click', printRenderedOverview);
+    }
+
     loadPresentations();
   }
 
-  // Start on DOMContentLoaded
   window.addEventListener('DOMContentLoaded', init);
 })();

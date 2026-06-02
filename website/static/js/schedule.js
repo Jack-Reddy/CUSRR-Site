@@ -121,36 +121,33 @@ function renderDetails(sessions, detailsContainer, presentations) {
       }
     }
 
-    if (session_presentations.length > 0) {
-      html += `<div class="row gx-3 gy-3 mt-3 poster-list" data-session-id="${session.id}">`;
+    html += `<div class="row gx-3 gy-3 mt-3 poster-list" data-session-id="${session.id}">`;
 
-      session_presentations.forEach((presentation, j) => {
-        let cardHtml = '';
-        if (window.SessionModal && typeof window.SessionModal.buildCard === 'function') {
-          const cardEl = window.SessionModal.buildCard(presentation, j, 'session-card');
-          cardEl.classList.add('h-100');
-          cardHtml = cardEl.outerHTML;
-        } else {
-          cardHtml = `
-            <div class="card border-0 shadow-xs rounded-4 h-100 p-3" id="poster-${presentation.id}">
-              <h6 class="fw-bold mb-1">${presentation.title}</h6>
-              <p class="text-sm text-secondary mb-1">${(presentation.presenters || []).map(formatPresenterName).filter(Boolean).join(", ")}</p>
-              <p class="text-sm mb-0">${presentation.abstract ? abstractSnippet(presentation.abstract, 75) : ""}</p>
-            </div>
-          `;
-        }
-
-        const col = `
-          <div class="col-12 col-md-6 col-lg-4 swappable" data-presentation-id="${presentation.id}">
-            ${cardHtml}
+    session_presentations.forEach((presentation, j) => {
+      let cardHtml = '';
+      if (window.SessionModal && typeof window.SessionModal.buildCard === 'function') {
+        const cardEl = window.SessionModal.buildCard(presentation, j, 'session-card');
+        cardEl.classList.add('h-100');
+        cardHtml = cardEl.outerHTML;
+      } else {
+        cardHtml = `
+          <div class="card border-0 shadow-xs rounded-4 h-100 p-3" id="poster-${presentation.id}">
+            <h6 class="fw-bold mb-1">${presentation.title}</h6>
+            <p class="text-sm text-secondary mb-1">${(presentation.presenters || []).map(formatPresenterName).filter(Boolean).join(", ")}</p>
+            <p class="text-sm mb-0">${presentation.abstract ? abstractSnippet(presentation.abstract, 75) : ""}</p>
           </div>
         `;
-        html += col;
-      });
+      }
 
-      html += `</div>`;
-    }
+      const col = `
+        <div class="col-12 col-md-6 col-lg-4 swappable" data-presentation-id="${presentation.id}">
+          ${cardHtml}
+        </div>
+      `;
+      html += col;
+    });
 
+    html += `</div>`;
     html += `</section>`;
     detailsContainer.insertAdjacentHTML('beforeend', html);
   }
@@ -221,9 +218,10 @@ function initSortables() {
     new Sortable(list, {
       animation: 150,
       ghostClass: 'sortable-ghost',
+      group: 'schedule-presentations',
       draggable: '.swappable',
       onEnd: function (evt) {
-        console.log('Poster moved', evt);
+        console.log('Presentation moved', evt);
       }
     });
     list._sortableInitialized = true;

@@ -2,14 +2,15 @@
 API endpoints for managing presentations.
 
 '''
+import base64
+import io
 import os
 import uuid
+import zipfile
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request, session, send_file
 from sqlalchemy import func, text
-import io
-import zipfile
 from werkzeug.utils import secure_filename
 
 from website.models import BlockSchedule, Presentation, User
@@ -26,6 +27,22 @@ def ensure_presentation_visibility_table():
             CREATE TABLE IF NOT EXISTS presentation_visibility (
                 presentation_id INTEGER PRIMARY KEY,
                 show_on_schedule BOOLEAN NOT NULL DEFAULT TRUE
+            )
+            """
+        ))
+
+
+def ensure_abstract_image_table():
+    """Create the persistent abstract image table if it does not exist."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS abstract_images (
+                id VARCHAR(64) PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                mime_type VARCHAR(120) NOT NULL,
+                data_base64 TEXT NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         ))
@@ -276,11 +293,16 @@ def update_presentations_order():
     for item in orders:
         pid = item.get('presentation_id')
         num = item.get('num_in_block')
-        if pid is None or num is None:
+        schedule_id = item.get('schedule_id')
+        if pid is None or num is None or schedule_id is None:
             continue
+
         presentation = db.session.get(Presentation, pid)
-        if not presentation:
+        block = db.session.get(BlockSchedule, schedule_id)
+        if not presentation or not block:
             continue
+
+        presentation.schedule_id = block.id
         presentation.num_in_block = int(num)
         updated.append(presentation.id)
 
@@ -322,7 +344,7 @@ def upload_presentation_file(presentation_id):
 
 @presentations_bp.route('/abstract-images', methods=['POST'])
 def upload_abstract_images():
-    """Upload one or more abstract images and return their public URLs."""
+    """Upload one or more abstract images and return stable public URLs."""
     user_info = session.get('user')
     if not user_info:
         return jsonify({"error": "Authentication required"}), 401
@@ -339,9 +361,7 @@ def upload_abstract_images():
     if not files:
         return jsonify({"error": "No files uploaded"}), 400
 
-    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', 'abstract-images')
-    os.makedirs(upload_dir, exist_ok=True)
-
+    ensure_abstract_image_table()
     uploaded = []
     allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
 
@@ -358,20 +378,51 @@ def upload_abstract_images():
         if len(raw_data) > 10 * 1024 * 1024:
             return jsonify({"error": f"Image is too large: {file.filename}"}), 400
 
-        unique_name = f"{uuid.uuid4().hex}_{filename}"
-        path = os.path.join(upload_dir, unique_name)
-        with open(path, 'wb') as out_file:
-            out_file.write(raw_data)
-
+        image_id = uuid.uuid4().hex
+        mime_type = file.mimetype or f"image/{extension or 'png'}"
+        db.session.execute(
+            text("""
+                INSERT INTO abstract_images (id, filename, mime_type, data_base64)
+                VALUES (:id, :filename, :mime_type, :data_base64)
+            """),
+            {
+                "id": image_id,
+                "filename": filename,
+                "mime_type": mime_type,
+                "data_base64": base64.b64encode(raw_data).decode('ascii'),
+            }
+        )
         uploaded.append({
             "filename": filename,
-            "url": f"/static/uploads/abstract-images/{unique_name}",
+            "url": f"/api/v1/presentations/abstract-images/{image_id}",
         })
 
     if not uploaded:
         return jsonify({"error": "No valid image files uploaded"}), 400
 
+    db.session.commit()
     return jsonify({"uploaded": uploaded})
+
+
+@presentations_bp.route('/abstract-images/<string:image_id>', methods=['GET'])
+def get_abstract_image(image_id):
+    """Serve a persisted abstract image by id."""
+    ensure_abstract_image_table()
+    row = db.session.execute(
+        text("SELECT filename, mime_type, data_base64 FROM abstract_images WHERE id = :id"),
+        {"id": image_id}
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Image not found"}), 404
+
+    filename, mime_type, data_base64 = row
+    raw_data = base64.b64decode(data_base64)
+    return send_file(
+        io.BytesIO(raw_data),
+        mimetype=mime_type,
+        as_attachment=False,
+        download_name=filename
+    )
 
 
 @presentations_bp.route('/download-all', methods=['GET'])
