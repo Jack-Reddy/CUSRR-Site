@@ -72,9 +72,45 @@ def set_show_on_schedule(presentation_id, value):
         )
 
 
+def effective_presentation_time(presentation):
+    """Return the presentation's display time, including block offset when available."""
+    if presentation.schedule and presentation.schedule.start_time:
+        num = presentation.num_in_block if presentation.num_in_block is not None else 0
+        sub = presentation.schedule.sub_length if presentation.schedule.sub_length is not None else 0
+        try:
+            return presentation.schedule.start_time + timedelta(minutes=(int(num) * int(sub)))
+        except (TypeError, ValueError):
+            return presentation.schedule.start_time
+    return presentation.time
+
+
+def program_type_prefix(presentation):
+    """Return the program identifier prefix for a presentation."""
+    presentation_type = (presentation.schedule.block_type if presentation.schedule else None) or ''
+    value = presentation_type.strip().lower()
+    if value == 'poster':
+        return 'poster'
+    if value == 'blitz':
+        return 'blitz'
+    return 'presentation'
+
+
+def program_identifier_for(presentation):
+    """Return an identifier like poster-1, blitz-3, or presentation-7."""
+    prefix = program_type_prefix(presentation)
+    if presentation.num_in_block is not None:
+        return f"{prefix}-{int(presentation.num_in_block) + 1}"
+    return f"{prefix}-{presentation.id}"
+
+
 def presentation_to_dict(presentation):
-    """Serialize a presentation and include its per-presentation visibility flag."""
+    """Serialize a presentation and include program metadata."""
     data = presentation.to_dict()
+    calculated_time = effective_presentation_time(presentation)
+    if calculated_time:
+        data["time"] = calculated_time.strftime('%Y-%m-%dT%H:%M:%S')
+    data["program_identifier"] = program_identifier_for(presentation)
+    data["schedule_title"] = presentation.schedule.title if presentation.schedule else None
     data["show_on_schedule"] = get_show_on_schedule(presentation.id)
     return data
 
@@ -100,9 +136,10 @@ def create_presentation():
     schedule_id = data.get('schedule_id') or data.get('block_id')
     time_str = data.get('time')
 
+    parsed_time = None
     if time_str:
         try:
-            datetime.fromisoformat(time_str)
+            parsed_time = datetime.fromisoformat(time_str)
         except ValueError:
             return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
 
@@ -110,6 +147,7 @@ def create_presentation():
         title=data['title'],
         abstract=data.get('abstract'),
         subject=data.get('subject'),
+        time=parsed_time,
         schedule_id=schedule_id
     )
 
@@ -140,6 +178,7 @@ def update_presentation(presentation_id):
     if schedule_id_raw is not None:
         if schedule_id_raw == "":
             presentation.schedule_id = None
+            presentation.num_in_block = None
         else:
             try:
                 schedule_id_int = int(schedule_id_raw)
@@ -189,36 +228,20 @@ def delete_presentation(presentation_id):
 
 @presentations_bp.route('/recent', methods=['GET'])
 def get_recent_presentations():
-    """Return upcoming presentations sorted by Presentation.time first, then BlockSchedule.start_time."""
+    """Return upcoming presentations sorted by effective presentation time."""
     now = datetime.now()
 
     candidates = (
         Presentation.query
         .join(Presentation.schedule)
-        .filter(
-            BlockSchedule.is_presentation.is_(True),
-            func.coalesce(Presentation.time, BlockSchedule.start_time) >= now
-        )
+        .filter(BlockSchedule.is_presentation.is_(True))
         .all()
     )
     candidates = [p for p in candidates if get_show_on_schedule(p.id)]
+    candidates = [p for p in candidates if (effective_presentation_time(p) or datetime.max) >= now]
+    candidates.sort(key=lambda p: effective_presentation_time(p) or datetime.max)
 
-    def effective_time(pres):
-        sched = pres.schedule
-        if sched and sched.start_time:
-            num = pres.num_in_block if pres.num_in_block is not None else 0
-            sub = sched.sub_length if sched.sub_length is not None else 0
-            try:
-                return sched.start_time + timedelta(minutes=(int(num) * int(sub)))
-            except (TypeError, ValueError):
-                return sched.start_time
-        return None
-
-    decorated = [(pres, effective_time(pres) or datetime.max) for pres in candidates]
-    decorated.sort(key=lambda t: t[1])
-    ordered = [p for p, _ in decorated]
-
-    return jsonify([presentation_to_dict(p) for p in ordered])
+    return jsonify([presentation_to_dict(p) for p in candidates])
 
 
 @presentations_bp.route('/type/<string:category>', methods=['GET'])
@@ -238,10 +261,10 @@ def get_presentations_by_type(category):
             BlockSchedule.is_presentation.is_(True),
             BlockSchedule.block_type.ilike(category_lower)
         )
-        .order_by(func.coalesce(Presentation.time, BlockSchedule.start_time).asc())
         .all()
     )
     results = [p for p in results if get_show_on_schedule(p.id)]
+    results.sort(key=lambda p: effective_presentation_time(p) or datetime.max)
 
     return jsonify([presentation_to_dict(p) for p in results])
 

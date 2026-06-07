@@ -17,18 +17,19 @@
       <h4 class="mb-4">Sign Up</h4>
 
       <label for="first-name" class="form-label text-start w-100">First Name</label>
-      <input id="first-name" type="text" placeholder="First Name" class="form-control">
+      <input id="first-name" type="text" placeholder="First Name" class="form-control" required>
 
       <label for="last-name" class="form-label text-start w-100 mt-3">Last Name</label>
-      <input id="last-name" type="text" placeholder="Last Name" class="form-control">
+      <input id="last-name" type="text" placeholder="Last Name" class="form-control" required>
 
-      <label for="student-year" class="form-label text-start w-100 mt-3">Student Year</label>
-      <select id="student-year" class="form-select" aria-label="Student year select">
-        <option selected>Select your year</option>
-        <option value="Freshman">Freshman</option>
-        <option value="Sophomore">Sophomore</option>
-        <option value="Junior">Junior</option>
-        <option value="Senior">Senior</option>
+      <label for="student-year" class="form-label text-start w-100 mt-3">Class Year</label>
+      <select id="student-year" class="form-select" aria-label="Class year select" required>
+        <option selected value="">Select your class year</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+        <option value="2029">2029</option>
+        <option value="2030">2030</option>
         <option value="Other">Other</option>
       </select>
 
@@ -51,4 +52,3 @@
   {{ super() }}
   <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
 {% endblock %}
-

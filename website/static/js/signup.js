@@ -1,5 +1,5 @@
 async function signup(e) {
-    e.preventDefault(); // Prevent default form submit behavior
+    e.preventDefault();
 
     const div = document.getElementById('signup-flash');
     if (!div) {
@@ -10,11 +10,10 @@ async function signup(e) {
     const flash = (msg, cls = 'text-danger') => {
         div.innerHTML = `<p class="${cls}">${msg}</p>`;
         div.style.opacity = 1;
-        setTimeout(() => (div.style.opacity = 0), 3000); // Fade-out effect
+        setTimeout(() => (div.style.opacity = 0), 3000);
     };
 
     try {
-        // Fetch authenticated user info
         const meResponse = await fetch('/me');
         if (!meResponse.ok) throw new Error(`Failed to get user info`);
 
@@ -29,14 +28,13 @@ async function signup(e) {
         const studentYearSelect = document.getElementById('student-year');
         const activitySelect = document.getElementById('activity');
 
-        // Validate fields
         if (!firstName || !lastName) {
             flash('Please enter both first and last names.');
             return;
         }
 
-        if (!studentYearSelect || studentYearSelect.selectedIndex === 0) {
-            flash('Please select your student year.');
+        if (!studentYearSelect || !studentYearSelect.value) {
+            flash('Please select your class year.');
             return;
         }
 
@@ -45,10 +43,9 @@ async function signup(e) {
             return;
         }
 
-        const selectedYear = studentYearSelect.options[studentYearSelect.selectedIndex].value;
+        const selectedYear = studentYearSelect.value;
         const selectedActivity = activitySelect.options[activitySelect.selectedIndex].text;
 
-        // Send signup request
         const response = await fetch('/api/v1/users/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -86,4 +83,3 @@ function setupSignupButton() {
 }
 
 window.addEventListener('DOMContentLoaded', setupSignupButton);
-

@@ -1,43 +1,4 @@
 // =====================================================
-// DELETE ACCOUNT
-// =====================================================
-removeUser = async function () {
-  if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-    return;
-  }
-
-  try {
-    const meResponse = await fetch('/me');
-    if (!meResponse.ok) {
-      throw new Error(`Failed to get user info: ${meResponse.status} ${meResponse.statusText}`);
-    }
-
-    const user = await meResponse.json();
-    if (!user.authenticated) {
-      alert('You must be signed in to delete your account.');
-      return;
-    }
-
-    const userId = user.user_id;
-
-    const response = await fetch(`/api/v1/users/${userId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
-    }
-
-    window.location.href = '/';
-  } catch (err) {
-    console.error('Failed to delete user', err);
-    alert('Could not delete user.');
-  }
-};
-
-
-
-// =====================================================
 // LOAD ACCOUNT INFO  (TAB 1)
 // =====================================================
 async function account_info() {
@@ -61,6 +22,7 @@ async function account_info() {
       <p><strong>Name:</strong> ${user.name}</p>
       <p><strong>Email:</strong> ${user.email}</p>
       <p><strong>Role:</strong> ${user.auth}</p>
+      <p><strong>Class Year:</strong> ${user.student_year || 'N/A'}</p>
       <p><strong>Activity:</strong> ${user.activity || 'N/A'}</p>
       <p><strong>Presentation ID:</strong> ${user.presentation_id || 'N/A'}</p>
     `;
@@ -197,9 +159,10 @@ async function signupAbstract() {
     const title = document.getElementById('title').value.trim();
     const abstract = document.getElementById('Abstract').value.trim();
     const subject = document.getElementById('subject').value.trim();
-    const type = document.getElementById('Type').options[document.getElementById('Type').selectedIndex].text;
+    const typeSelect = document.getElementById('Type');
+    const type = typeSelect.options[typeSelect.selectedIndex].value;
 
-    if (!title || !abstract || !subject) {
+    if (!title || !abstract || !subject || !type || typeSelect.selectedIndex === 0) {
       msgDiv.innerHTML = '<p class="text-danger">Please fill in all required fields.</p>';
       return;
     }
@@ -209,6 +172,7 @@ async function signupAbstract() {
       title,
       abstract,
       subject,
+      type,
       time: '2026-11-04 13:30',
       room: null
     };
@@ -333,11 +297,6 @@ window.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       signupAbstract();
     });
-  }
-
-  const deleteBtn = document.getElementById('delete-account-btn');
-  if (deleteBtn) {
-    deleteBtn.addEventListener('click', removeUser);
   }
 
   const presentationBtn = document.getElementById('presentation-submit');

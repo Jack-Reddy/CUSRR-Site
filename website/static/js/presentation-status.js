@@ -1,4 +1,4 @@
-let presentationTable; // store DataTable instance
+let presentationTable;
 
 async function loadPresentations() {
   const container = document.getElementById('presentation-container');
@@ -14,7 +14,7 @@ async function loadPresentations() {
     }
 
     const presentations = await response.json();
-    allPresentations = presentations; // optional reference
+    window.allPresentations = presentations;
 
     renderPresentationTable(presentations);
 
@@ -33,9 +33,11 @@ function renderPresentationTable(presentations) {
       <table id="presentation-table" class="table table-hover table-bordered align-middle mb-0" style="width:100%">
         <thead class="table table-striped align-middle">
           <tr>
+            <th>Program ID</th>
             <th>Title</th>
             <th>Subject</th>
             <th>Type</th>
+            <th>Schedule Block</th>
             <th>Time</th>
             <th>Presenters</th>
             <th>Actions</th>
@@ -46,7 +48,6 @@ function renderPresentationTable(presentations) {
     </div>
   `;
 
-  // Destroy previous DataTable instance
   if (presentationTable) {
     presentationTable.destroy();
   }
@@ -54,9 +55,11 @@ function renderPresentationTable(presentations) {
   presentationTable = new DataTable('#presentation-table', {
     data: presentations,
     columns: [
+      { data: 'program_identifier', defaultContent: '—' },
       { data: 'title', defaultContent: '—' },
       { data: 'subject', defaultContent: '—' },
       { data: 'type', defaultContent: '—' },
+      { data: 'schedule_title', defaultContent: 'Unassigned' },
       { 
         data: 'time',
         defaultContent: '—',
@@ -74,7 +77,7 @@ function renderPresentationTable(presentations) {
         data: 'id',
         orderable: false,
         searchable: false,
-        render: function (data, type, row) {
+        render: function (data) {
           return `
             <div class="dropdown">
               <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -92,7 +95,7 @@ function renderPresentationTable(presentations) {
     ],
     responsive: true,
     pageLength: 10,
-    order: [[0, 'asc']], // Sort by title
+    order: [[0, 'asc']],
   });
 }
 
@@ -110,7 +113,7 @@ removePresentation = async function (presentationId) {
       throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
     }
 
-    await loadPresentations(); // refresh list
+    await loadPresentations();
 
   } catch (err) {
     console.error('Failed to delete presentation', err);
@@ -128,10 +131,8 @@ async function editPresentation(presentationId) {
 
     const presentation = await response.json();
 
-    // Fill modal
     await EditPresentationModal.fillAndShowModal(presentation);
 
-    // Form submission
     EditPresentationModal.setupFormSubmit(async (data) => {
       const updateResp = await fetch(`/api/v1/presentations/${presentationId}`, {
         method: 'PUT',
@@ -150,16 +151,15 @@ async function editPresentation(presentationId) {
   }
 }
 
-// Initialize after DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   loadPresentations();
 });
 
 document.getElementById("download-presentations")?.addEventListener("click", async () => {
   const btn = document.getElementById("download-presentations");
+  let originalText = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    const originalText = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Downloading...';
   }
   try {
@@ -185,7 +185,7 @@ document.getElementById("download-presentations")?.addEventListener("click", asy
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = 'Download Presentations';
+      btn.innerHTML = originalText || 'Download Presentations';
     }
   }
 });

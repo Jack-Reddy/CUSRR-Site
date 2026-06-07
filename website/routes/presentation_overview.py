@@ -4,7 +4,7 @@ Routes for presentation overview page.
 import base64
 import io
 import re
-import textwrap
+from datetime import datetime
 from xml.sax.saxutils import escape
 
 import requests
@@ -13,7 +13,11 @@ from sqlalchemy import text
 
 from website import db
 from website.models import Presentation, User
-from website.routes.presentations import get_show_on_schedule, presentation_to_dict
+from website.routes.presentations import (
+    effective_presentation_time,
+    get_show_on_schedule,
+    presentation_to_dict,
+)
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
 
@@ -29,10 +33,18 @@ def _user_full_name(user):
 
 
 def _visible_presentations():
-    return [
+    presentations = [
         p for p in Presentation.query.order_by(Presentation.id.asc()).all()
         if get_show_on_schedule(p.id)
     ]
+    presentations.sort(key=lambda p: effective_presentation_time(p) or datetime.max)
+    return presentations
+
+
+def _format_time(value):
+    if not value:
+        return '-'
+    return value.strftime('%b %-d, %Y %-I:%M %p') if hasattr(value, 'strftime') else str(value)
 
 
 @presentation_overview_bp.route('/overview', methods=['GET'])
@@ -44,7 +56,7 @@ def overview():
 @presentation_overview_bp.route('/overview/all', methods=['GET'])
 def get_all_presentations():
     """
-    Return all visible presentations as JSON, ordered by ID.
+    Return all visible presentations as JSON, ordered by date/time.
     Used by the front-end for navigation.
     """
     presentations = (
@@ -53,10 +65,10 @@ def get_all_presentations():
         .filter(
             (Presentation.schedule_id.is_(None)) | (Presentation.schedule.has(is_presentation=True))
         )
-        .order_by(Presentation.id.asc())
         .all()
     )
     presentations = [p for p in presentations if get_show_on_schedule(p.id)]
+    presentations.sort(key=lambda p: effective_presentation_time(p) or datetime.max)
     return jsonify([presentation_to_dict(p) for p in presentations])
 
 
@@ -149,22 +161,21 @@ def _append_markdown_to_story(story, abstract, styles):
     add_text_block((abstract or '')[position:])
 
 
-def _boxed_section(flowables, width):
-    """Wrap a group of PDF flowables in a black bordered box."""
+def _box(flowables, width):
+    """Wrap PDF flowables in a black bordered box."""
     from reportlab.lib import colors
-    from reportlab.lib.units import inch
     from reportlab.platypus import Table, TableStyle
 
-    box = Table([[flowables]], colWidths=[width])
-    box.setStyle(TableStyle([
+    table = Table([[flowables]], colWidths=[width])
+    table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
-    return [box, Table([['']], colWidths=[width], rowHeights=[0.12 * inch])]
+    return table
 
 
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
@@ -190,7 +201,7 @@ def download_overview_pdf():
     story = []
 
     if not presentations:
-        story.extend(_boxed_section([Paragraph('No presentations available.', styles['BodyText'])], content_width))
+        story.append(_box([Paragraph('No presentations available.', styles['BodyText'])], content_width))
     else:
         for index, presentation in enumerate(presentations):
             presenters = User.query.filter_by(presentation_id=presentation.id).all()
@@ -199,16 +210,23 @@ def download_overview_pdf():
                 {p.activity.strip() for p in presenters if p.activity and p.activity.strip()}
             )
             department_text = ', '.join(departments) if departments else '-'
+            display_time = _format_time(effective_presentation_time(presentation))
+            presentation_data = presentation_to_dict(presentation)
+            program_id = presentation_data.get('program_identifier') or '-'
 
-            section = []
-            section.append(Paragraph(escape(presentation.title or 'Untitled'), styles['Heading1']))
-            section.append(Paragraph(f'<b>Session ID:</b> {presentation.id}', styles['BodyText']))
-            section.append(Paragraph(f'<b>Author(s):</b> {escape(authors)}', styles['BodyText']))
-            section.append(Paragraph(f'<b>Department:</b> {escape(department_text)}', styles['BodyText']))
-            section.append(Spacer(1, 0.15 * inch))
-            section.append(Paragraph('<b>Abstract</b>', styles['Heading2']))
-            _append_markdown_to_story(section, presentation.abstract or '-', styles)
-            story.extend(_boxed_section(section, content_width))
+            story.append(_box([Paragraph(f'<b>Program ID:</b> {escape(program_id)}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(escape(presentation.title or 'Untitled'), styles['Heading1'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(f'<b>Date/Time:</b> {escape(display_time)}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(f'<b>Author(s):</b> {escape(authors)}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(f'<b>Department:</b> {escape(department_text)}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            abstract_flowables = [Paragraph('<b>Abstract</b>', styles['Heading2'])]
+            _append_markdown_to_story(abstract_flowables, presentation.abstract or '-', styles)
+            story.append(_box(abstract_flowables, content_width))
 
             if index < len(presentations) - 1:
                 story.append(PageBreak())

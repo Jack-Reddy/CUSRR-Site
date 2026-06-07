@@ -38,12 +38,14 @@
 
     const timeDisplay = formatTimeNoYear(item.time);
     const preview = abstractPreview(item.abstract, 100);
+    const programId = item.program_identifier || '';
 
     card.dataset.title = item.title || 'Untitled';
     card.dataset.time = timeDisplay;
     card.dataset.room = item.room || '';
     card.dataset.subject = item.subject || '';
     card.dataset.type = item.type || '';
+    card.dataset.programId = programId;
     card.dataset.presenters = JSON.stringify(item.presenters || []);
     card.dataset.abstract = item.abstract || '';
     card.dataset.id = item.id || '';
@@ -53,7 +55,10 @@
         <div class="d-flex align-items-start gap-3">
           <div class="flex-grow-1">
             <div class="d-flex justify-content-between align-items-start">
-              <h6 class="mb-1">${escapeHtml(card.dataset.title)}</h6>
+              <div>
+                ${programId ? `<span class="badge bg-dark text-white mb-2">${escapeHtml(programId)}</span>` : ''}
+                <h6 class="mb-1">${escapeHtml(card.dataset.title)}</h6>
+              </div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-gray-100 text-secondary">${escapeHtml(timeDisplay)}</span>
                 <button type="button" class="btn btn-sm btn-outline-primary grade-btn" data-presentation-id="${escapeHtml(card.dataset.id)}">Grade</button>
@@ -175,6 +180,8 @@
     m.querySelector('#mRoom').textContent = cardEl.dataset.room || '';
     m.querySelector('#mSubject').textContent = cardEl.dataset.subject || '';
     m.querySelector('#mType').textContent = cardEl.dataset.type || '';
+    const programIdEl = m.querySelector('#mProgramId');
+    if (programIdEl) programIdEl.textContent = cardEl.dataset.programId || '';
     const abstractEl = m.querySelector('#mAbstract');
     if (window.AbstractMarkdownEditor) {
       window.AbstractMarkdownEditor.renderToElement(abstractEl, cardEl.dataset.abstract || '');
