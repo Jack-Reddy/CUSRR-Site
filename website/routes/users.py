@@ -27,12 +27,14 @@ def get_user(user_id):
 def create_user():
     """POST create a new user with validation"""
     data = request.get_json() or {}
-    required_fields = ['firstname', 'lastname', 'email', 'student_year']
+    required_fields = ['firstname', 'lastname', 'email']
 
+    # Check for missing fields
     missing = [field for field in required_fields if not data.get(field)]
     if missing:
         return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
+    # Create user safely
     try:
         new_user = User(
             firstname=data['firstname'],
@@ -64,6 +66,7 @@ def update_user(user_id):
 
     data = request.get_json() or {}
 
+    # Update fields if provided
     user.firstname = data.get('firstname', user.firstname)
     user.lastname = data.get('lastname', user.lastname)
     user.email = data.get('email', user.email)
@@ -90,5 +93,16 @@ def update_user(user_id):
 
 @users_bp.route('/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
-    """Account deletion is disabled."""
-    return jsonify({"error": "Account deletion is disabled"}), 405
+    """DELETE a user"""
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    try:
+        db.session.delete(user)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"message": "User deleted"}), 200
