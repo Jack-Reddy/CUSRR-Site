@@ -57,7 +57,7 @@
 
       setCounter(`${currentIndex + 1} / ${allPresentations.length}`);
 
-      document.getElementById('session-id').textContent = detail.id;
+      document.getElementById('session-id').textContent = detail.program_identifier || detail.id;
       document.getElementById('presentation-title').textContent = detail.title || '-';
 
       if (detail.presenters && detail.presenters.length > 0) {
@@ -67,11 +67,11 @@
         document.getElementById('presentation-authors').textContent = '-';
       }
 
-      if (detail.presenters && detail.presenters.length > 0 && detail.presenters[0].department) {
-        document.getElementById('presentation-department').textContent =
-          detail.presenters[0].department;
+      if (detail.presenters && detail.presenters.length > 0 && detail.presenters[0].activity) {
+        document.getElementById('presentation-activity').textContent =
+          detail.presenters[0].activity;
       } else {
-        document.getElementById('presentation-department').textContent = '-';
+        document.getElementById('presentation-activity').textContent = '-';
       }
 
       const abstractElement = document.getElementById('presentation-abstract');

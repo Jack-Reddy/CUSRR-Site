@@ -10,13 +10,15 @@ import zipfile
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request, session, send_file
-from sqlalchemy import func, text
+from sqlalchemy import text
 from werkzeug.utils import secure_filename
 
 from website.models import BlockSchedule, Presentation, User
 from website import db
 
 presentations_bp = Blueprint('presentations', __name__)
+
+VALID_PRESENTATION_TYPES = {'Presentation', 'Blitz', 'Poster'}
 
 
 def ensure_presentation_visibility_table():
@@ -27,6 +29,19 @@ def ensure_presentation_visibility_table():
             CREATE TABLE IF NOT EXISTS presentation_visibility (
                 presentation_id INTEGER PRIMARY KEY,
                 show_on_schedule BOOLEAN NOT NULL DEFAULT TRUE
+            )
+            """
+        ))
+
+
+def ensure_presentation_type_table():
+    """Create the per-presentation type override table if it does not exist."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS presentation_types (
+                presentation_id INTEGER PRIMARY KEY,
+                presentation_type VARCHAR(50) NOT NULL
             )
             """
         ))
@@ -46,6 +61,17 @@ def ensure_abstract_image_table():
             )
             """
         ))
+
+
+def normalize_presentation_type(value):
+    """Normalize a submitted presentation type."""
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    for valid_type in VALID_PRESENTATION_TYPES:
+        if cleaned.lower() == valid_type.lower():
+            return valid_type
+    return None
 
 
 def get_show_on_schedule(presentation_id):
@@ -72,6 +98,47 @@ def set_show_on_schedule(presentation_id, value):
         )
 
 
+def get_presentation_type(presentation):
+    """Return the per-presentation type override, falling back to its schedule block type."""
+    if not presentation or not presentation.id:
+        return None
+
+    ensure_presentation_type_table()
+    row = db.session.execute(
+        text("SELECT presentation_type FROM presentation_types WHERE presentation_id = :pid"),
+        {"pid": presentation.id}
+    ).fetchone()
+    if row and row[0]:
+        return normalize_presentation_type(row[0]) or row[0]
+
+    if presentation.schedule and presentation.schedule.block_type:
+        return normalize_presentation_type(presentation.schedule.block_type) or presentation.schedule.block_type
+
+    return None
+
+
+def set_presentation_type(presentation_id, value):
+    """Persist per-presentation type. Empty/invalid values remove the override."""
+    ensure_presentation_type_table()
+    normalized = normalize_presentation_type(value)
+    if not normalized:
+        db.session.execute(
+            text("DELETE FROM presentation_types WHERE presentation_id = :pid"),
+            {"pid": presentation_id}
+        )
+        return
+
+    result = db.session.execute(
+        text("UPDATE presentation_types SET presentation_type = :ptype WHERE presentation_id = :pid"),
+        {"pid": presentation_id, "ptype": normalized}
+    )
+    if result.rowcount == 0:
+        db.session.execute(
+            text("INSERT INTO presentation_types (presentation_id, presentation_type) VALUES (:pid, :ptype)"),
+            {"pid": presentation_id, "ptype": normalized}
+        )
+
+
 def effective_presentation_time(presentation):
     """Return the presentation's display time, including block offset when available."""
     if presentation.schedule and presentation.schedule.start_time:
@@ -86,7 +153,7 @@ def effective_presentation_time(presentation):
 
 def program_type_prefix(presentation):
     """Return the program identifier prefix for a presentation."""
-    presentation_type = (presentation.schedule.block_type if presentation.schedule else None) or ''
+    presentation_type = get_presentation_type(presentation) or ''
     value = presentation_type.strip().lower()
     if value == 'poster':
         return 'poster'
@@ -109,6 +176,7 @@ def presentation_to_dict(presentation):
     calculated_time = effective_presentation_time(presentation)
     if calculated_time:
         data["time"] = calculated_time.strftime('%Y-%m-%dT%H:%M:%S')
+    data["type"] = get_presentation_type(presentation)
     data["program_identifier"] = program_identifier_for(presentation)
     data["schedule_title"] = presentation.schedule.title if presentation.schedule else None
     data["show_on_schedule"] = get_show_on_schedule(presentation.id)
@@ -154,6 +222,8 @@ def create_presentation():
     db.session.add(new_presentation)
     db.session.flush()
     set_show_on_schedule(new_presentation.id, data.get('show_on_schedule', True))
+    if 'type' in data:
+        set_presentation_type(new_presentation.id, data.get('type'))
 
     partner_email = data.get("partner_email")
     if partner_email:
@@ -208,6 +278,9 @@ def update_presentation(presentation_id):
     if 'show_on_schedule' in data:
         set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
 
+    if 'type' in data:
+        set_presentation_type(presentation.id, data.get('type'))
+
     db.session.commit()
     return jsonify(presentation_to_dict(presentation))
 
@@ -218,8 +291,13 @@ def delete_presentation(presentation_id):
     presentation = Presentation.query.get_or_404(presentation_id)
     db.session.delete(presentation)
     ensure_presentation_visibility_table()
+    ensure_presentation_type_table()
     db.session.execute(
         text("DELETE FROM presentation_visibility WHERE presentation_id = :pid"),
+        {"pid": presentation_id}
+    )
+    db.session.execute(
+        text("DELETE FROM presentation_types WHERE presentation_id = :pid"),
         {"pid": presentation_id}
     )
     db.session.commit()
@@ -247,23 +325,21 @@ def get_recent_presentations():
 @presentations_bp.route('/type/<string:category>', methods=['GET'])
 def get_presentations_by_type(category):
     """Return all presentations of a given type (Poster, Blitz, Presentation)."""
-    valid_types = {"Poster", "Presentation", "Blitz"}
-
-    category_lower = category.strip()
-    if category_lower not in valid_types:
+    requested_type = normalize_presentation_type(category)
+    if not requested_type:
         return jsonify(
-            {"error": f"Invalid type '{category}'. Must be one of {list(valid_types)}."}), 400
+            {"error": f"Invalid type '{category}'. Must be one of {list(VALID_PRESENTATION_TYPES)}."}), 400
 
     results = (
         Presentation.query
-        .join(Presentation.schedule)
+        .outerjoin(Presentation.schedule)
         .filter(
-            BlockSchedule.is_presentation.is_(True),
-            BlockSchedule.block_type.ilike(category_lower)
+            (Presentation.schedule_id.is_(None)) | (Presentation.schedule.has(is_presentation=True))
         )
         .all()
     )
     results = [p for p in results if get_show_on_schedule(p.id)]
+    results = [p for p in results if (get_presentation_type(p) or '').lower() == requested_type.lower()]
     results.sort(key=lambda p: effective_presentation_time(p) or datetime.max)
 
     return jsonify([presentation_to_dict(p) for p in results])

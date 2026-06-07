@@ -1,9 +1,8 @@
 (function () {
   const blocksCache = new Map();
 
-  async function fetchAssignableBlocks(presentationType) {
-    const normalizedType = (presentationType || '').toLowerCase();
-    const key = normalizedType || '__all__';
+  async function fetchAssignableBlocks() {
+    const key = '__all__';
     if (blocksCache.has(key)) return blocksCache.get(key);
 
     const promise = fetch('/api/v1/block-schedule/')
@@ -54,7 +53,7 @@
 
     window._currentPresentationData = presentation;
 
-    const blocks = await fetchAssignableBlocks(presentation.type || '');
+    const blocks = await fetchAssignableBlocks();
     window._assignableBlocks = blocks;
 
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -68,6 +67,11 @@
     modalEl.querySelector('#editPresentationTitle').value = presentation.title || '';
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
+
+    const typeSelect = modalEl.querySelector('#editPresentationType');
+    if (typeSelect) {
+      typeSelect.value = presentation.type || 'Presentation';
+    }
 
     const showOnScheduleCheckbox = modalEl.querySelector('#editPresentationShowOnSchedule');
     if (showOnScheduleCheckbox) {
