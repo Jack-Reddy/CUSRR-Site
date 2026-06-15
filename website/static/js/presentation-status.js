@@ -1,4 +1,94 @@
 let presentationTable;
+let scheduleBlocks = [];
+let subjectOptions = [];
+
+const PRESENTATION_TYPES = ['Presentation', 'Blitz', 'Poster'];
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function blockTimeLabel(block) {
+  const start = block.start_time ? new Date(block.start_time) : null;
+  if (!start || Number.isNaN(start.getTime())) return '';
+  return start.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function blockLabel(block) {
+  const parts = [block.day, block.title || 'Untitled'];
+  if (block.type) parts.push(block.type);
+  const time = blockTimeLabel(block);
+  return `${parts.filter(Boolean).join(' - ')}${time ? ` (${time})` : ''}`;
+}
+
+function buildSubjectOptions(presentations) {
+  const values = new Set(['']);
+  presentations.forEach((presentation) => {
+    const subject = (presentation.subject || '').trim();
+    if (subject) values.add(subject);
+  });
+  return Array.from(values).sort((a, b) => {
+    if (!a) return -1;
+    if (!b) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function renderSelect(options, selectedValue, attrs = {}) {
+  const selected = String(selectedValue ?? '');
+  const attrString = Object.entries(attrs)
+    .map(([key, value]) => `${key}="${escapeHtml(value)}"`)
+    .join(' ');
+
+  const htmlOptions = options.map((option) => {
+    const value = String(option.value ?? '');
+    const label = option.label ?? (value || 'Unassigned');
+    return `<option value="${escapeHtml(value)}"${value === selected ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+
+  return `<select class="form-select form-select-sm" ${attrString} data-original-value="${escapeHtml(selected)}">${htmlOptions}</select>`;
+}
+
+function subjectDropdown(row) {
+  const options = subjectOptions.map((subject) => ({ value: subject, label: subject || 'Unassigned' }));
+  return renderSelect(options, row.subject || '', {
+    onchange: `updatePresentationInline(${row.id}, 'subject', this.value, this)`,
+    'aria-label': 'Update subject',
+  });
+}
+
+function typeDropdown(row) {
+  const currentType = row.type || 'Presentation';
+  const options = PRESENTATION_TYPES.map((type) => ({ value: type, label: type }));
+  return renderSelect(options, currentType, {
+    onchange: `updatePresentationInline(${row.id}, 'type', this.value, this)`,
+    'aria-label': 'Update presentation type',
+  });
+}
+
+function scheduleDropdown(row) {
+  const options = [{ value: '', label: 'Unassigned' }].concat(
+    scheduleBlocks.map((block) => ({ value: String(block.id), label: blockLabel(block) }))
+  );
+  return renderSelect(options, row.schedule_id || '', {
+    onchange: `updatePresentationInline(${row.id}, 'schedule_id', this.value, this)`,
+    'aria-label': 'Update schedule block',
+  });
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
 
 async function loadPresentations() {
   const container = document.getElementById('presentation-container');
@@ -8,12 +98,16 @@ async function loadPresentations() {
   }
 
   try {
-    const response = await fetch('/api/v1/presentations/');
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
-    }
+    const [presentations, blocks] = await Promise.all([
+      fetchJson('/api/v1/presentations/'),
+      fetchJson('/api/v1/block-schedule/'),
+    ]);
 
-    const presentations = await response.json();
+    scheduleBlocks = blocks.slice().sort((a, b) => {
+      if (a.day !== b.day) return a.day.localeCompare(b.day);
+      return new Date(a.start_time) - new Date(b.start_time);
+    });
+    subjectOptions = buildSubjectOptions(presentations);
     window.allPresentations = presentations;
 
     renderPresentationTable(presentations);
@@ -55,22 +149,34 @@ function renderPresentationTable(presentations) {
   presentationTable = new DataTable('#presentation-table', {
     data: presentations,
     columns: [
-      { data: 'program_identifier', defaultContent: '—' },
-      { data: 'title', defaultContent: '—' },
-      { data: 'subject', defaultContent: '—' },
-      { data: 'type', defaultContent: '—' },
-      { data: 'schedule_title', defaultContent: 'Unassigned' },
-      { 
-        data: 'time',
-        defaultContent: '—',
-        render: (data) => data ? new Date(data).toLocaleString() : '—'
+      { data: 'program_identifier', defaultContent: '-' },
+      { data: 'title', defaultContent: '-' },
+      {
+        data: 'subject',
+        defaultContent: '-',
+        render: (data, type, row) => type === 'display' ? subjectDropdown(row) : (data || '')
       },
-      { 
+      {
+        data: 'type',
+        defaultContent: '-',
+        render: (data, type, row) => type === 'display' ? typeDropdown(row) : (data || '')
+      },
+      {
+        data: 'schedule_title',
+        defaultContent: 'Unassigned',
+        render: (data, type, row) => type === 'display' ? scheduleDropdown(row) : (data || 'Unassigned')
+      },
+      {
+        data: 'time',
+        defaultContent: '-',
+        render: (data) => data ? new Date(data).toLocaleString() : '-'
+      },
+      {
         data: 'presenters',
-        defaultContent: '—',
+        defaultContent: '-',
         render: (presenters) => {
-          if (!presenters || presenters.length === 0) return '—';
-          return presenters.map(p => `${p.firstname} ${p.lastname}`).join(', ');
+          if (!presenters || presenters.length === 0) return '-';
+          return presenters.map(p => `${escapeHtml(p.firstname)} ${escapeHtml(p.lastname)}`).join(', ');
         }
       },
       {
@@ -84,7 +190,7 @@ function renderPresentationTable(presentations) {
                 Options
               </button>
               <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="#" onclick="editPresentation(${data})">Edit</a></li>
+                <li><a class="dropdown-item" href="#" onclick="editPresentation(${data})">Edit title/abstract</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item text-danger" href="#" onclick="removePresentation(${data})">Delete</a></li>
               </ul>
@@ -98,6 +204,32 @@ function renderPresentationTable(presentations) {
     order: [[0, 'asc']],
   });
 }
+
+window.updatePresentationInline = async function (presentationId, field, value, selectEl) {
+  const originalValue = selectEl?.dataset?.originalValue ?? '';
+  if (selectEl) selectEl.disabled = true;
+
+  try {
+    const response = await fetch(`/api/v1/presentations/${presentationId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update presentation: ${response.status}`);
+    }
+
+    await loadPresentations();
+  } catch (err) {
+    console.error('Failed to update presentation field', err);
+    if (selectEl) {
+      selectEl.value = originalValue;
+      selectEl.disabled = false;
+    }
+    alert('Could not save that presentation change.');
+  }
+};
 
 removePresentation = async function (presentationId) {
   if (!confirm('Are you sure you want to delete this presentation? This action cannot be undone.')) {

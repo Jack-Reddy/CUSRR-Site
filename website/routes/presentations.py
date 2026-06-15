@@ -162,12 +162,38 @@ def program_type_prefix(presentation):
     return 'presentation'
 
 
+def _program_sort_key(presentation):
+    """Sort presentations consistently before assigning program identifiers."""
+    display_time = effective_presentation_time(presentation) or datetime.max
+    schedule_id = presentation.schedule_id if presentation.schedule_id is not None else 0
+    num_in_block = presentation.num_in_block if presentation.num_in_block is not None else 10**9
+    return (display_time, schedule_id, num_in_block, presentation.id or 0)
+
+
+def _program_identifier_map(presentations):
+    """Return continuous IDs by presentation type across all schedule blocks."""
+    counters = {}
+    identifiers = {}
+    for presentation in sorted(presentations, key=_program_sort_key):
+        prefix = program_type_prefix(presentation)
+        counters[prefix] = counters.get(prefix, 0) + 1
+        identifiers[presentation.id] = f"{prefix}-{counters[prefix]}"
+    return identifiers
+
+
 def program_identifier_for(presentation):
     """Return an identifier like poster-1, blitz-3, or presentation-7."""
-    prefix = program_type_prefix(presentation)
-    if presentation.num_in_block is not None:
-        return f"{prefix}-{int(presentation.num_in_block) + 1}"
-    return f"{prefix}-{presentation.id}"
+    if not presentation or not presentation.id:
+        return None
+
+    presentations = Presentation.query.outerjoin(Presentation.schedule).all()
+    visible_presentations = [p for p in presentations if get_show_on_schedule(p.id)]
+
+    if presentation.id not in {p.id for p in visible_presentations}:
+        visible_presentations.append(presentation)
+
+    identifiers = _program_identifier_map(visible_presentations)
+    return identifiers.get(presentation.id, f"{program_type_prefix(presentation)}-{presentation.id}")
 
 
 def presentation_to_dict(presentation):
@@ -183,11 +209,94 @@ def presentation_to_dict(presentation):
     return data
 
 
+def _user_full_name(user):
+    """Return a display name for a user."""
+    first = (user.firstname or '').strip()
+    last = (user.lastname or '').strip()
+    full_name = f"{first} {last}".strip()
+    return full_name or user.email
+
+
+def _format_program_time(value):
+    """Format a datetime for the program quick-view table."""
+    if not value:
+        return '-'
+    try:
+        return value.strftime('%b %-d, %-I:%M %p')
+    except ValueError:
+        return value.strftime('%b %d, %I:%M %p')
+
+
+def _meal_type_for_block(block):
+    """Return lunch/dinner when a non-presentation block is a meal block."""
+    marker = f"{block.title or ''} {block.block_type or ''}".lower()
+    if 'lunch' in marker:
+        return 'lunch'
+    if 'dinner' in marker:
+        return 'dinner'
+    return None
+
+
+def program_table_rows():
+    """Return rows for the program quick-view table."""
+    presentations = (
+        Presentation.query
+        .outerjoin(Presentation.schedule)
+        .filter(
+            (Presentation.schedule_id.is_(None)) | (Presentation.schedule.has(is_presentation=True))
+        )
+        .all()
+    )
+    presentations = [p for p in presentations if get_show_on_schedule(p.id)]
+    identifiers = _program_identifier_map(presentations)
+
+    rows = []
+    for presentation in presentations:
+        presenters = User.query.filter_by(presentation_id=presentation.id).all()
+        authors = ', '.join(_user_full_name(presenter) for presenter in presenters) or '-'
+        display_time = effective_presentation_time(presentation)
+        rows.append({
+            "sort_time": display_time or datetime.max,
+            "time": _format_program_time(display_time),
+            "id": identifiers.get(presentation.id, '-'),
+            "authors": authors,
+            "title": presentation.title or 'Untitled',
+            "kind": "presentation",
+            "event_type": None,
+        })
+
+    meal_blocks = BlockSchedule.query.filter(BlockSchedule.is_presentation.is_(False)).all()
+    for block in meal_blocks:
+        event_type = _meal_type_for_block(block)
+        if not event_type:
+            continue
+        rows.append({
+            "sort_time": block.start_time or datetime.max,
+            "time": _format_program_time(block.start_time),
+            "id": "",
+            "authors": event_type,
+            "title": block.title or event_type.title(),
+            "kind": "event",
+            "event_type": event_type,
+        })
+
+    rows.sort(key=lambda row: (row["sort_time"], row["id"], row["title"]))
+    for row in rows:
+        row.pop("sort_time", None)
+    return rows
+
+
 @presentations_bp.route('/', methods=['GET'])
 def get_presentations():
     ''' GET all presentations '''
     presentations = Presentation.query.order_by(Presentation.id.asc()).all()
     return jsonify([presentation_to_dict(p) for p in presentations])
+
+
+@presentations_bp.route('/program-table', methods=['GET'])
+def get_program_table():
+    """Return rows for the first-page program quick-view table."""
+    return jsonify(program_table_rows())
 
 
 @presentations_bp.route('/<int:presentation_id>', methods=['GET'])
