@@ -1,3 +1,13 @@
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[char]));
+}
+
 async function signup(e) {
     e.preventDefault();
 
@@ -8,7 +18,7 @@ async function signup(e) {
     }
 
     const flash = (msg, cls = 'text-danger') => {
-        div.innerHTML = `<p class="${cls}">${msg}</p>`;
+        div.innerHTML = `<p class="${cls}">${escapeHtml(msg)}</p>`;
         div.style.opacity = 1;
         setTimeout(() => (div.style.opacity = 0), 3000);
     };
