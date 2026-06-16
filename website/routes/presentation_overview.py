@@ -17,6 +17,7 @@ from website.routes.presentations import (
     effective_presentation_time,
     get_show_on_schedule,
     presentation_to_dict,
+    program_table_rows,
 )
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
@@ -181,6 +182,64 @@ def _box(flowables, width):
     return table
 
 
+def _append_program_table_to_story(story, styles, content_width):
+    """Add the program quick-view table as the first PDF page."""
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+
+    rows = program_table_rows()
+    story.append(Paragraph('Program Quick View', styles['Heading1']))
+    story.append(Spacer(1, 0.12 * inch))
+
+    if not rows:
+        story.append(Paragraph('No program items available.', styles['BodyText']))
+        return
+
+    header_style = styles['Heading5']
+    body_style = styles['BodyText']
+    table_data = [[
+        Paragraph('<b>Time</b>', header_style),
+        Paragraph('<b>ID</b>', header_style),
+        Paragraph('<b>Student Author(s)</b>', header_style),
+        Paragraph('<b>Title</b>', header_style),
+    ]]
+    table_style = [
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]
+
+    for row in rows:
+        table_row = [
+            Paragraph(escape(row.get('time') or '-'), body_style),
+            Paragraph(escape(row.get('id') or ''), body_style),
+            Paragraph(escape(row.get('authors') or '-'), body_style),
+            Paragraph(escape(row.get('title') or '-'), body_style),
+        ]
+        table_data.append(table_row)
+        if row.get('kind') == 'event' and row.get('event_type') in ('lunch', 'dinner'):
+            row_index = len(table_data) - 1
+            table_style.append(
+                ('BACKGROUND', (2, row_index), (2, row_index), colors.HexColor('#cfe2ff'))
+            )
+            table_style.append(
+                ('TEXTCOLOR', (2, row_index), (2, row_index), colors.HexColor('#084298'))
+            )
+
+    table = Table(
+        table_data,
+        colWidths=[0.95 * inch, 0.75 * inch, 2.0 * inch, content_width - 3.7 * inch],
+        repeatRows=1,
+    )
+    table.setStyle(TableStyle(table_style))
+    story.append(table)
+
+
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
     """Download the full visible program as one PDF."""
@@ -203,9 +262,10 @@ def download_overview_pdf():
     content_width = 7.2 * inch
     story = []
 
-    if not presentations:
-        story.append(_box([Paragraph('No presentations available.', styles['BodyText'])], content_width))
-    else:
+    _append_program_table_to_story(story, styles, content_width)
+
+    if presentations:
+        story.append(PageBreak())
         for index, presentation in enumerate(presentations):
             presenters = User.query.filter_by(presentation_id=presentation.id).all()
             authors = ', '.join([_user_full_name(p) for p in presenters]) or '-'
