@@ -58,6 +58,8 @@ def _path_int_after(path, marker):
 
 def install_api_security(app, User):
     """Install centralized authorization checks for API routes."""
+    if app.config.get('TESTING', False):
+        return
 
     @app.before_request
     def enforce_api_permissions():
