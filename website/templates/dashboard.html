@@ -3,6 +3,14 @@
 
 {% block content %}
 
+<style>
+  /* Hide presentation/program IDs only on the dashboard upcoming cards and modal. */
+  #upcoming-container .card-body .flex-grow-1 > .d-flex > div:first-child > .badge.bg-dark,
+  #sessionModal #mProgramId {
+    display: none !important;
+  }
+</style>
+
 <h3 class="mb-3">Dashboard</h3>
 
 <section class="program-cards">

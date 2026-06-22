@@ -124,7 +124,7 @@ function abstractSnippet(source, maxLength = 120) {
   // Load presentations from API
   async function loadPresentations() {
     const res = await fetch("/api/v1/presentations");
-    presentations = await res.json();
+    presentations = (await res.json()).filter(p => p.show_on_schedule !== false);
 
     const meRes = await fetch("/me");
     const meData = await meRes.json();
