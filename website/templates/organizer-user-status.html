@@ -3,7 +3,17 @@
 {% block title %}Organizer Dashboard{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-2 py-md-4">
+<style>
+  .organizer-users-page #user-container {
+    overflow-x: auto;
+  }
+
+  .organizer-users-page #user-container table {
+    min-width: 850px;
+  }
+</style>
+
+<div class="container-fluid py-2 py-md-4 organizer-users-page">
 
   <!-- Page Header -->
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-2">
@@ -22,7 +32,7 @@
   </div>
 
   <!-- DataTable Container -->
-  <div id="user-container" class="card p-3 shadow-sm">
+  <div id="user-container" class="card p-3 shadow-sm table-responsive">
     <div class="text-center py-3 py-md-5 text-muted">
       <div class="spinner-border text-primary" role="status"></div>
       <p class="mt-3">Loading users...</p>

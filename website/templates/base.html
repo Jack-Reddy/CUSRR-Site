@@ -133,33 +133,42 @@
   <!-- Auth helper -->
   <script>
     (async function(){
+      const loginBtn = document.getElementById('login-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      const userName = document.getElementById('user-name');
+      const userPic = document.getElementById('user-pic');
+
+      function showLoggedOut() {
+        if (loginBtn) loginBtn.style.display = '';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (userName) userName.textContent = '';
+        if (userPic) {
+          userPic.style.display = 'none';
+          userPic.src = '';
+        }
+      }
+
       try {
         const resp = await fetch('/me', { credentials: 'same-origin' });
         if (!resp.ok) {
-          document.getElementById('login-btn').style.display = '';
-          document.getElementById('logout-btn').style.display = 'none';
-          document.getElementById('user-name').textContent = '';
-          const img = document.getElementById('user-pic');
-          img.style.display = 'none';
-          img.src = '';
+          showLoggedOut();
           return;
         }
         const data = await resp.json();
         if (data && data.authenticated) {
-          document.getElementById('login-btn').style.display = 'none';
-          document.getElementById('logout-btn').style.display = '';
-          document.getElementById('user-name').textContent = data.name || data.email || '';
-          const img = document.getElementById('user-pic');
-          if (data.picture) { img.src = data.picture; img.style.display = ''; }
-          else { img.style.display = 'none'; img.src = ''; }
+          if (loginBtn) loginBtn.style.display = 'none';
+          if (logoutBtn) logoutBtn.style.display = '';
+          if (userName) userName.textContent = data.name || data.email || '';
+          if (userPic) {
+            if (data.picture) { userPic.src = data.picture; userPic.style.display = ''; }
+            else { userPic.style.display = 'none'; userPic.src = ''; }
+          }
         } else {
-          document.getElementById('login-btn').style.display = '';
-          document.getElementById('logout-btn').style.display = 'none';
+          showLoggedOut();
         }
       } catch (e) {
         console.error('auth helper error', e);
-        document.getElementById('login-btn').style.display = '';
-        document.getElementById('logout-btn').style.display = 'none';
+        showLoggedOut();
       }
     })();
   </script>
