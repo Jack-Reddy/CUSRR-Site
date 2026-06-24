@@ -348,31 +348,33 @@ def _visual_schedule_items():
     if items:
         return sorted(items, key=lambda item: (item['start'], item['end'], item['title']))
 
-    for row in program_table_rows():
-        sort_time = row.get('sort_time')
-        if not sort_time:
-            continue
-        items.append({
-            'start': sort_time,
-            'end': sort_time + timedelta(minutes=30),
-            'title': row.get('title') or 'Program Item',
-            'subtitle': row.get('id') or '',
-            'color': _block_color(other_index),
-        })
-        other_index += 1
-    return sorted(items, key=lambda item: (item['start'], item['end'], item['title']))
+    return []
 
 
 class _VisualScheduleFlowable:
-    """ReportLab flowable that draws a time-scaled vertical program schedule."""
+    """ReportLab-compatible object that draws a time-scaled vertical program schedule."""
 
     def __init__(self, items, width, height):
         self.items = items
         self.width = width
         self.height = height
+        self._fixedWidth = 1
+        self._fixedHeight = 1
+
+    def getKeepWithNext(self):
+        return 0
+
+    def getSpaceAfter(self):
+        return 0
+
+    def getSpaceBefore(self):
+        return 0
 
     def wrap(self, available_width, available_height):
         return self.width, self.height
+
+    def split(self, available_width, available_height):
+        return []
 
     def drawOn(self, canvas, x, y, _sW=0):
         from reportlab.lib import colors
@@ -427,7 +429,7 @@ class _VisualScheduleFlowable:
 
             canvas.setFillColor(item['color'])
             canvas.setStrokeColor(colors.HexColor('#666666'))
-            canvas.roundRect(block_x, rect_y, block_width, rect_height, 3, stroke=1, fill=1)
+            canvas.rect(block_x, rect_y, block_width, rect_height, stroke=1, fill=1)
 
             text_x = block_x + 5
             text_y = rect_y + rect_height - 9
