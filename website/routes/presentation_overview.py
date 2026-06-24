@@ -351,34 +351,28 @@ def _visual_schedule_items():
     return []
 
 
-class _VisualScheduleFlowable:
-    """ReportLab-compatible object that draws a time-scaled vertical program schedule."""
+from reportlab.platypus import Flowable
+
+
+class _VisualScheduleFlowable(Flowable):
+    """ReportLab flowable that draws a time-scaled vertical program schedule."""
 
     def __init__(self, items, width, height):
+        super().__init__()
         self.items = items
         self.width = width
         self.height = height
-        self._fixedWidth = 1
-        self._fixedHeight = 1
-
-    def getKeepWithNext(self):
-        return 0
-
-    def getSpaceAfter(self):
-        return 0
-
-    def getSpaceBefore(self):
-        return 0
 
     def wrap(self, available_width, available_height):
         return self.width, self.height
 
-    def split(self, available_width, available_height):
-        return []
-
-    def drawOn(self, canvas, x, y, _sW=0):
+    def draw(self):
         from reportlab.lib import colors
         from reportlab.pdfbase.pdfmetrics import stringWidth
+
+        canvas = self.canv
+        x = 0
+        y = 0
 
         if not self.items:
             canvas.setFont('Helvetica', 10)
