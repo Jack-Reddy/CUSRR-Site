@@ -15,7 +15,6 @@ from website import db
 from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
-    get_presentation_type,
     get_show_on_schedule,
     presentation_to_dict,
     program_table_rows,
@@ -294,7 +293,7 @@ def _visual_schedule_items():
             'start': block.start_time,
             'end': block_end,
             'title': block.title or block.block_type or 'Schedule Block',
-            'subtitle': block.location or block.block_type or '',
+            'time': f"{_short_pdf_time(block.start_time)} - {_short_pdf_time(block_end)}",
             'color': color,
             'lane': lane,
         })
@@ -393,13 +392,13 @@ class _VisualScheduleFlowable(Flowable):
             canvas.drawString(text_x, text_y, title)
 
             if rect_height >= 20:
-                subtitle = item.get('subtitle') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"
+                time_text = item.get('time') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"
                 canvas.setFont('Helvetica', 6.5)
-                while subtitle and stringWidth(subtitle + '...', 'Helvetica', 6.5) > max_text_width:
-                    subtitle = subtitle[:-1]
-                if subtitle != (item.get('subtitle') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"):
-                    subtitle = subtitle.rstrip() + '...'
-                canvas.drawString(text_x, text_y - 8, subtitle)
+                while time_text and stringWidth(time_text + '...', 'Helvetica', 6.5) > max_text_width:
+                    time_text = time_text[:-1]
+                if time_text != (item.get('time') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"):
+                    time_text = time_text.rstrip() + '...'
+                canvas.drawString(text_x, text_y - 8, time_text)
 
 
 def _append_visual_schedule_to_story(story, styles, content_width):
