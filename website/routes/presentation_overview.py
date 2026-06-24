@@ -241,25 +241,18 @@ def _append_program_table_to_story(story, styles, content_width):
     story.append(table)
 
 
-def _presentation_color(presentation, fallback_index=0):
-    """Return the PDF color for the presentation's program type."""
+def _block_color_for_schedule(block, fallback_index=0):
+    """Return the requested visual schedule color for a schedule block."""
     from reportlab.lib import colors
 
-    presentation_type = (get_presentation_type(presentation) or '').strip().lower()
-    if presentation_type == 'poster':
+    marker = f"{block.block_type or ''} {block.title or ''}".strip().lower()
+    if 'poster' in marker:
         return colors.HexColor('#f4b183')
-    if presentation_type == 'blitz':
+    if 'blitz' in marker:
         return colors.HexColor('#e06666')
-    if presentation_type == 'presentation':
+    if 'presentation' in marker:
         return colors.HexColor('#93c47d')
     return colors.HexColor('#ffd966') if fallback_index % 2 == 0 else colors.HexColor('#9fc5e8')
-
-
-def _block_color(index=0):
-    """Return alternating color for non-presentation schedule blocks."""
-    from reportlab.lib import colors
-
-    return colors.HexColor('#ffd966') if index % 2 == 0 else colors.HexColor('#9fc5e8')
 
 
 def _short_pdf_time(value):
@@ -271,84 +264,42 @@ def _short_pdf_time(value):
         return value.strftime('%I:%M %p')
 
 
-def _schedule_duration_minutes(start, end, fallback=30):
-    if start and end and end > start:
-        return max(1, int((end - start).total_seconds() / 60))
-    return fallback
-
-
 def _visual_schedule_items():
-    """Build visual schedule items from schedule blocks and visible presentations."""
-    schedule_blocks = BlockSchedule.query.order_by(BlockSchedule.start_time.asc()).all()
-    visible_presentations = {
-        presentation.id: presentation
-        for presentation in _visible_presentations()
-    }
+    """Build visual schedule items from schedule blocks only."""
+    schedule_blocks = [
+        block for block in BlockSchedule.query.order_by(BlockSchedule.start_time.asc()).all()
+        if block.start_time
+    ]
     items = []
+    lane_ends = [None, None]
     other_index = 0
 
     for block in schedule_blocks:
-        if not block.start_time:
-            continue
+        block_end = block.end_time or block.start_time + timedelta(minutes=30)
+        if block_end <= block.start_time:
+            block_end = block.start_time + timedelta(minutes=30)
 
-        block_end = block.end_time or block.start_time + timedelta(minutes=60)
-        if block.is_presentation:
-            block_presentations = [
-                presentation
-                for presentation in block.presentations
-                if presentation.id in visible_presentations
-            ]
-            block_presentations.sort(
-                key=lambda presentation: (
-                    effective_presentation_time(presentation) or block.start_time,
-                    presentation.num_in_block if presentation.num_in_block is not None else 10**9,
-                    presentation.id or 0,
-                )
-            )
+        lane = 0
+        if lane_ends[0] and block.start_time < lane_ends[0]:
+            lane = 1
+        if lane_ends[lane] is None or block_end > lane_ends[lane]:
+            lane_ends[lane] = block_end
 
-            if not block_presentations:
-                items.append({
-                    'start': block.start_time,
-                    'end': block_end,
-                    'title': block.title or 'Presentation Block',
-                    'subtitle': block.location or '',
-                    'color': _block_color(other_index),
-                })
-                other_index += 1
-                continue
-
-            fallback_duration = max(
-                1,
-                int(_schedule_duration_minutes(block.start_time, block_end) / max(len(block_presentations), 1))
-            )
-            for presentation in block_presentations:
-                start = effective_presentation_time(presentation) or block.start_time
-                minutes = block.sub_length or fallback_duration
-                end = min(start + timedelta(minutes=minutes), block_end)
-                if end <= start:
-                    end = start + timedelta(minutes=minutes)
-                program_id = presentation_to_dict(presentation).get('program_identifier') or ''
-                items.append({
-                    'start': start,
-                    'end': end,
-                    'title': presentation.title or 'Untitled',
-                    'subtitle': program_id,
-                    'color': _presentation_color(presentation),
-                })
-        else:
-            items.append({
-                'start': block.start_time,
-                'end': block_end,
-                'title': block.title or 'Schedule Block',
-                'subtitle': block.location or (block.block_type or ''),
-                'color': _block_color(other_index),
-            })
+        color = _block_color_for_schedule(block, other_index)
+        marker = f"{block.block_type or ''} {block.title or ''}".lower()
+        if not any(keyword in marker for keyword in ('presentation', 'poster', 'blitz')):
             other_index += 1
 
-    if items:
-        return sorted(items, key=lambda item: (item['start'], item['end'], item['title']))
+        items.append({
+            'start': block.start_time,
+            'end': block_end,
+            'title': block.title or block.block_type or 'Schedule Block',
+            'subtitle': block.location or block.block_type or '',
+            'color': color,
+            'lane': lane,
+        })
 
-    return []
+    return sorted(items, key=lambda item: (item['start'], item['lane'], item['end'], item['title']))
 
 
 from reportlab.platypus import Flowable
@@ -388,7 +339,9 @@ class _VisualScheduleFlowable(Flowable):
         axis_width = 0.72 * 72
         gutter = 0.12 * 72
         block_x = x + axis_width + gutter
-        block_width = self.width - axis_width - gutter
+        block_area_width = self.width - axis_width - gutter
+        lane_gap = 0.08 * 72
+        block_width = (block_area_width - lane_gap) / 2
         top_padding = 0.12 * 72
         bottom_padding = 0.12 * 72
         plot_height = self.height - top_padding - bottom_padding
@@ -409,7 +362,7 @@ class _VisualScheduleFlowable(Flowable):
         while tick <= day_end:
             tick_y = y_for_time(tick)
             canvas.setStrokeColor(colors.HexColor('#dddddd'))
-            canvas.line(block_x, tick_y, block_x + block_width, tick_y)
+            canvas.line(block_x, tick_y, block_x + block_area_width, tick_y)
             canvas.setFillColor(colors.HexColor('#333333'))
             canvas.setFont('Helvetica', 7)
             canvas.drawRightString(x + axis_width - 4, tick_y - 2, _short_pdf_time(tick))
@@ -420,20 +373,22 @@ class _VisualScheduleFlowable(Flowable):
             bottom = y_for_time(item['end'])
             rect_y = min(top, bottom)
             rect_height = max(10, abs(top - bottom) - 2)
+            lane = item.get('lane', 0)
+            rect_x = block_x + lane * (block_width + lane_gap)
 
             canvas.setFillColor(item['color'])
             canvas.setStrokeColor(colors.HexColor('#666666'))
-            canvas.rect(block_x, rect_y, block_width, rect_height, stroke=1, fill=1)
+            canvas.rect(rect_x, rect_y, block_width, rect_height, stroke=1, fill=1)
 
-            text_x = block_x + 5
+            text_x = rect_x + 5
             text_y = rect_y + rect_height - 9
             canvas.setFillColor(colors.black)
             canvas.setFont('Helvetica-Bold', 7)
-            title = item['title'] or 'Schedule Item'
+            title = item['title'] or 'Schedule Block'
             max_text_width = block_width - 10
             while title and stringWidth(title + '...', 'Helvetica-Bold', 7) > max_text_width:
                 title = title[:-1]
-            if title != (item['title'] or 'Schedule Item'):
+            if title != (item['title'] or 'Schedule Block'):
                 title = title.rstrip() + '...'
             canvas.drawString(text_x, text_y, title)
 
