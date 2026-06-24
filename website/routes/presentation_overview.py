@@ -263,6 +263,10 @@ def _short_pdf_time(value):
         return value.strftime('%I:%M %p')
 
 
+def _time_range_text(start, end):
+    return f"{_short_pdf_time(start)} - {_short_pdf_time(end)}"
+
+
 def _visual_schedule_items():
     """Build visual schedule items from schedule blocks only."""
     schedule_blocks = [
@@ -293,7 +297,7 @@ def _visual_schedule_items():
             'start': block.start_time,
             'end': block_end,
             'title': block.title or block.block_type or 'Schedule Block',
-            'time': f"{_short_pdf_time(block.start_time)} - {_short_pdf_time(block_end)}",
+            'subtitle': _time_range_text(block.start_time, block_end),
             'color': color,
             'lane': lane,
         })
@@ -382,21 +386,24 @@ class _VisualScheduleFlowable(Flowable):
             text_x = rect_x + 5
             text_y = rect_y + rect_height - 9
             canvas.setFillColor(colors.black)
-            canvas.setFont('Helvetica-Bold', 7)
-            title = item['title'] or 'Schedule Block'
             max_text_width = block_width - 10
+            title = item['title'] or 'Schedule Block'
+            time_text = item.get('subtitle') or _time_range_text(item['start'], item['end'])
+
+            if rect_height < 20:
+                title = time_text
+            canvas.setFont('Helvetica-Bold', 7)
             while title and stringWidth(title + '...', 'Helvetica-Bold', 7) > max_text_width:
                 title = title[:-1]
-            if title != (item['title'] or 'Schedule Block'):
+            if title != ((time_text if rect_height < 20 else item['title']) or 'Schedule Block'):
                 title = title.rstrip() + '...'
             canvas.drawString(text_x, text_y, title)
 
             if rect_height >= 20:
-                time_text = item.get('time') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"
                 canvas.setFont('Helvetica', 6.5)
                 while time_text and stringWidth(time_text + '...', 'Helvetica', 6.5) > max_text_width:
                     time_text = time_text[:-1]
-                if time_text != (item.get('time') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"):
+                if time_text != (item.get('subtitle') or _time_range_text(item['start'], item['end'])):
                     time_text = time_text.rstrip() + '...'
                 canvas.drawString(text_x, text_y - 8, time_text)
 
