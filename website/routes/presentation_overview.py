@@ -4,7 +4,7 @@ Routes for presentation overview page.
 import base64
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from xml.sax.saxutils import escape
 
 import requests
@@ -12,9 +12,10 @@ from flask import Blueprint, current_app, render_template, jsonify, send_file
 from sqlalchemy import text
 
 from website import db
-from website.models import Presentation, User
+from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
+    get_presentation_type,
     get_show_on_schedule,
     presentation_to_dict,
     program_table_rows,
@@ -240,6 +241,226 @@ def _append_program_table_to_story(story, styles, content_width):
     story.append(table)
 
 
+def _presentation_color(presentation, fallback_index=0):
+    """Return the PDF color for the presentation's program type."""
+    from reportlab.lib import colors
+
+    presentation_type = (get_presentation_type(presentation) or '').strip().lower()
+    if presentation_type == 'poster':
+        return colors.HexColor('#f4b183')
+    if presentation_type == 'blitz':
+        return colors.HexColor('#e06666')
+    if presentation_type == 'presentation':
+        return colors.HexColor('#93c47d')
+    return colors.HexColor('#ffd966') if fallback_index % 2 == 0 else colors.HexColor('#9fc5e8')
+
+
+def _block_color(index=0):
+    """Return alternating color for non-presentation schedule blocks."""
+    from reportlab.lib import colors
+
+    return colors.HexColor('#ffd966') if index % 2 == 0 else colors.HexColor('#9fc5e8')
+
+
+def _short_pdf_time(value):
+    if not value:
+        return '-'
+    try:
+        return value.strftime('%-I:%M %p')
+    except ValueError:
+        return value.strftime('%I:%M %p')
+
+
+def _schedule_duration_minutes(start, end, fallback=30):
+    if start and end and end > start:
+        return max(1, int((end - start).total_seconds() / 60))
+    return fallback
+
+
+def _visual_schedule_items():
+    """Build visual schedule items from schedule blocks and visible presentations."""
+    schedule_blocks = BlockSchedule.query.order_by(BlockSchedule.start_time.asc()).all()
+    visible_presentations = {
+        presentation.id: presentation
+        for presentation in _visible_presentations()
+    }
+    items = []
+    other_index = 0
+
+    for block in schedule_blocks:
+        if not block.start_time:
+            continue
+
+        block_end = block.end_time or block.start_time + timedelta(minutes=60)
+        if block.is_presentation:
+            block_presentations = [
+                presentation
+                for presentation in block.presentations
+                if presentation.id in visible_presentations
+            ]
+            block_presentations.sort(
+                key=lambda presentation: (
+                    effective_presentation_time(presentation) or block.start_time,
+                    presentation.num_in_block if presentation.num_in_block is not None else 10**9,
+                    presentation.id or 0,
+                )
+            )
+
+            if not block_presentations:
+                items.append({
+                    'start': block.start_time,
+                    'end': block_end,
+                    'title': block.title or 'Presentation Block',
+                    'subtitle': block.location or '',
+                    'color': _block_color(other_index),
+                })
+                other_index += 1
+                continue
+
+            fallback_duration = max(
+                1,
+                int(_schedule_duration_minutes(block.start_time, block_end) / max(len(block_presentations), 1))
+            )
+            for presentation in block_presentations:
+                start = effective_presentation_time(presentation) or block.start_time
+                minutes = block.sub_length or fallback_duration
+                end = min(start + timedelta(minutes=minutes), block_end)
+                if end <= start:
+                    end = start + timedelta(minutes=minutes)
+                program_id = presentation_to_dict(presentation).get('program_identifier') or ''
+                items.append({
+                    'start': start,
+                    'end': end,
+                    'title': presentation.title or 'Untitled',
+                    'subtitle': program_id,
+                    'color': _presentation_color(presentation),
+                })
+        else:
+            items.append({
+                'start': block.start_time,
+                'end': block_end,
+                'title': block.title or 'Schedule Block',
+                'subtitle': block.location or (block.block_type or ''),
+                'color': _block_color(other_index),
+            })
+            other_index += 1
+
+    if items:
+        return sorted(items, key=lambda item: (item['start'], item['end'], item['title']))
+
+    for row in program_table_rows():
+        sort_time = row.get('sort_time')
+        if not sort_time:
+            continue
+        items.append({
+            'start': sort_time,
+            'end': sort_time + timedelta(minutes=30),
+            'title': row.get('title') or 'Program Item',
+            'subtitle': row.get('id') or '',
+            'color': _block_color(other_index),
+        })
+        other_index += 1
+    return sorted(items, key=lambda item: (item['start'], item['end'], item['title']))
+
+
+class _VisualScheduleFlowable:
+    """ReportLab flowable that draws a time-scaled vertical program schedule."""
+
+    def __init__(self, items, width, height):
+        self.items = items
+        self.width = width
+        self.height = height
+
+    def wrap(self, available_width, available_height):
+        return self.width, self.height
+
+    def drawOn(self, canvas, x, y, _sW=0):
+        from reportlab.lib import colors
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+
+        if not self.items:
+            canvas.setFont('Helvetica', 10)
+            canvas.drawString(x, y + self.height - 14, 'No schedule items available.')
+            return
+
+        day_start = min(item['start'] for item in self.items)
+        day_end = max(item['end'] for item in self.items)
+        if day_end <= day_start:
+            day_end = day_start + timedelta(minutes=60)
+
+        total_minutes = max(1, int((day_end - day_start).total_seconds() / 60))
+        axis_width = 0.72 * 72
+        gutter = 0.12 * 72
+        block_x = x + axis_width + gutter
+        block_width = self.width - axis_width - gutter
+        top_padding = 0.12 * 72
+        bottom_padding = 0.12 * 72
+        plot_height = self.height - top_padding - bottom_padding
+        plot_top = y + self.height - top_padding
+        plot_bottom = y + bottom_padding
+
+        def y_for_time(value):
+            minutes = (value - day_start).total_seconds() / 60
+            return plot_top - (minutes / total_minutes) * plot_height
+
+        canvas.setStrokeColor(colors.HexColor('#b7b7b7'))
+        canvas.setLineWidth(0.5)
+        canvas.line(x + axis_width, plot_bottom, x + axis_width, plot_top)
+
+        tick = day_start.replace(minute=0, second=0, microsecond=0)
+        if tick < day_start:
+            tick += timedelta(hours=1)
+        while tick <= day_end:
+            tick_y = y_for_time(tick)
+            canvas.setStrokeColor(colors.HexColor('#dddddd'))
+            canvas.line(block_x, tick_y, block_x + block_width, tick_y)
+            canvas.setFillColor(colors.HexColor('#333333'))
+            canvas.setFont('Helvetica', 7)
+            canvas.drawRightString(x + axis_width - 4, tick_y - 2, _short_pdf_time(tick))
+            tick += timedelta(hours=1)
+
+        for item in self.items:
+            top = y_for_time(item['start'])
+            bottom = y_for_time(item['end'])
+            rect_y = min(top, bottom)
+            rect_height = max(10, abs(top - bottom) - 2)
+
+            canvas.setFillColor(item['color'])
+            canvas.setStrokeColor(colors.HexColor('#666666'))
+            canvas.roundRect(block_x, rect_y, block_width, rect_height, 3, stroke=1, fill=1)
+
+            text_x = block_x + 5
+            text_y = rect_y + rect_height - 9
+            canvas.setFillColor(colors.black)
+            canvas.setFont('Helvetica-Bold', 7)
+            title = item['title'] or 'Schedule Item'
+            max_text_width = block_width - 10
+            while title and stringWidth(title + '...', 'Helvetica-Bold', 7) > max_text_width:
+                title = title[:-1]
+            if title != (item['title'] or 'Schedule Item'):
+                title = title.rstrip() + '...'
+            canvas.drawString(text_x, text_y, title)
+
+            if rect_height >= 20:
+                subtitle = item.get('subtitle') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"
+                canvas.setFont('Helvetica', 6.5)
+                while subtitle and stringWidth(subtitle + '...', 'Helvetica', 6.5) > max_text_width:
+                    subtitle = subtitle[:-1]
+                if subtitle != (item.get('subtitle') or f"{_short_pdf_time(item['start'])} - {_short_pdf_time(item['end'])}"):
+                    subtitle = subtitle.rstrip() + '...'
+                canvas.drawString(text_x, text_y - 8, subtitle)
+
+
+def _append_visual_schedule_to_story(story, styles, content_width):
+    """Add a visual, time-scaled schedule page to the program PDF."""
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, Spacer
+
+    story.append(Paragraph('Visual Schedule', styles['Heading1']))
+    story.append(Spacer(1, 0.08 * inch))
+    story.append(_VisualScheduleFlowable(_visual_schedule_items(), content_width, 6.85 * inch))
+
+
 @presentation_overview_bp.route('/overview/download.pdf', methods=['GET'])
 def download_overview_pdf():
     """Download the full visible program as one PDF."""
@@ -263,6 +484,8 @@ def download_overview_pdf():
     story = []
 
     _append_program_table_to_story(story, styles, content_width)
+    story.append(PageBreak())
+    _append_visual_schedule_to_story(story, styles, content_width)
 
     if presentations:
         story.append(PageBreak())
