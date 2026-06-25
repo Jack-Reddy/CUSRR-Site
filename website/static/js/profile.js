@@ -68,6 +68,44 @@ function setupPartnerFields() {
 
 
 
+function showLatestPresentationUpload(filename) {
+  const latestDiv = document.getElementById('latest-presentation-upload');
+  if (!latestDiv) return;
+
+  if (!filename) {
+    latestDiv.classList.add('d-none');
+    latestDiv.textContent = '';
+    return;
+  }
+
+  latestDiv.classList.remove('d-none');
+  latestDiv.innerHTML = `<strong>Latest uploaded presentation:</strong> ${filename}`;
+}
+
+async function loadLatestPresentationUpload(user) {
+  if (!user || !user.presentation_id) {
+    showLatestPresentationUpload(null);
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/v1/presentations/${user.presentation_id}/upload/latest`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.filename) {
+        showLatestPresentationUpload(data.filename);
+        localStorage.setItem(`latestPresentationUpload:${user.user_id}`, data.filename);
+        return;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load latest uploaded presentation from server:', error);
+  }
+
+  showLatestPresentationUpload(localStorage.getItem(`latestPresentationUpload:${user.user_id}`));
+}
+
+
 // =====================================================
 // SHOW EITHER ABSTRACT FORM OR PRESENTATION UPLOAD
 // =====================================================
@@ -92,9 +130,11 @@ async function setupPresentationField() {
     if (user.presentation_id) {
       abstractForm.classList.add('d-none');
       presentationForm.classList.remove('d-none');
+      loadLatestPresentationUpload(user);
     } else {
       abstractForm.classList.remove('d-none');
       presentationForm.classList.add('d-none');
+      showLatestPresentationUpload(null);
     }
 
   } catch (err) {
@@ -212,6 +252,7 @@ async function signupAbstract() {
     // Switch to presentation form
     document.getElementById('abstract-form').classList.add('d-none');
     document.getElementById('presentation-form').classList.remove('d-none');
+    loadLatestPresentationUpload({ ...user, presentation_id: resultData.id });
 
   } catch (error) {
     console.error('Error during signup:', error);
@@ -234,6 +275,13 @@ async function uploadPresentation() {
 
   const file = fileInput.files[0];
   const maxBytes = 20 * 1024 * 1024;
+  const allowedExtensions = ['ppt', 'pptx', 'pdf'];
+  const extension = file.name.split('.').pop().toLowerCase();
+
+  if (!allowedExtensions.includes(extension)) {
+    alert("Invalid file type. Please upload a PPT, PPTX, or PDF file.");
+    return;
+  }
 
   if (file.size > maxBytes) {
     alert("File is too large. Max size is 20MB.");
@@ -254,8 +302,6 @@ async function uploadPresentation() {
 
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("title", document.getElementById('final-title')?.value || '');
-  formData.append("notes", document.getElementById('presentation-notes')?.value || '');
 
   const response = await fetch(`/api/v1/presentations/${user.presentation_id}/upload`, {
     method: "POST",
@@ -263,6 +309,10 @@ async function uploadPresentation() {
   });
 
   if (response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const filename = data.filename || file.name;
+    localStorage.setItem(`latestPresentationUpload:${user.user_id}`, filename);
+    showLatestPresentationUpload(filename);
     alert("Presentation uploaded successfully!");
     fileInput.value = "";
   } else {
