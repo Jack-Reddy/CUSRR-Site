@@ -63,6 +63,20 @@ def ensure_abstract_image_table():
         ))
 
 
+def ensure_presentation_upload_table():
+    """Create table for persistent uploaded presentation metadata."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS presentation_uploads (
+                presentation_id INTEGER PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        ))
+
+
 def normalize_presentation_type(value):
     """Normalize a submitted presentation type."""
     if value is None:
@@ -206,6 +220,13 @@ def presentation_to_dict(presentation):
     data["program_identifier"] = program_identifier_for(presentation)
     data["schedule_title"] = presentation.schedule.title if presentation.schedule else None
     data["show_on_schedule"] = get_show_on_schedule(presentation.id)
+
+    ensure_presentation_upload_table()
+    row = db.session.execute(
+        text("SELECT filename FROM presentation_uploads WHERE presentation_id = :pid"),
+        {"pid": presentation.id}
+    ).fetchone()
+    data["uploaded_presentation_filename"] = row[0] if row else None
     return data
 
 
@@ -401,12 +422,17 @@ def delete_presentation(presentation_id):
     db.session.delete(presentation)
     ensure_presentation_visibility_table()
     ensure_presentation_type_table()
+    ensure_presentation_upload_table()
     db.session.execute(
         text("DELETE FROM presentation_visibility WHERE presentation_id = :pid"),
         {"pid": presentation_id}
     )
     db.session.execute(
         text("DELETE FROM presentation_types WHERE presentation_id = :pid"),
+        {"pid": presentation_id}
+    )
+    db.session.execute(
+        text("DELETE FROM presentation_uploads WHERE presentation_id = :pid"),
         {"pid": presentation_id}
     )
     db.session.commit()
@@ -523,9 +549,21 @@ def update_presentations_order():
     return jsonify({"ok": True, "updated": updated})
 
 
+@presentations_bp.route('/<int:presentation_id>/upload/latest', methods=['GET'])
+def latest_presentation_upload(presentation_id):
+    """Return the latest uploaded file name for a presentation."""
+    Presentation.query.get_or_404(presentation_id)
+    ensure_presentation_upload_table()
+    row = db.session.execute(
+        text("SELECT filename FROM presentation_uploads WHERE presentation_id = :pid"),
+        {"pid": presentation_id}
+    ).fetchone()
+    return jsonify({"filename": row[0] if row else None})
+
+
 @presentations_bp.route('/<int:presentation_id>/upload', methods=['POST'])
 def upload_presentation_file(presentation_id):
-    """Upload a PPT or PPTX file for a presentation."""
+    """Upload a PPT, PPTX, or PDF file for a presentation."""
     presentation = Presentation.query.get_or_404(presentation_id)
 
     if 'file' not in request.files:
@@ -536,18 +574,30 @@ def upload_presentation_file(presentation_id):
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
 
-    allowed = ['ppt', 'pptx']
-    if not any(file.filename.lower().endswith(ext) for ext in allowed):
-        return jsonify({"error": "Invalid file type"}), 400
+    filename = secure_filename(file.filename)
+    extension = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    allowed = {'ppt', 'pptx', 'pdf'}
+    if extension not in allowed:
+        return jsonify({"error": "Invalid file type. Upload a PPT, PPTX, or PDF file."}), 400
 
     file_data = file.read()
     if len(file_data) > 20 * 1024 * 1024:
         return jsonify({"error": "File exceeds 20MB"}), 400
 
     presentation.presentation_file = file_data
+    ensure_presentation_upload_table()
+    updated = db.session.execute(
+        text("UPDATE presentation_uploads SET filename = :filename, uploaded_at = CURRENT_TIMESTAMP WHERE presentation_id = :pid"),
+        {"pid": presentation.id, "filename": filename}
+    )
+    if updated.rowcount == 0:
+        db.session.execute(
+            text("INSERT INTO presentation_uploads (presentation_id, filename) VALUES (:pid, :filename)"),
+            {"pid": presentation.id, "filename": filename}
+        )
     db.session.commit()
 
-    return jsonify({"message": "File uploaded successfully"})
+    return jsonify({"message": "File uploaded successfully", "filename": filename})
 
 
 @presentations_bp.route('/abstract-images', methods=['POST'])
@@ -638,6 +688,7 @@ def download_all_presentations():
     """
     Download all presentations as a ZIP, ordered by Presentation.time.
     """
+    ensure_presentation_upload_table()
     zip_buffer = io.BytesIO()
     presentations = Presentation.query.order_by(Presentation.time.asc()).all()
 
@@ -646,9 +697,15 @@ def download_all_presentations():
             if not pres.presentation_file:
                 continue
 
+            upload_row = db.session.execute(
+                text("SELECT filename FROM presentation_uploads WHERE presentation_id = :pid"),
+                {"pid": pres.id}
+            ).fetchone()
             safe_title = "".join(c for c in pres.title if c.isalnum() or c in (" ", "_", "-")).strip()
             timestamp = pres.time.strftime("%Y-%m-%d_%H%M") if pres.time else "no_time"
-            filename = f"{timestamp} - {safe_title}.pptx"
+            uploaded_name = secure_filename(upload_row[0]) if upload_row and upload_row[0] else None
+            extension = uploaded_name.rsplit('.', 1)[-1].lower() if uploaded_name and '.' in uploaded_name else 'pptx'
+            filename = f"{timestamp} - {safe_title}.{extension}"
 
             zipf.writestr(filename, pres.presentation_file)
 
