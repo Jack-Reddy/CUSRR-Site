@@ -449,10 +449,6 @@ def download_overview_pdf():
         for index, presentation in enumerate(presentations):
             presenters = User.query.filter_by(presentation_id=presentation.id).all()
             authors = ', '.join([_user_full_name(p) for p in presenters]) or '-'
-            activities = sorted(
-                {p.activity.strip() for p in presenters if p.activity and p.activity.strip()}
-            )
-            activity_text = ', '.join(activities) if activities else '-'
             display_time = _format_time(effective_presentation_time(presentation))
             presentation_data = presentation_to_dict(presentation)
             program_id = presentation_data.get('program_identifier') or '-'
@@ -464,8 +460,6 @@ def download_overview_pdf():
             story.append(_box([Paragraph(f'<b>Date/Time:</b> {escape(display_time)}', styles['BodyText'])], content_width))
             story.append(Spacer(1, 0.08 * inch))
             story.append(_box([Paragraph(f'<b>Author(s):</b> {escape(authors)}', styles['BodyText'])], content_width))
-            story.append(Spacer(1, 0.08 * inch))
-            story.append(_box([Paragraph(f'<b>Activity:</b> {escape(activity_text)}', styles['BodyText'])], content_width))
             story.append(Spacer(1, 0.08 * inch))
             abstract_flowables = [Paragraph('<b>Abstract</b>', styles['Heading2'])]
             _append_markdown_to_story(abstract_flowables, presentation.abstract or '-', styles)
