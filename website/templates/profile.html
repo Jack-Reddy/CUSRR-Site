@@ -148,27 +148,28 @@
         </div>
 
 
-        <!-- FORM B: FULL PRESENTATION UPLOAD (PPT/PPTX) -->
+        <!-- FORM B: FULL PRESENTATION UPLOAD (PPT/PPTX/PDF) -->
         <div id="presentation-form" class="mt-5 d-none">
           <h5 class="text-center mb-3">Full Presentation Upload</h5>
 
           <p class="text-muted text-center mb-4">
-            Please upload a <strong>.PPT</strong> or <strong>.PPTX</strong> version of your final presentation.
+            Please upload a <strong>.PPT</strong>, <strong>.PPTX</strong>, or <strong>.PDF</strong> version of your final presentation.
           </p>
 
           <div class="card p-4 shadow-sm">
+            <div id="latest-presentation-upload" class="alert alert-secondary d-none mb-3"></div>
 
-            <!-- PPT/PPTX Upload -->
+            <!-- PPT/PPTX/PDF Upload -->
             <div class="mt-4">
               <label for="presentation-ppt" class="form-label">Upload Presentation File</label>
               <input 
                 id="presentation-ppt"
                 type="file" 
                 class="form-control"
-                accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                accept=".ppt,.pptx,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               >
               <div class="form-text mt-1">
-                Allowed formats: <strong>.ppt</strong>, <strong>.pptx</strong> — Max size: 20MB
+                Allowed formats: <strong>.ppt</strong>, <strong>.pptx</strong>, <strong>.pdf</strong> — Max size: 20MB
               </div>
             </div>
 
