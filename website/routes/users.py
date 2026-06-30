@@ -95,7 +95,7 @@ def _can_assign_presentation(user, presentation_id):
         User.presentation_id == presentation.id,
         User.id != user.id
     ).count()
-    if existing_presenters >= 2:
+    if existing_presenters >= 3:
         return jsonify({"error": "Presentation already has 3 presenters"}), 403
 
     user.presentation_id = presentation.id
