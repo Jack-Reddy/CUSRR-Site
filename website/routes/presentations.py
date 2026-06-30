@@ -341,6 +341,15 @@ def create_presentation():
         except ValueError:
             return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
 
+    partner_emails = data.get('partner_emails') or []
+    legacy_partner_email = data.get('partner_email')
+    if legacy_partner_email and legacy_partner_email not in partner_emails:
+        partner_emails.append(legacy_partner_email)
+    partner_emails = [email.strip() for email in partner_emails if email and email.strip()]
+    partner_emails = list(dict.fromkeys(partner_emails))
+    if len(partner_emails) > 2:
+        return jsonify({"error": "Groups can have at most 3 presenters total"}), 400
+
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
@@ -355,13 +364,14 @@ def create_presentation():
     if 'type' in data:
         set_presentation_type(new_presentation.id, data.get('type'))
 
-    partner_email = data.get("partner_email")
-    if partner_email:
+    for partner_email in partner_emails:
         partner_user = User.query.filter_by(email=partner_email).first()
         if not partner_user:
             db.session.rollback()
             return jsonify({"error": f"No user found with email {partner_email}"}), 400
-
+        if partner_user.presentation_id:
+            db.session.rollback()
+            return jsonify({"error": f"{partner_email} is already assigned to a presentation"}), 400
         partner_user.presentation_id = new_presentation.id
 
     db.session.commit()
