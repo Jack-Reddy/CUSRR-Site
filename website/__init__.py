@@ -108,9 +108,9 @@ def create_app(test_config=None):
     @app.route('/')
     def program():
         '''
-        Redirect the default app route to the schedule page.
+        Render the schedule page as the default app route.
         '''
-        return redirect(url_for('schedule'))
+        return schedule()
 
     @app.route('/schedule')
     @auth.banned_user_redirect
