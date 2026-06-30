@@ -34,38 +34,96 @@ async function account_info() {
 }
 
 
+// =====================================================
+// ROOMMATE PREFERENCES
+// =====================================================
+async function loadRoommatePreferences() {
+  const textarea = document.getElementById('roommate-preferences');
+  if (!textarea) return;
+
+  try {
+    const response = await fetch('/api/v1/users/roommate-preferences');
+    if (!response.ok) return;
+    const data = await response.json();
+    textarea.value = data.preferences || '';
+  } catch (error) {
+    console.warn('Could not load roommate preferences:', error);
+  }
+}
+
+async function saveRoommatePreferences() {
+  const textarea = document.getElementById('roommate-preferences');
+  const messageDiv = document.getElementById('roommate-preferences-message');
+  if (!textarea) return;
+
+  try {
+    const response = await fetch('/api/v1/users/roommate-preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferences: textarea.value.trim() })
+    });
+
+    if (!response.ok) throw new Error('Failed to save roommate preferences');
+
+    if (messageDiv) {
+      messageDiv.className = 'small mt-2 text-success';
+      messageDiv.textContent = 'Roommate preferences saved.';
+    }
+  } catch (error) {
+    console.error('Error saving roommate preferences:', error);
+    if (messageDiv) {
+      messageDiv.className = 'small mt-2 text-danger';
+      messageDiv.textContent = 'Could not save roommate preferences.';
+    }
+  }
+}
 
 
 // =====================================================
-// PARTNER FIELD LOGIC
+// GROUP FIELD LOGIC
 // =====================================================
+function getGroupSize() {
+  const selected = document.querySelector('input[name="presentation-group-size"]:checked');
+  return parseInt(selected?.value || '1', 10);
+}
+
+function getPartnerEmails() {
+  const groupSize = getGroupSize();
+  const emails = [];
+  const first = document.getElementById('partner-email')?.value.trim();
+  const second = document.getElementById('partner-email-two')?.value.trim();
+
+  if (groupSize >= 2 && first) emails.push(first);
+  if (groupSize >= 3 && second) emails.push(second);
+  return emails;
+}
+
 function setupPartnerFields() {
-  const yesRadio = document.getElementById('has-partner-yes');
-  const noRadio = document.getElementById('has-partner-no');
+  const groupRadios = document.querySelectorAll('input[name="presentation-group-size"]');
   const partnerDetails = document.getElementById('partner-details');
+  const partnerTwoWrapper = document.getElementById('partner-two-wrapper');
   const abstractMain = document.getElementById('abstract-main-fields');
   const submitterMe = document.getElementById('submitter-me');
   const submitterPartner = document.getElementById('submitter-partner');
 
-  if (!yesRadio || !noRadio || !partnerDetails || !abstractMain) return;
+  if (!groupRadios.length || !partnerDetails || !abstractMain) return;
 
   const updateVisibility = () => {
-    const hasPartner = yesRadio.checked;
-    const partnerIsSubmitting = hasPartner && submitterPartner && submitterPartner.checked;
+    const groupSize = getGroupSize();
+    const groupHasPartners = groupSize > 1;
+    const someoneElseSubmitting = groupHasPartners && submitterPartner && submitterPartner.checked;
 
-    partnerDetails.classList.toggle('d-none', !hasPartner);
-    abstractMain.classList.toggle('d-none', partnerIsSubmitting);
+    partnerDetails.classList.toggle('d-none', !groupHasPartners);
+    if (partnerTwoWrapper) partnerTwoWrapper.classList.toggle('d-none', groupSize < 3);
+    abstractMain.classList.toggle('d-none', someoneElseSubmitting);
   };
 
-  yesRadio.addEventListener('change', updateVisibility);
-  noRadio.addEventListener('change', updateVisibility);
+  groupRadios.forEach((radio) => radio.addEventListener('change', updateVisibility));
   if (submitterMe) submitterMe.addEventListener('change', updateVisibility);
   if (submitterPartner) submitterPartner.addEventListener('change', updateVisibility);
 
   updateVisibility();
 }
-
-
 
 
 function showLatestPresentationUpload(filename) {
@@ -143,8 +201,6 @@ async function setupPresentationField() {
 }
 
 
-
-
 // =====================================================
 // SUBMIT ABSTRACT
 // =====================================================
@@ -177,21 +233,27 @@ async function signupAbstract() {
       return;
     }
 
-    // 2. Partner logic
-    const hasPartner = document.querySelector('input[name="has-partner"]:checked')?.value === 'yes';
+    // 2. Group logic
+    const groupSize = getGroupSize();
     const submitterRole = document.querySelector('input[name="submitter-role"]:checked')?.value || 'me';
-    const partnerEmail = document.getElementById('partner-email')?.value.trim() || '';
+    const partnerEmails = getPartnerEmails();
 
-    if (hasPartner && submitterRole === 'partner') {
+    if (groupSize > 1 && submitterRole === 'partner') {
       msgDiv.innerHTML = `
         <p class="text-info">
-          Your partner will submit the abstract. You do not need to submit anything.
+          Someone else in your group will submit the abstract. You do not need to submit anything.
         </p>`;
       return;
     }
 
-    if (hasPartner && submitterRole === 'me' && !partnerEmail) {
-      msgDiv.innerHTML = '<p class="text-danger">Please enter your partner\'s email.</p>';
+    if (groupSize > 1 && partnerEmails.length !== groupSize - 1) {
+      msgDiv.innerHTML = '<p class="text-danger">Please enter the email for each partner in your group.</p>';
+      return;
+    }
+
+    const uniqueEmails = new Set(partnerEmails.map((email) => email.toLowerCase()));
+    if (uniqueEmails.size !== partnerEmails.length) {
+      msgDiv.innerHTML = '<p class="text-danger">Please enter different emails for each partner.</p>';
       return;
     }
 
@@ -213,13 +275,10 @@ async function signupAbstract() {
       abstract,
       subject,
       type,
+      partner_emails: partnerEmails,
       time: '2026-11-04 13:30',
       room: null
     };
-
-    if (hasPartner && submitterRole === 'me') {
-      payload.partner_email = partnerEmail;
-    }
 
     // 5. Create presentation
     const response = await fetch('/api/v1/presentations/', {
@@ -229,7 +288,8 @@ async function signupAbstract() {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to submit abstract');
+      const err = await response.json().catch(() => ({ error: 'Failed to submit abstract' }));
+      throw new Error(err.error || 'Failed to submit abstract');
     }
 
     const resultData = await response.json();
@@ -256,11 +316,9 @@ async function signupAbstract() {
 
   } catch (error) {
     console.error('Error during signup:', error);
-    msgDiv.innerHTML = '<p class="text-danger">Submission failed. Please try again later.</p>';
+    msgDiv.innerHTML = `<p class="text-danger">Submission failed: ${error.message}</p>`;
   }
 }
-
-
 
 
 // =====================================================
@@ -322,7 +380,6 @@ async function uploadPresentation() {
 }
 
 
-
 // =====================================================
 // EVENT WIRING
 // =====================================================
@@ -340,12 +397,21 @@ window.addEventListener('DOMContentLoaded', () => {
   setupPresentationField();
   account_info();
   setupPartnerFields();
+  loadRoommatePreferences();
 
   const abstractBtn = document.getElementById('abstract-submit');
   if (abstractBtn) {
     abstractBtn.addEventListener('click', (e) => {
       e.preventDefault();
       signupAbstract();
+    });
+  }
+
+  const roommateBtn = document.getElementById('roommate-preferences-submit');
+  if (roommateBtn) {
+    roommateBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      saveRoommatePreferences();
     });
   }
 
