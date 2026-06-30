@@ -138,10 +138,11 @@ def test_create_app_initializes_database():
 
 # Test public routes
 
-def test_root_route_renders(client):
-    """GET / should render dashboard template."""
-    response = client.get('/')
-    assert response.status_code == 200
+def test_root_route_redirects_to_schedule(client):
+    """GET / should redirect to the schedule page."""
+    response = client.get('/', follow_redirects=False)
+    assert response.status_code == 302
+    assert '/schedule' in response.location
 
 
 def test_schedule_route_renders(client):
