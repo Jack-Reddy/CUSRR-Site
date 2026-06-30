@@ -53,46 +53,69 @@
     <div class="row g-4">
       <div class="col-12 col-lg-8 mx-auto d-flex flex-column" style="min-height: 60vh;">
 
+        <!-- ROOMMATE PREFERENCES -->
+        <div class="card p-4 shadow-sm mb-4" id="roommate-preferences-card">
+          <h5 class="text-center mb-3">Roommate Preferences</h5>
+          <p class="text-muted text-center mb-3">
+            List anyone you would prefer to room with. You can enter names, emails, or both.
+          </p>
+          <label for="roommate-preferences" class="form-label">Preferred roommate(s)</label>
+          <textarea id="roommate-preferences" class="form-control" rows="3" placeholder="Example: Jane Doe, jane@example.com"></textarea>
+          <button id="roommate-preferences-submit" class="btn btn-outline-primary mt-3 w-100">
+            Save Roommate Preferences
+          </button>
+          <div id="roommate-preferences-message" class="small mt-2"></div>
+        </div>
+
         <!-- FORM A: ABSTRACT SUBMISSION -->
         <div id="abstract-form">
           <h5 class="text-center mb-3">Abstract Submission</h5>
 
-          <!-- Partner question (NOW AT THE FRONT) -->
+          <!-- Group question -->
           <div class="mt-4">
-            <label class="form-label d-block">Are you presenting with a partner?</label>
+            <label class="form-label d-block">How many people are presenting?</label>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="has-partner" id="has-partner-no" value="no" checked>
-              <label class="form-check-label" for="has-partner-no">No, I'm presenting alone</label>
+              <input class="form-check-input" type="radio" name="presentation-group-size" id="group-size-one" value="1" checked>
+              <label class="form-check-label" for="group-size-one">Just me</label>
             </div>
             <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="has-partner" id="has-partner-yes" value="yes">
-              <label class="form-check-label" for="has-partner-yes">Yes, I have a partner</label>
+              <input class="form-check-input" type="radio" name="presentation-group-size" id="group-size-two" value="2">
+              <label class="form-check-label" for="group-size-two">Group of 2</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="presentation-group-size" id="group-size-three" value="3">
+              <label class="form-check-label" for="group-size-three">Group of 3</label>
             </div>
           </div>
 
-          <!-- Partner details section (shown only if "Yes") -->
+          <!-- Partner details section -->
           <div id="partner-details" class="mt-3 d-none">
-            <label for="partner-email" class="form-label w-100">Partner's Email</label>
+            <label for="partner-email" class="form-label w-100">Partner 1 Email</label>
             <input id="partner-email" type="email" class="form-control" placeholder="partner@example.com">
 
+            <div id="partner-two-wrapper" class="mt-3 d-none">
+              <label for="partner-email-two" class="form-label w-100">Partner 2 Email</label>
+              <input id="partner-email-two" type="email" class="form-control" placeholder="secondpartner@example.com">
+            </div>
+
             <label class="form-label d-block mt-3">
-              Who is submitting the abstract and presentation for your pair?
+              Who is submitting the abstract and presentation for your group?
             </label>
             <div class="form-check">
               <input class="form-check-input" type="radio" name="submitter-role" id="submitter-me" value="me" checked>
               <label class="form-check-label" for="submitter-me">
-                I am submitting for both of us
+                I am submitting for the whole group
               </label>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="radio" name="submitter-role" id="submitter-partner" value="partner">
               <label class="form-check-label" for="submitter-partner">
-                My partner will submit for both of us
+                Someone else in my group will submit
               </label>
             </div>
 
             <p class="text-muted small mt-2 mb-0">
-              Participants in pairs should only submit <strong>one</strong> abstract and <strong>one</strong> presentation per pair.
+              Groups should submit only <strong>one</strong> abstract and <strong>one</strong> final presentation per group.
             </p>
           </div>
 
