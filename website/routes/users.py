@@ -1,5 +1,6 @@
 """routes for user table in db"""
 from flask import Blueprint, current_app, jsonify, request, session
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from website.models import Presentation, User
 from website import db
@@ -39,6 +40,43 @@ def _is_organizer(user):
     return 'organizer' in _roles_for(user)
 
 
+def ensure_roommate_preferences_table():
+    """Create the roommate preferences table if it does not exist."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS roommate_preferences (
+                user_id INTEGER PRIMARY KEY,
+                preferences TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        ))
+
+
+def _get_roommate_preferences(user_id):
+    ensure_roommate_preferences_table()
+    row = db.session.execute(
+        text("SELECT preferences FROM roommate_preferences WHERE user_id = :uid"),
+        {"uid": user_id}
+    ).fetchone()
+    return row[0] if row and row[0] else ""
+
+
+def _set_roommate_preferences(user_id, preferences):
+    ensure_roommate_preferences_table()
+    cleaned = (preferences or '').strip()
+    result = db.session.execute(
+        text("UPDATE roommate_preferences SET preferences = :preferences, updated_at = CURRENT_TIMESTAMP WHERE user_id = :uid"),
+        {"uid": user_id, "preferences": cleaned}
+    )
+    if result.rowcount == 0:
+        db.session.execute(
+            text("INSERT INTO roommate_preferences (user_id, preferences) VALUES (:uid, :preferences)"),
+            {"uid": user_id, "preferences": cleaned}
+        )
+
+
 def _can_assign_presentation(user, presentation_id):
     if presentation_id in (None, ''):
         user.presentation_id = None
@@ -53,12 +91,12 @@ def _can_assign_presentation(user, presentation_id):
     if not presentation:
         return jsonify({"error": "Presentation not found"}), 404
 
-    existing_owner = User.query.filter(
+    existing_presenters = User.query.filter(
         User.presentation_id == presentation.id,
         User.id != user.id
-    ).first()
-    if existing_owner:
-        return jsonify({"error": "Presentation is already assigned"}), 403
+    ).count()
+    if existing_presenters >= 2:
+        return jsonify({"error": "Presentation already has 3 presenters"}), 403
 
     user.presentation_id = presentation.id
     return None
@@ -71,13 +109,31 @@ def get_users():
     return jsonify([u.to_dict() for u in users]), 200
 
 
+@users_bp.route('/roommate-preferences', methods=['GET', 'PUT'])
+def roommate_preferences():
+    """Get or update the current user's roommate preferences."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    if request.method == 'GET':
+        return jsonify({"preferences": _get_roommate_preferences(user.id)}), 200
+
+    data = request.get_json() or {}
+    _set_roommate_preferences(user.id, data.get('preferences', ''))
+    db.session.commit()
+    return jsonify({"preferences": _get_roommate_preferences(user.id)}), 200
+
+
 @users_bp.route('/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     """GET a single user"""
     user = db.session.get(User, user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
-    return jsonify(user.to_dict()), 200
+    data = user.to_dict()
+    data['roommate_preferences'] = _get_roommate_preferences(user.id)
+    return jsonify(data), 200
 
 
 @users_bp.route('/', methods=['POST'])
@@ -118,6 +174,9 @@ def create_user():
             auth=auth_value
         )
         db.session.add(new_user)
+        db.session.flush()
+        if 'roommate_preferences' in data:
+            _set_roommate_preferences(new_user.id, data.get('roommate_preferences'))
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
@@ -150,9 +209,15 @@ def update_user(user_id):
     user.activity = data.get('activity', user.activity)
     user.student_year = data.get('student_year', user.student_year)
 
+    if 'roommate_preferences' in data:
+        _set_roommate_preferences(user.id, data.get('roommate_preferences'))
+
     if organizer or not _security_checks_enabled():
         user.email = data.get('email', user.email)
-        user.presentation_id = data.get('presentation_id', user.presentation_id)
+        if 'presentation_id' in data:
+            assign_error = _can_assign_presentation(user, data.get('presentation_id'))
+            if assign_error:
+                return assign_error
         auth_val = data.get('auth', user.auth)
         if isinstance(auth_val, list):
             auth_val = ','.join(str(a) for a in auth_val)
@@ -182,6 +247,11 @@ def delete_user(user_id):
         return jsonify({"error": "User not found"}), 404
 
     try:
+        ensure_roommate_preferences_table()
+        db.session.execute(
+            text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
+            {"uid": user.id}
+        )
         db.session.delete(user)
         db.session.commit()
     except Exception as error:
