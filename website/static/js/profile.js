@@ -163,6 +163,77 @@ async function loadLatestPresentationUpload(user) {
   showLatestPresentationUpload(localStorage.getItem(`latestPresentationUpload:${user.user_id}`));
 }
 
+function showEditAbstractMessage(message, isError = false) {
+  const messageDiv = document.getElementById('edit-abstract-message');
+  if (!messageDiv) return;
+  messageDiv.className = `small mb-3 ${isError ? 'text-danger' : 'text-success'}`;
+  messageDiv.textContent = message || '';
+}
+
+function populateSubmittedAbstractForm(presentation) {
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value || '';
+  };
+
+  setValue('edit-title', presentation.title);
+  setValue('edit-department', presentation.department);
+  setValue('edit-mentor', presentation.mentor);
+  setValue('edit-keywords', presentation.keywords);
+  setValue('edit-abstract', presentation.abstract);
+  setValue('edit-type', presentation.type || 'Presentation');
+}
+
+async function loadSubmittedAbstract(user) {
+  if (!user || !user.presentation_id) return;
+
+  try {
+    const response = await fetch(`/api/v1/presentations/${user.presentation_id}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not load submitted abstract');
+    populateSubmittedAbstractForm(data);
+  } catch (error) {
+    console.error('Could not load submitted abstract:', error);
+    showEditAbstractMessage(error.message || 'Could not load submitted abstract.', true);
+  }
+}
+
+async function saveSubmittedAbstract() {
+  try {
+    const meResponse = await fetch('/me');
+    if (!meResponse.ok) throw new Error('Unable to verify user.');
+    const user = await meResponse.json();
+    if (!user.presentation_id) throw new Error('No submitted abstract found.');
+
+    const title = document.getElementById('edit-title')?.value.trim() || '';
+    const abstract = document.getElementById('edit-abstract')?.value.trim() || '';
+    const department = document.getElementById('edit-department')?.value.trim() || '';
+    const mentor = document.getElementById('edit-mentor')?.value.trim() || '';
+    const keywords = document.getElementById('edit-keywords')?.value.trim() || '';
+    const type = document.getElementById('edit-type')?.value || 'Presentation';
+
+    if (!title || !abstract) {
+      showEditAbstractMessage('Please include a title and abstract.', true);
+      return;
+    }
+
+    const response = await fetch(`/api/v1/presentations/${user.presentation_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, abstract, department, mentor, keywords, type })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not save abstract changes.');
+
+    populateSubmittedAbstractForm(data);
+    showEditAbstractMessage('Abstract changes saved.');
+  } catch (error) {
+    console.error('Could not save submitted abstract:', error);
+    showEditAbstractMessage(error.message || 'Could not save abstract changes.', true);
+  }
+}
+
 
 // =====================================================
 // SHOW EITHER ABSTRACT FORM OR PRESENTATION UPLOAD
@@ -188,6 +259,7 @@ async function setupPresentationField() {
     if (user.presentation_id) {
       abstractForm.classList.add('d-none');
       presentationForm.classList.remove('d-none');
+      loadSubmittedAbstract(user);
       loadLatestPresentationUpload(user);
     } else {
       abstractForm.classList.remove('d-none');
@@ -316,7 +388,9 @@ async function signupAbstract() {
     // Switch to presentation form
     document.getElementById('abstract-form').classList.add('d-none');
     document.getElementById('presentation-form').classList.remove('d-none');
-    loadLatestPresentationUpload({ ...user, presentation_id: resultData.id });
+    const updatedUser = { ...user, presentation_id: resultData.id };
+    populateSubmittedAbstractForm(resultData);
+    loadLatestPresentationUpload(updatedUser);
 
   } catch (error) {
     console.error('Error during signup:', error);
@@ -408,6 +482,14 @@ window.addEventListener('DOMContentLoaded', () => {
     abstractBtn.addEventListener('click', (e) => {
       e.preventDefault();
       signupAbstract();
+    });
+  }
+
+  const editAbstractBtn = document.getElementById('edit-abstract-submit');
+  if (editAbstractBtn) {
+    editAbstractBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      saveSubmittedAbstract();
     });
   }
 
