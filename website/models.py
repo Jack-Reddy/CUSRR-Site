@@ -284,6 +284,10 @@ class BlockSchedule(db.Model):
     presentations = db.relationship('Presentation', back_populates='schedule')
 
     def to_dict(self):
+        length = None
+        if self.start_time and self.end_time:
+            length = (self.end_time - self.start_time).total_seconds() / 60
+
         return {
             "id": self.id,
             "day": self.day,
@@ -295,4 +299,5 @@ class BlockSchedule(db.Model):
             "type": self.block_type,
             "is_presentation": self.is_presentation,
             "sub_length": self.sub_length,
+            "length": length,
         }
