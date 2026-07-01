@@ -2,7 +2,7 @@
 import re
 
 from flask import Blueprint, current_app, jsonify, request, session
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from sqlalchemy.exc import IntegrityError
 from website.models import Presentation, User
 from website import db
@@ -100,7 +100,7 @@ def _parse_roommate_preferences(preferences):
         entry = str(value or '').strip()
         if not entry:
             continue
-        key = entry.lower()
+        key = _normalize_lookup(entry)
         if key in seen:
             continue
         seen.add(key)
@@ -108,15 +108,54 @@ def _parse_roommate_preferences(preferences):
     return cleaned
 
 
-def _find_user_id_for_preference(entry):
-    """Return a matching user id when the preference is an existing email."""
-    if '@' not in entry:
+def _normalize_lookup(value):
+    """Normalize names/emails for roommate preference matching."""
+    return re.sub(r'\s+', ' ', str(value or '').strip().lower())
+
+
+def _display_name(user):
+    if not user:
         return None
-    preferred_user = User.query.filter_by(email=entry).first()
-    if preferred_user:
-        return preferred_user.id
-    preferred_user = User.query.filter_by(email=entry.lower()).first()
-    return preferred_user.id if preferred_user else None
+    return f"{user.firstname} {user.lastname}".strip()
+
+
+def _find_user_for_preference(entry):
+    """Return a matching user when the preference is an email or full name."""
+    normalized = _normalize_lookup(entry)
+    if not normalized:
+        return None
+
+    if '@' in normalized:
+        return User.query.filter(func.lower(User.email) == normalized).first()
+
+    for user in User.query.all():
+        full_name = _normalize_lookup(_display_name(user))
+        reverse_name = _normalize_lookup(f"{user.lastname} {user.firstname}")
+        if normalized in (full_name, reverse_name):
+            return user
+    return None
+
+
+def _find_user_id_for_preference(entry):
+    """Return a matching user id for an email or full-name roommate preference."""
+    user = _find_user_for_preference(entry)
+    return user.id if user else None
+
+
+def _roommate_entry_payload(entry, preferred_user_id=None):
+    """Build a roommate preference response entry with match metadata."""
+    preferred_user = None
+    if preferred_user_id:
+        preferred_user = db.session.get(User, preferred_user_id)
+    if not preferred_user:
+        preferred_user = _find_user_for_preference(entry)
+
+    return {
+        "preferred_email": entry,
+        "preferred_user_id": preferred_user.id if preferred_user else None,
+        "preferred_name": _display_name(preferred_user) if preferred_user else None,
+        "matched": bool(preferred_user),
+    }
 
 
 def _get_roommate_preference_entries(user_id):
@@ -133,13 +172,7 @@ def _get_roommate_preference_entries(user_id):
             """),
             {"uid": user_id}
         ).fetchall()
-        return [
-            {
-                "preferred_email": row[0],
-                "preferred_user_id": row[1],
-            }
-            for row in rows
-        ]
+        return [_roommate_entry_payload(row[0], row[1]) for row in rows]
 
     if 'preferences' in columns:
         row = db.session.execute(
@@ -147,10 +180,7 @@ def _get_roommate_preference_entries(user_id):
             {"uid": user_id}
         ).fetchone()
         return [
-            {
-                "preferred_email": entry,
-                "preferred_user_id": _find_user_id_for_preference(entry),
-            }
+            _roommate_entry_payload(entry)
             for entry in _parse_roommate_preferences(row[0] if row else '')
         ]
 
