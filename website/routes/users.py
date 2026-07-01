@@ -47,44 +47,20 @@ def _is_organizer(user):
     return 'organizer' in _roles_for(user)
 
 
-def _roommate_preference_columns():
-    """Return existing roommate preference table column names."""
-    inspector = inspect(db.engine)
-    if not inspector.has_table('roommate_preferences'):
-        return set()
-    return {column['name'] for column in inspector.get_columns('roommate_preferences')}
+def _normalize_lookup(value):
+    """Normalize names/emails for roommate preference matching."""
+    return re.sub(r'\s+', ' ', str(value or '').strip().lower())
 
 
-def ensure_roommate_preferences_table():
-    """Create the structured roommate preferences table if it does not exist."""
-    dialect_name = db.engine.dialect.name
-    with db.engine.begin() as conn:
-        if dialect_name == 'sqlite':
-            conn.execute(text(
-                """
-                CREATE TABLE IF NOT EXISTS roommate_preferences (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    preferred_email VARCHAR(120) NOT NULL,
-                    preferred_user_id INTEGER,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user_id, preferred_email)
-                )
-                """
-            ))
-        else:
-            conn.execute(text(
-                """
-                CREATE TABLE IF NOT EXISTS roommate_preferences (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    preferred_email VARCHAR(120) NOT NULL,
-                    preferred_user_id INTEGER,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user_id, preferred_email)
-                )
-                """
-            ))
+def _compact_lookup(value):
+    """Normalize by dropping non-alphanumeric chars for fuzzy name/email matching."""
+    return re.sub(r'[^a-z0-9@]+', '', _normalize_lookup(value))
+
+
+def _display_name(user):
+    if not user:
+        return None
+    return f"{user.firstname} {user.lastname}".strip()
 
 
 def _parse_roommate_preferences(preferences):
@@ -108,19 +84,123 @@ def _parse_roommate_preferences(preferences):
     return cleaned
 
 
-def _normalize_lookup(value):
-    """Normalize names/emails for roommate preference matching."""
-    return re.sub(r'\s+', ' ', str(value or '').strip().lower())
+def _roommate_preference_columns():
+    """Return existing roommate preference table column names."""
+    inspector = inspect(db.engine)
+    if not inspector.has_table('roommate_preferences'):
+        return set()
+    return {column['name'] for column in inspector.get_columns('roommate_preferences')}
 
 
-def _display_name(user):
-    if not user:
-        return None
-    return f"{user.firstname} {user.lastname}".strip()
+def _structured_roommate_table_sql(dialect_name):
+    id_type = 'INTEGER PRIMARY KEY AUTOINCREMENT' if dialect_name == 'sqlite' else 'SERIAL PRIMARY KEY'
+    return f"""
+        CREATE TABLE IF NOT EXISTS roommate_preferences (
+            id {id_type},
+            user_id INTEGER NOT NULL,
+            preferred_email VARCHAR(120) NOT NULL,
+            preferred_user_id INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, preferred_email)
+        )
+    """
+
+
+def _row_value(row, key):
+    """Read a value from SQLAlchemy RowMapping/dict/tuple-like rows."""
+    try:
+        return row[key]
+    except (KeyError, TypeError):
+        return getattr(row, key, None)
+
+
+def _user_row_matches_preference(user_row, entry):
+    """Return True if a SQL row/dict user matches an email or full-name entry."""
+    normalized = _normalize_lookup(entry)
+    compact = _compact_lookup(entry)
+    if not normalized:
+        return False
+
+    firstname = _row_value(user_row, 'firstname') or ''
+    lastname = _row_value(user_row, 'lastname') or ''
+    email = _row_value(user_row, 'email') or ''
+
+    full_name = _normalize_lookup(f"{firstname} {lastname}")
+    reverse_name = _normalize_lookup(f"{lastname} {firstname}")
+    compact_full_name = _compact_lookup(full_name)
+    compact_reverse_name = _compact_lookup(reverse_name)
+    normalized_email = _normalize_lookup(email)
+    compact_email = _compact_lookup(email)
+    compact_email_local = _compact_lookup(str(email).split('@')[0])
+
+    if '@' in normalized:
+        return compact == compact_email
+
+    exact_name_match = normalized in (full_name, reverse_name)
+    compact_name_match = compact in (compact_full_name, compact_reverse_name)
+    compact_email_match = compact and compact == compact_email_local
+    return exact_name_match or compact_name_match or compact_email_match
+
+
+def _match_user_id_from_rows(entry, user_rows):
+    """Return a unique user id match from raw user rows, or None."""
+    matches = [
+        _row_value(user_row, 'id')
+        for user_row in user_rows
+        if _user_row_matches_preference(user_row, entry)
+    ]
+    matches = [match for match in matches if match is not None]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _migrate_legacy_roommate_preferences(conn, dialect_name):
+    """Convert old one-row text preferences into one row per roommate preference."""
+    legacy_rows = conn.execute(
+        text("SELECT user_id, preferences FROM roommate_preferences")
+    ).mappings().all()
+    user_rows = conn.execute(
+        text("SELECT id, firstname, lastname, email FROM users")
+    ).mappings().all()
+
+    conn.execute(text("DROP TABLE roommate_preferences"))
+    conn.execute(text(_structured_roommate_table_sql(dialect_name)))
+
+    for legacy_row in legacy_rows:
+        user_id = legacy_row['user_id']
+        for entry in _parse_roommate_preferences(legacy_row['preferences']):
+            conn.execute(
+                text("""
+                    INSERT INTO roommate_preferences
+                        (user_id, preferred_email, preferred_user_id, updated_at)
+                    VALUES
+                        (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
+                """),
+                {
+                    "uid": user_id,
+                    "preferred_email": entry,
+                    "preferred_user_id": _match_user_id_from_rows(entry, user_rows),
+                }
+            )
+
+
+def ensure_roommate_preferences_table():
+    """Create or migrate the structured roommate preferences table."""
+    dialect_name = db.engine.dialect.name
+    inspector = inspect(db.engine)
+
+    if inspector.has_table('roommate_preferences'):
+        columns = {column['name'] for column in inspector.get_columns('roommate_preferences')}
+        if 'preferences' in columns and 'preferred_email' not in columns:
+            with db.engine.begin() as conn:
+                _migrate_legacy_roommate_preferences(conn, dialect_name)
+            return
+
+    with db.engine.begin() as conn:
+        conn.execute(text(_structured_roommate_table_sql(dialect_name)))
 
 
 def _find_user_for_preference(entry):
-    """Return a matching user when the preference is an email or full name."""
+    """Return a unique matching user when the preference is an email or full name."""
     normalized = _normalize_lookup(entry)
     if not normalized:
         return None
@@ -128,12 +208,9 @@ def _find_user_for_preference(entry):
     if '@' in normalized:
         return User.query.filter(func.lower(User.email) == normalized).first()
 
-    for user in User.query.all():
-        full_name = _normalize_lookup(_display_name(user))
-        reverse_name = _normalize_lookup(f"{user.lastname} {user.firstname}")
-        if normalized in (full_name, reverse_name):
-            return user
-    return None
+    users = User.query.all()
+    matches = [user for user in users if _user_row_matches_preference(user, entry)]
+    return matches[0] if len(matches) == 1 else None
 
 
 def _find_user_id_for_preference(entry):
@@ -160,31 +237,16 @@ def _roommate_entry_payload(entry, preferred_user_id=None):
 
 def _get_roommate_preference_entries(user_id):
     ensure_roommate_preferences_table()
-    columns = _roommate_preference_columns()
-
-    if {'preferred_email', 'preferred_user_id'}.issubset(columns):
-        rows = db.session.execute(
-            text("""
-                SELECT preferred_email, preferred_user_id
-                FROM roommate_preferences
-                WHERE user_id = :uid
-                ORDER BY id ASC
-            """),
-            {"uid": user_id}
-        ).fetchall()
-        return [_roommate_entry_payload(row[0], row[1]) for row in rows]
-
-    if 'preferences' in columns:
-        row = db.session.execute(
-            text("SELECT preferences FROM roommate_preferences WHERE user_id = :uid"),
-            {"uid": user_id}
-        ).fetchone()
-        return [
-            _roommate_entry_payload(entry)
-            for entry in _parse_roommate_preferences(row[0] if row else '')
-        ]
-
-    return []
+    rows = db.session.execute(
+        text("""
+            SELECT preferred_email, preferred_user_id
+            FROM roommate_preferences
+            WHERE user_id = :uid
+            ORDER BY id ASC
+        """),
+        {"uid": user_id}
+    ).fetchall()
+    return [_roommate_entry_payload(row[0], row[1]) for row in rows]
 
 
 def _get_roommate_preferences(user_id):
@@ -196,70 +258,37 @@ def _get_roommate_preferences(user_id):
 def _set_roommate_preferences(user_id, preferences):
     """Persist roommate preferences as one row per preferred person/email."""
     ensure_roommate_preferences_table()
-    columns = _roommate_preference_columns()
     entries = _parse_roommate_preferences(preferences)
-
-    if {'preferred_email', 'preferred_user_id'}.issubset(columns):
-        db.session.execute(
-            text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
-            {"uid": user_id}
-        )
-
-        for entry in entries:
-            db.session.execute(
-                text("""
-                    INSERT INTO roommate_preferences
-                        (user_id, preferred_email, preferred_user_id, updated_at)
-                    VALUES
-                        (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
-                """),
-                {
-                    "uid": user_id,
-                    "preferred_email": entry,
-                    "preferred_user_id": _find_user_id_for_preference(entry),
-                }
-            )
-        return
-
-    if 'preferences' in columns:
-        value = "\n".join(entries)
-        updated = db.session.execute(
-            text("""
-                UPDATE roommate_preferences
-                SET preferences = :preferences, updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = :uid
-            """),
-            {"uid": user_id, "preferences": value}
-        )
-        if updated.rowcount == 0:
-            db.session.execute(
-                text("""
-                    INSERT INTO roommate_preferences (user_id, preferences, updated_at)
-                    VALUES (:uid, :preferences, CURRENT_TIMESTAMP)
-                """),
-                {"uid": user_id, "preferences": value}
-            )
-
-
-def _delete_roommate_preferences_for_user(user):
-    """Delete roommate preference rows safely for old and new table schemas."""
-    ensure_roommate_preferences_table()
-    columns = _roommate_preference_columns()
-    if 'user_id' not in columns:
-        return
-
-    if 'preferred_user_id' in columns:
-        db.session.execute(
-            text("""
-                DELETE FROM roommate_preferences
-                WHERE user_id = :uid OR preferred_user_id = :uid
-            """),
-            {"uid": user.id}
-        )
-        return
 
     db.session.execute(
         text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
+        {"uid": user_id}
+    )
+
+    for entry in entries:
+        db.session.execute(
+            text("""
+                INSERT INTO roommate_preferences
+                    (user_id, preferred_email, preferred_user_id, updated_at)
+                VALUES
+                    (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
+            """),
+            {
+                "uid": user_id,
+                "preferred_email": entry,
+                "preferred_user_id": _find_user_id_for_preference(entry),
+            }
+        )
+
+
+def _delete_roommate_preferences_for_user(user):
+    """Delete roommate preference rows safely."""
+    ensure_roommate_preferences_table()
+    db.session.execute(
+        text("""
+            DELETE FROM roommate_preferences
+            WHERE user_id = :uid OR preferred_user_id = :uid
+        """),
         {"uid": user.id}
     )
 
