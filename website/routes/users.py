@@ -106,6 +106,19 @@ def _structured_roommate_table_sql(dialect_name):
     """
 
 
+def _unmatched_roommate_table_sql(dialect_name):
+    id_type = 'INTEGER PRIMARY KEY AUTOINCREMENT' if dialect_name == 'sqlite' else 'SERIAL PRIMARY KEY'
+    return f"""
+        CREATE TABLE IF NOT EXISTS roommate_preference_unmatched (
+            id {id_type},
+            user_id INTEGER NOT NULL,
+            raw_preference VARCHAR(255) NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, raw_preference)
+        )
+    """
+
+
 def _row_value(row, key):
     """Read a value from SQLAlchemy RowMapping/dict/tuple-like rows."""
     try:
@@ -129,7 +142,6 @@ def _user_row_matches_preference(user_row, entry):
     reverse_name = _normalize_lookup(f"{lastname} {firstname}")
     compact_full_name = _compact_lookup(full_name)
     compact_reverse_name = _compact_lookup(reverse_name)
-    normalized_email = _normalize_lookup(email)
     compact_email = _compact_lookup(email)
     compact_email_local = _compact_lookup(str(email).split('@')[0])
 
@@ -154,7 +166,7 @@ def _match_user_id_from_rows(entry, user_rows):
 
 
 def _migrate_legacy_roommate_preferences(conn, dialect_name):
-    """Convert old one-row text preferences into one row per roommate preference."""
+    """Convert old one-row text preferences into structured/review rows."""
     legacy_rows = conn.execute(
         text("SELECT user_id, preferences FROM roommate_preferences")
     ).mappings().all()
@@ -164,27 +176,40 @@ def _migrate_legacy_roommate_preferences(conn, dialect_name):
 
     conn.execute(text("DROP TABLE roommate_preferences"))
     conn.execute(text(_structured_roommate_table_sql(dialect_name)))
+    conn.execute(text(_unmatched_roommate_table_sql(dialect_name)))
 
     for legacy_row in legacy_rows:
         user_id = legacy_row['user_id']
         for entry in _parse_roommate_preferences(legacy_row['preferences']):
-            conn.execute(
-                text("""
-                    INSERT INTO roommate_preferences
-                        (user_id, preferred_email, preferred_user_id, updated_at)
-                    VALUES
-                        (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
-                """),
-                {
-                    "uid": user_id,
-                    "preferred_email": entry,
-                    "preferred_user_id": _match_user_id_from_rows(entry, user_rows),
-                }
-            )
+            matched_user_id = _match_user_id_from_rows(entry, user_rows)
+            if matched_user_id:
+                conn.execute(
+                    text("""
+                        INSERT INTO roommate_preferences
+                            (user_id, preferred_email, preferred_user_id, updated_at)
+                        VALUES
+                            (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
+                    """),
+                    {
+                        "uid": user_id,
+                        "preferred_email": entry,
+                        "preferred_user_id": matched_user_id,
+                    }
+                )
+            else:
+                conn.execute(
+                    text("""
+                        INSERT INTO roommate_preference_unmatched
+                            (user_id, raw_preference, updated_at)
+                        VALUES
+                            (:uid, :raw_preference, CURRENT_TIMESTAMP)
+                    """),
+                    {"uid": user_id, "raw_preference": entry}
+                )
 
 
 def ensure_roommate_preferences_table():
-    """Create or migrate the structured roommate preferences table."""
+    """Create or migrate the structured roommate preference tables."""
     dialect_name = db.engine.dialect.name
     inspector = inspect(db.engine)
 
@@ -197,6 +222,7 @@ def ensure_roommate_preferences_table():
 
     with db.engine.begin() as conn:
         conn.execute(text(_structured_roommate_table_sql(dialect_name)))
+        conn.execute(text(_unmatched_roommate_table_sql(dialect_name)))
 
 
 def _find_user_for_preference(entry):
@@ -213,18 +239,12 @@ def _find_user_for_preference(entry):
     return matches[0] if len(matches) == 1 else None
 
 
-def _find_user_id_for_preference(entry):
-    """Return a matching user id for an email or full-name roommate preference."""
-    user = _find_user_for_preference(entry)
-    return user.id if user else None
-
-
-def _roommate_entry_payload(entry, preferred_user_id=None):
+def _roommate_entry_payload(entry, preferred_user_id=None, unmatched=False):
     """Build a roommate preference response entry with match metadata."""
     preferred_user = None
     if preferred_user_id:
         preferred_user = db.session.get(User, preferred_user_id)
-    if not preferred_user:
+    if not preferred_user and not unmatched:
         preferred_user = _find_user_for_preference(entry)
 
     return {
@@ -232,12 +252,13 @@ def _roommate_entry_payload(entry, preferred_user_id=None):
         "preferred_user_id": preferred_user.id if preferred_user else None,
         "preferred_name": _display_name(preferred_user) if preferred_user else None,
         "matched": bool(preferred_user),
+        "needs_review": unmatched or not preferred_user,
     }
 
 
 def _get_roommate_preference_entries(user_id):
     ensure_roommate_preferences_table()
-    rows = db.session.execute(
+    matched_rows = db.session.execute(
         text("""
             SELECT preferred_email, preferred_user_id
             FROM roommate_preferences
@@ -246,7 +267,19 @@ def _get_roommate_preference_entries(user_id):
         """),
         {"uid": user_id}
     ).fetchall()
-    return [_roommate_entry_payload(row[0], row[1]) for row in rows]
+    unmatched_rows = db.session.execute(
+        text("""
+            SELECT raw_preference
+            FROM roommate_preference_unmatched
+            WHERE user_id = :uid
+            ORDER BY id ASC
+        """),
+        {"uid": user_id}
+    ).fetchall()
+
+    entries = [_roommate_entry_payload(row[0], row[1]) for row in matched_rows]
+    entries.extend(_roommate_entry_payload(row[0], unmatched=True) for row in unmatched_rows)
+    return entries
 
 
 def _get_roommate_preferences(user_id):
@@ -256,7 +289,7 @@ def _get_roommate_preferences(user_id):
 
 
 def _set_roommate_preferences(user_id, preferences):
-    """Persist roommate preferences as one row per preferred person/email."""
+    """Persist matched preferences by user id and unmatched raw input for review."""
     ensure_roommate_preferences_table()
     entries = _parse_roommate_preferences(preferences)
 
@@ -264,21 +297,37 @@ def _set_roommate_preferences(user_id, preferences):
         text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
         {"uid": user_id}
     )
+    db.session.execute(
+        text("DELETE FROM roommate_preference_unmatched WHERE user_id = :uid"),
+        {"uid": user_id}
+    )
 
     for entry in entries:
-        db.session.execute(
-            text("""
-                INSERT INTO roommate_preferences
-                    (user_id, preferred_email, preferred_user_id, updated_at)
-                VALUES
-                    (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
-            """),
-            {
-                "uid": user_id,
-                "preferred_email": entry,
-                "preferred_user_id": _find_user_id_for_preference(entry),
-            }
-        )
+        matched_user = _find_user_for_preference(entry)
+        if matched_user:
+            db.session.execute(
+                text("""
+                    INSERT INTO roommate_preferences
+                        (user_id, preferred_email, preferred_user_id, updated_at)
+                    VALUES
+                        (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
+                """),
+                {
+                    "uid": user_id,
+                    "preferred_email": matched_user.email,
+                    "preferred_user_id": matched_user.id,
+                }
+            )
+        else:
+            db.session.execute(
+                text("""
+                    INSERT INTO roommate_preference_unmatched
+                        (user_id, raw_preference, updated_at)
+                    VALUES
+                        (:uid, :raw_preference, CURRENT_TIMESTAMP)
+                """),
+                {"uid": user_id, "raw_preference": entry}
+            )
 
 
 def _delete_roommate_preferences_for_user(user):
@@ -289,6 +338,10 @@ def _delete_roommate_preferences_for_user(user):
             DELETE FROM roommate_preferences
             WHERE user_id = :uid OR preferred_user_id = :uid
         """),
+        {"uid": user.id}
+    )
+    db.session.execute(
+        text("DELETE FROM roommate_preference_unmatched WHERE user_id = :uid"),
         {"uid": user.id}
     )
 
@@ -339,11 +392,16 @@ def roommate_preferences():
         }), 200
 
     data = request.get_json() or {}
-    _set_roommate_preferences(
-        user.id,
-        data.get('preference_entries') if 'preference_entries' in data else data.get('preferences', '')
-    )
-    db.session.commit()
+    try:
+        _set_roommate_preferences(
+            user.id,
+            data.get('preference_entries') if 'preference_entries' in data else data.get('preferences', '')
+        )
+        db.session.commit()
+    except Exception as error:
+        db.session.rollback()
+        return jsonify({"error": _route_error("Could not save roommate preferences", error)}), 500
+
     return jsonify({
         "preferences": _get_roommate_preferences(user.id),
         "preference_entries": _get_roommate_preference_entries(user.id),
