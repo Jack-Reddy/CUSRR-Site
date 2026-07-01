@@ -1,4 +1,6 @@
 """routes for user table in db"""
+import re
+
 from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -41,39 +43,103 @@ def _is_organizer(user):
 
 
 def ensure_roommate_preferences_table():
-    """Create the roommate preferences table if it does not exist."""
+    """Create the structured roommate preferences table if it does not exist."""
     with db.engine.begin() as conn:
         conn.execute(text(
             """
             CREATE TABLE IF NOT EXISTS roommate_preferences (
-                user_id INTEGER PRIMARY KEY,
-                preferences TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                preferred_email VARCHAR(120) NOT NULL,
+                preferred_user_id INTEGER,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, preferred_email)
             )
             """
         ))
 
 
-def _get_roommate_preferences(user_id):
+def _parse_roommate_preferences(preferences):
+    """Split textarea content into normalized roommate preference entries."""
+    if isinstance(preferences, list):
+        raw_values = preferences
+    else:
+        raw_values = re.split(r'[\n,;]+', preferences or '')
+
+    cleaned = []
+    seen = set()
+    for value in raw_values:
+        entry = str(value or '').strip()
+        if not entry:
+            continue
+        key = entry.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(entry)
+    return cleaned
+
+
+def _find_user_id_for_preference(entry):
+    """Return a matching user id when the preference is an existing email."""
+    if '@' not in entry:
+        return None
+    preferred_user = User.query.filter_by(email=entry).first()
+    if preferred_user:
+        return preferred_user.id
+    preferred_user = User.query.filter_by(email=entry.lower()).first()
+    return preferred_user.id if preferred_user else None
+
+
+def _get_roommate_preference_entries(user_id):
     ensure_roommate_preferences_table()
-    row = db.session.execute(
-        text("SELECT preferences FROM roommate_preferences WHERE user_id = :uid"),
+    rows = db.session.execute(
+        text("""
+            SELECT preferred_email, preferred_user_id
+            FROM roommate_preferences
+            WHERE user_id = :uid
+            ORDER BY id ASC
+        """),
         {"uid": user_id}
-    ).fetchone()
-    return row[0] if row and row[0] else ""
+    ).fetchall()
+    return [
+        {
+            "preferred_email": row[0],
+            "preferred_user_id": row[1],
+        }
+        for row in rows
+    ]
+
+
+def _get_roommate_preferences(user_id):
+    """Return preferences as newline-separated text for the existing UI."""
+    entries = _get_roommate_preference_entries(user_id)
+    return "\n".join(entry["preferred_email"] for entry in entries)
 
 
 def _set_roommate_preferences(user_id, preferences):
+    """Persist roommate preferences as one row per preferred person/email."""
     ensure_roommate_preferences_table()
-    cleaned = (preferences or '').strip()
-    result = db.session.execute(
-        text("UPDATE roommate_preferences SET preferences = :preferences, updated_at = CURRENT_TIMESTAMP WHERE user_id = :uid"),
-        {"uid": user_id, "preferences": cleaned}
+    entries = _parse_roommate_preferences(preferences)
+
+    db.session.execute(
+        text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
+        {"uid": user_id}
     )
-    if result.rowcount == 0:
+
+    for entry in entries:
         db.session.execute(
-            text("INSERT INTO roommate_preferences (user_id, preferences) VALUES (:uid, :preferences)"),
-            {"uid": user_id, "preferences": cleaned}
+            text("""
+                INSERT INTO roommate_preferences
+                    (user_id, preferred_email, preferred_user_id, updated_at)
+                VALUES
+                    (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
+            """),
+            {
+                "uid": user_id,
+                "preferred_email": entry,
+                "preferred_user_id": _find_user_id_for_preference(entry),
+            }
         )
 
 
@@ -111,18 +177,27 @@ def get_users():
 
 @users_bp.route('/roommate-preferences', methods=['GET', 'PUT'])
 def roommate_preferences():
-    """Get or update the current user's roommate preferences."""
+    """Get or update the current user's structured roommate preferences."""
     user = _current_user()
     if not user:
         return jsonify({"error": "Authentication required"}), 401
 
     if request.method == 'GET':
-        return jsonify({"preferences": _get_roommate_preferences(user.id)}), 200
+        return jsonify({
+            "preferences": _get_roommate_preferences(user.id),
+            "preference_entries": _get_roommate_preference_entries(user.id),
+        }), 200
 
     data = request.get_json() or {}
-    _set_roommate_preferences(user.id, data.get('preferences', ''))
+    _set_roommate_preferences(
+        user.id,
+        data.get('preference_entries') if 'preference_entries' in data else data.get('preferences', '')
+    )
     db.session.commit()
-    return jsonify({"preferences": _get_roommate_preferences(user.id)}), 200
+    return jsonify({
+        "preferences": _get_roommate_preferences(user.id),
+        "preference_entries": _get_roommate_preference_entries(user.id),
+    }), 200
 
 
 @users_bp.route('/<int:user_id>', methods=['GET'])
@@ -133,6 +208,7 @@ def get_user(user_id):
         return jsonify({"error": "User not found"}), 404
     data = user.to_dict()
     data['roommate_preferences'] = _get_roommate_preferences(user.id)
+    data['roommate_preference_entries'] = _get_roommate_preference_entries(user.id)
     return jsonify(data), 200
 
 
@@ -142,7 +218,6 @@ def create_user():
     data = request.get_json() or {}
     required_fields = ['firstname', 'lastname', 'email']
 
-    # Check for missing fields
     missing = [field for field in required_fields if not data.get(field)]
     if missing:
         return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
@@ -162,7 +237,6 @@ def create_user():
         auth_value = data.get('auth')
         presentation_id = data.get('presentation_id')
 
-    # Create user safely
     try:
         new_user = User(
             firstname=data['firstname'],
@@ -175,8 +249,13 @@ def create_user():
         )
         db.session.add(new_user)
         db.session.flush()
-        if 'roommate_preferences' in data:
-            _set_roommate_preferences(new_user.id, data.get('roommate_preferences'))
+        if 'roommate_preferences' in data or 'roommate_preference_entries' in data:
+            _set_roommate_preferences(
+                new_user.id,
+                data.get('roommate_preference_entries')
+                if 'roommate_preference_entries' in data
+                else data.get('roommate_preferences')
+            )
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
@@ -203,14 +282,18 @@ def update_user(user_id):
     if _security_checks_enabled() and not organizer and not editing_self:
         return jsonify({"error": "Cannot update this user"}), 403
 
-    # Update fields if provided
     user.firstname = data.get('firstname', user.firstname)
     user.lastname = data.get('lastname', user.lastname)
     user.activity = data.get('activity', user.activity)
     user.student_year = data.get('student_year', user.student_year)
 
-    if 'roommate_preferences' in data:
-        _set_roommate_preferences(user.id, data.get('roommate_preferences'))
+    if 'roommate_preferences' in data or 'roommate_preference_entries' in data:
+        _set_roommate_preferences(
+            user.id,
+            data.get('roommate_preference_entries')
+            if 'roommate_preference_entries' in data
+            else data.get('roommate_preferences')
+        )
 
     if organizer or not _security_checks_enabled():
         user.email = data.get('email', user.email)
