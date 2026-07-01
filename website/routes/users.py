@@ -120,19 +120,19 @@ def _unmatched_roommate_table_sql(dialect_name):
 
 
 def _row_value(row, key):
-    """Read a value from SQLAlchemy RowMapping/dict/tuple-like rows."""
+    """Read a value from SQLAlchemy RowMapping/dict/model rows."""
     try:
         return row[key]
     except (KeyError, TypeError):
         return getattr(row, key, None)
 
 
-def _user_row_matches_preference(user_row, entry):
-    """Return True if a SQL row/dict user matches an email or full-name entry."""
+def _match_score_for_user(user_row, entry):
+    """Score how strongly a roommate preference matches a user row."""
     normalized = _normalize_lookup(entry)
     compact = _compact_lookup(entry)
     if not normalized:
-        return False
+        return 0
 
     firstname = _row_value(user_row, 'firstname') or ''
     lastname = _row_value(user_row, 'lastname') or ''
@@ -142,27 +142,56 @@ def _user_row_matches_preference(user_row, entry):
     reverse_name = _normalize_lookup(f"{lastname} {firstname}")
     compact_full_name = _compact_lookup(full_name)
     compact_reverse_name = _compact_lookup(reverse_name)
+    normalized_email = _normalize_lookup(email)
     compact_email = _compact_lookup(email)
     compact_email_local = _compact_lookup(str(email).split('@')[0])
 
     if '@' in normalized:
-        return compact == compact_email
+        if normalized == normalized_email:
+            return 100
+        if compact == compact_email:
+            return 95
+        return 0
 
-    exact_name_match = normalized in (full_name, reverse_name)
-    compact_name_match = compact in (compact_full_name, compact_reverse_name)
-    compact_email_match = compact and compact == compact_email_local
-    return exact_name_match or compact_name_match or compact_email_match
+    if normalized in (full_name, reverse_name):
+        return 90
+    if compact in (compact_full_name, compact_reverse_name):
+        return 85
+    if compact and compact == compact_email_local:
+        return 80
+
+    name_tokens = [token for token in normalized.split(' ') if token]
+    full_name_tokens = set(full_name.split(' '))
+    if len(name_tokens) >= 2 and all(token in full_name_tokens for token in name_tokens):
+        return 75
+
+    if len(compact) >= 5 and (compact in compact_full_name or compact_full_name in compact):
+        return 70
+    if len(compact) >= 5 and (compact in compact_reverse_name or compact_reverse_name in compact):
+        return 70
+
+    return 0
 
 
-def _match_user_id_from_rows(entry, user_rows):
-    """Return a unique user id match from raw user rows, or None."""
-    matches = [
-        _row_value(user_row, 'id')
-        for user_row in user_rows
-        if _user_row_matches_preference(user_row, entry)
-    ]
-    matches = [match for match in matches if match is not None]
-    return matches[0] if len(matches) == 1 else None
+def _user_row_matches_preference(user_row, entry):
+    """Return True if a user row matches an email or full-name entry."""
+    return _match_score_for_user(user_row, entry) > 0
+
+
+def _best_user_id_from_rows(entry, user_rows):
+    """Return the best matching user id from raw user rows, or None."""
+    scored_matches = []
+    for user_row in user_rows:
+        score = _match_score_for_user(user_row, entry)
+        user_id = _row_value(user_row, 'id')
+        if score > 0 and user_id is not None:
+            scored_matches.append((score, user_id))
+
+    if not scored_matches:
+        return None
+
+    scored_matches.sort(key=lambda item: (-item[0], item[1]))
+    return scored_matches[0][1]
 
 
 def _migrate_legacy_roommate_preferences(conn, dialect_name):
@@ -181,7 +210,7 @@ def _migrate_legacy_roommate_preferences(conn, dialect_name):
     for legacy_row in legacy_rows:
         user_id = legacy_row['user_id']
         for entry in _parse_roommate_preferences(legacy_row['preferences']):
-            matched_user_id = _match_user_id_from_rows(entry, user_rows)
+            matched_user_id = _best_user_id_from_rows(entry, user_rows)
             if matched_user_id:
                 conn.execute(
                     text("""
@@ -226,37 +255,47 @@ def ensure_roommate_preferences_table():
 
 
 def _find_user_for_preference(entry):
-    """Return a unique matching user when the preference is an email or full name."""
+    """Return the best matching user when the preference is an email or full name."""
     normalized = _normalize_lookup(entry)
     if not normalized:
         return None
 
     if '@' in normalized:
-        return User.query.filter(func.lower(User.email) == normalized).first()
+        exact_match = User.query.filter(func.lower(User.email) == normalized).first()
+        if exact_match:
+            return exact_match
 
     users = User.query.all()
-    matches = [user for user in users if _user_row_matches_preference(user, entry)]
-    return matches[0] if len(matches) == 1 else None
+    scored_matches = []
+    for user in users:
+        score = _match_score_for_user(user, entry)
+        if score > 0:
+            scored_matches.append((score, user.id, user))
+
+    if not scored_matches:
+        return None
+
+    scored_matches.sort(key=lambda item: (-item[0], item[1]))
+    return scored_matches[0][2]
 
 
-def _roommate_entry_payload(entry, preferred_user_id=None, unmatched=False):
-    """Build a roommate preference response entry with match metadata."""
+def _roommate_entry_payload(entry, preferred_user_id=None):
+    """Build a matched roommate preference response entry."""
     preferred_user = None
     if preferred_user_id:
         preferred_user = db.session.get(User, preferred_user_id)
-    if not preferred_user and not unmatched:
+    if not preferred_user:
         preferred_user = _find_user_for_preference(entry)
 
     return {
-        "preferred_email": entry,
+        "preferred_email": preferred_user.email if preferred_user else entry,
         "preferred_user_id": preferred_user.id if preferred_user else None,
         "preferred_name": _display_name(preferred_user) if preferred_user else None,
-        "matched": bool(preferred_user),
-        "needs_review": unmatched or not preferred_user,
     }
 
 
 def _get_roommate_preference_entries(user_id):
+    """Return only matched roommate preferences for the API response."""
     ensure_roommate_preferences_table()
     matched_rows = db.session.execute(
         text("""
@@ -267,23 +306,12 @@ def _get_roommate_preference_entries(user_id):
         """),
         {"uid": user_id}
     ).fetchall()
-    unmatched_rows = db.session.execute(
-        text("""
-            SELECT raw_preference
-            FROM roommate_preference_unmatched
-            WHERE user_id = :uid
-            ORDER BY id ASC
-        """),
-        {"uid": user_id}
-    ).fetchall()
 
-    entries = [_roommate_entry_payload(row[0], row[1]) for row in matched_rows]
-    entries.extend(_roommate_entry_payload(row[0], unmatched=True) for row in unmatched_rows)
-    return entries
+    return [_roommate_entry_payload(row[0], row[1]) for row in matched_rows]
 
 
 def _get_roommate_preferences(user_id):
-    """Return preferences as newline-separated text for the existing UI."""
+    """Return matched preferences as newline-separated text for the existing UI."""
     entries = _get_roommate_preference_entries(user_id)
     return "\n".join(entry["preferred_email"] for entry in entries)
 
