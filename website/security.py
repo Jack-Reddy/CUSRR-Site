@@ -2,10 +2,17 @@
 from flask import jsonify, request, session
 
 
+ROLE_ALIASES = {
+    'admin': 'organizer',
+}
+
+
 def _roles_for(user):
     if not user or not user.auth:
         return set()
-    return {role.strip().lower() for role in str(user.auth).split(',') if role.strip()}
+    roles = {role.strip().lower() for role in str(user.auth).split(',') if role.strip()}
+    roles.update(ROLE_ALIASES[role] for role in list(roles) if role in ROLE_ALIASES)
+    return roles
 
 
 def _error(reason, status=403):
