@@ -1,6 +1,5 @@
 let presentationTable;
 let scheduleBlocks = [];
-let subjectOptions = [];
 
 const PRESENTATION_TYPES = ['Presentation', 'Blitz', 'Poster'];
 
@@ -27,19 +26,6 @@ function blockLabel(block) {
   return `${parts.filter(Boolean).join(' - ')}${time ? ` (${time})` : ''}`;
 }
 
-function buildSubjectOptions(presentations) {
-  const values = new Set(['']);
-  presentations.forEach((presentation) => {
-    const subject = (presentation.subject || '').trim();
-    if (subject) values.add(subject);
-  });
-  return Array.from(values).sort((a, b) => {
-    if (!a) return -1;
-    if (!b) return 1;
-    return a.localeCompare(b);
-  });
-}
-
 function renderSelect(options, selectedValue, attrs = {}) {
   const selected = String(selectedValue ?? '');
   const attrString = Object.entries(attrs)
@@ -53,14 +39,6 @@ function renderSelect(options, selectedValue, attrs = {}) {
   }).join('');
 
   return `<select class="form-select form-select-sm" ${attrString} data-original-value="${escapeHtml(selected)}">${htmlOptions}</select>`;
-}
-
-function subjectDropdown(row) {
-  const options = subjectOptions.map((subject) => ({ value: subject, label: subject || 'Unassigned' }));
-  return renderSelect(options, row.subject || '', {
-    onchange: `updatePresentationInline(${row.id}, 'subject', this.value, this)`,
-    'aria-label': 'Update subject',
-  });
 }
 
 function typeDropdown(row) {
@@ -107,7 +85,6 @@ async function loadPresentations() {
       if (a.day !== b.day) return a.day.localeCompare(b.day);
       return new Date(a.start_time) - new Date(b.start_time);
     });
-    subjectOptions = buildSubjectOptions(presentations);
     window.allPresentations = presentations;
 
     renderPresentationTable(presentations);
@@ -129,7 +106,6 @@ function renderPresentationTable(presentations) {
           <tr>
             <th>Program ID</th>
             <th>Title</th>
-            <th>Subject</th>
             <th>Department</th>
             <th>Mentor</th>
             <th>Keywords</th>
@@ -154,11 +130,6 @@ function renderPresentationTable(presentations) {
     columns: [
       { data: 'program_identifier', defaultContent: '-' },
       { data: 'title', defaultContent: '-' },
-      {
-        data: 'subject',
-        defaultContent: '-',
-        render: (data, type, row) => type === 'display' ? subjectDropdown(row) : (data || '')
-      },
       { data: 'department', defaultContent: '-' },
       { data: 'mentor', defaultContent: '-' },
       { data: 'keywords', defaultContent: '-' },
