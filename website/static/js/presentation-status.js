@@ -130,6 +130,9 @@ function renderPresentationTable(presentations) {
             <th>Program ID</th>
             <th>Title</th>
             <th>Subject</th>
+            <th>Department</th>
+            <th>Mentor</th>
+            <th>Keywords</th>
             <th>Type</th>
             <th>Schedule Block</th>
             <th>Time</th>
@@ -156,6 +159,9 @@ function renderPresentationTable(presentations) {
         defaultContent: '-',
         render: (data, type, row) => type === 'display' ? subjectDropdown(row) : (data || '')
       },
+      { data: 'department', defaultContent: '-' },
+      { data: 'mentor', defaultContent: '-' },
+      { data: 'keywords', defaultContent: '-' },
       {
         data: 'type',
         defaultContent: '-',
