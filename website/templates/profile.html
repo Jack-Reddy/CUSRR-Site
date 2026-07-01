@@ -4,11 +4,33 @@
 
 {% block content %}
 
+<style>
+  .profile-tabs .nav-pills {
+    gap: 0.5rem;
+  }
+
+  .profile-tabs .nav-link {
+    white-space: normal;
+  }
+
+  @media (max-width: 767.98px) {
+    .profile-tabs .nav-pills {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .profile-tabs .nav-item,
+    .profile-tabs .nav-link {
+      width: 100%;
+    }
+  }
+</style>
+
 <!-- NAV TABS -->
-<div class="row text-center py-3 mt-3">
-  <div class="col-8 mx-auto">
+<div class="row text-center py-3 mt-3 profile-tabs">
+  <div class="col-12 col-md-10 col-lg-8 mx-auto">
     <div class="nav-wrapper position-relative end-0">
-      <ul class="nav nav-pills nav-fill p-1" role="tablist">
+      <ul class="nav nav-pills nav-fill flex-column flex-md-row p-1" role="tablist">
 
         <li class="nav-item">
           <a class="nav-link active" data-bs-toggle="tab" href="#account-info" role="tab">
