@@ -23,19 +23,18 @@ def _make_presenter_with_presentation():
     )
     db.session.add(user)
     db.session.commit()
-    return presentation, user
+    return presentation.id, user.email
 
 
 def test_presenter_can_edit_own_abstract_before_deadline(client, app):
     """A presenter can edit their own submitted abstract before the deadline."""
     with app.app_context():
-        presentation, user = _make_presenter_with_presentation()
-        presentation_id = presentation.id
+        presentation_id, presenter_email = _make_presenter_with_presentation()
         app.config['TESTING'] = False
         app.config['ABSTRACT_SUBMISSION_DEADLINE'] = (datetime.now() + timedelta(days=1)).isoformat()
 
     with client.session_transaction() as sess:
-        sess['user'] = {'email': user.email}
+        sess['user'] = {'email': presenter_email}
 
     response = client.put(
         f"/api/v1/presentations/{presentation_id}",
@@ -55,13 +54,12 @@ def test_presenter_can_edit_own_abstract_before_deadline(client, app):
 def test_presenter_cannot_edit_after_deadline(client, app):
     """A presenter cannot edit their submitted abstract after the deadline."""
     with app.app_context():
-        presentation, user = _make_presenter_with_presentation()
-        presentation_id = presentation.id
+        presentation_id, presenter_email = _make_presenter_with_presentation()
         app.config['TESTING'] = False
         app.config['ABSTRACT_SUBMISSION_DEADLINE'] = (datetime.now() - timedelta(days=1)).isoformat()
 
     with client.session_transaction() as sess:
-        sess['user'] = {'email': user.email}
+        sess['user'] = {'email': presenter_email}
 
     response = client.put(
         f"/api/v1/presentations/{presentation_id}",
