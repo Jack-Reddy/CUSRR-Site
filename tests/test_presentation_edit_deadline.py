@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 """Tests for presenter abstract editing deadline helpers."""
 from datetime import datetime, timedelta
 
