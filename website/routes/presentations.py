@@ -10,7 +10,7 @@ import zipfile
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request, session, send_file
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from werkzeug.utils import secure_filename
 
 from website.models import BlockSchedule, Presentation, User
@@ -19,6 +19,37 @@ from website import db
 presentations_bp = Blueprint('presentations', __name__)
 
 VALID_PRESENTATION_TYPES = {'Presentation', 'Blitz', 'Poster'}
+
+
+def _clean_text(value):
+    """Normalize optional text fields for storage."""
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+def ensure_presentation_metadata_columns():
+    """Add presentation metadata columns for existing databases."""
+    try:
+        inspector = inspect(db.engine)
+        existing = {column['name'] for column in inspector.get_columns('presentations')}
+    except Exception:
+        return
+
+    with db.engine.begin() as conn:
+        if 'department' not in existing:
+            conn.execute(text("ALTER TABLE presentations ADD COLUMN department VARCHAR(120)"))
+        if 'mentor' not in existing:
+            conn.execute(text("ALTER TABLE presentations ADD COLUMN mentor VARCHAR(120)"))
+        if 'keywords' not in existing:
+            conn.execute(text("ALTER TABLE presentations ADD COLUMN keywords TEXT"))
+
+
+@presentations_bp.before_request
+def ensure_presentation_schema_before_request():
+    """Keep older deployments compatible after presentation metadata additions."""
+    ensure_presentation_metadata_columns()
 
 
 def ensure_presentation_visibility_table():
@@ -220,6 +251,9 @@ def presentation_to_dict(presentation):
     data["program_identifier"] = program_identifier_for(presentation)
     data["schedule_title"] = presentation.schedule.title if presentation.schedule else None
     data["show_on_schedule"] = get_show_on_schedule(presentation.id)
+    data["department"] = getattr(presentation, "department", None)
+    data["mentor"] = getattr(presentation, "mentor", None)
+    data["keywords"] = getattr(presentation, "keywords", None)
 
     ensure_presentation_upload_table()
     row = db.session.execute(
@@ -354,6 +388,9 @@ def create_presentation():
         title=data['title'],
         abstract=data.get('abstract'),
         subject=data.get('subject'),
+        department=_clean_text(data.get('department')),
+        mentor=_clean_text(data.get('mentor')),
+        keywords=_clean_text(data.get('keywords')),
         time=parsed_time,
         schedule_id=schedule_id
     )
@@ -414,6 +451,13 @@ def update_presentation(presentation_id):
     presentation.abstract = data.get('abstract', presentation.abstract)
     presentation.subject = data.get('subject', presentation.subject)
     presentation.presentation_file = data.get('presentation_file', presentation.presentation_file)
+
+    if 'department' in data:
+        presentation.department = _clean_text(data.get('department'))
+    if 'mentor' in data:
+        presentation.mentor = _clean_text(data.get('mentor'))
+    if 'keywords' in data:
+        presentation.keywords = _clean_text(data.get('keywords'))
 
     if 'show_on_schedule' in data:
         set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
