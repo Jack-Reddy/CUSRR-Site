@@ -1,6 +1,11 @@
 let userTable; // store DataTable instance
 let allUsers = []; // keep raw data for clipboard actions
 
+async function apiErrorMessage(response, fallback) {
+  const data = await response.json().catch(() => ({}));
+  return data.error || data.reason || fallback;
+}
+
 async function loadUsers() {
   const container = document.getElementById('user-container');
   if (!container) {
@@ -11,7 +16,7 @@ async function loadUsers() {
   try {
     const response = await fetch('/api/v1/users/');
     if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+      throw new Error(await apiErrorMessage(response, `Network response was not ok: ${response.status} ${response.statusText}`));
     }
 
     const users = await response.json();
@@ -21,7 +26,7 @@ async function loadUsers() {
 
   } catch (err) {
     console.error('Failed to load users', err);
-    container.innerHTML = '<p class="text-danger">Could not load users.</p>';
+    container.innerHTML = `<p class="text-danger">Could not load users: ${err.message}</p>`;
   }
 }
 
@@ -146,14 +151,13 @@ removeUser = async function(userId) {
     });
 
     if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+      throw new Error(await apiErrorMessage(response, `Could not delete user: ${response.status}`));
     }
 
     await loadUsers(); // Refresh the user list
-  
   } catch (err) {
     console.error('Failed to delete user', err);
-    alert('Could not delete user.');
+    alert(err.message || 'Could not delete user.');
   }
 }
 
@@ -164,7 +168,7 @@ async function editUser(userId) {
     const response = await fetch(`/api/v1/users/${userId}`, {
       method: 'GET',
     });
-    if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+    if (!response.ok) throw new Error(await apiErrorMessage(response, `Could not load user details: ${response.status}`));
     const user = await response.json();
 
     // Fill and show modal
@@ -178,14 +182,16 @@ async function editUser(userId) {
         body: JSON.stringify(data),
       });
 
-      if (!updateResp.ok) throw new Error(`Failed to update user: ${updateResp.status}`);
+      if (!updateResp.ok) {
+        throw new Error(await apiErrorMessage(updateResp, `Failed to update user: ${updateResp.status}`));
+      }
 
       await loadUsers(); // refresh after save
     });
 
   } catch (err) {
     console.error('Failed to edit user', err);
-    alert('Could not load user details.');
+    alert(err.message || 'Could not load user details.');
   }
 }
 
