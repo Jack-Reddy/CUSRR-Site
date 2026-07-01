@@ -2,7 +2,7 @@
 import re
 
 from flask import Blueprint, current_app, jsonify, request, session
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from website.models import Presentation, User
 from website import db
@@ -40,6 +40,14 @@ def _current_user():
 
 def _is_organizer(user):
     return 'organizer' in _roles_for(user)
+
+
+def _roommate_preference_columns():
+    """Return existing roommate preference table column names."""
+    inspector = inspect(db.engine)
+    if not inspector.has_table('roommate_preferences'):
+        return set()
+    return {column['name'] for column in inspector.get_columns('roommate_preferences')}
 
 
 def ensure_roommate_preferences_table():
@@ -108,22 +116,40 @@ def _find_user_id_for_preference(entry):
 
 def _get_roommate_preference_entries(user_id):
     ensure_roommate_preferences_table()
-    rows = db.session.execute(
-        text("""
-            SELECT preferred_email, preferred_user_id
-            FROM roommate_preferences
-            WHERE user_id = :uid
-            ORDER BY id ASC
-        """),
-        {"uid": user_id}
-    ).fetchall()
-    return [
-        {
-            "preferred_email": row[0],
-            "preferred_user_id": row[1],
-        }
-        for row in rows
-    ]
+    columns = _roommate_preference_columns()
+
+    if {'preferred_email', 'preferred_user_id'}.issubset(columns):
+        rows = db.session.execute(
+            text("""
+                SELECT preferred_email, preferred_user_id
+                FROM roommate_preferences
+                WHERE user_id = :uid
+                ORDER BY id ASC
+            """),
+            {"uid": user_id}
+        ).fetchall()
+        return [
+            {
+                "preferred_email": row[0],
+                "preferred_user_id": row[1],
+            }
+            for row in rows
+        ]
+
+    if 'preferences' in columns:
+        row = db.session.execute(
+            text("SELECT preferences FROM roommate_preferences WHERE user_id = :uid"),
+            {"uid": user_id}
+        ).fetchone()
+        return [
+            {
+                "preferred_email": entry,
+                "preferred_user_id": _find_user_id_for_preference(entry),
+            }
+            for entry in _parse_roommate_preferences(row[0] if row else '')
+        ]
+
+    return []
 
 
 def _get_roommate_preferences(user_id):
@@ -135,27 +161,72 @@ def _get_roommate_preferences(user_id):
 def _set_roommate_preferences(user_id, preferences):
     """Persist roommate preferences as one row per preferred person/email."""
     ensure_roommate_preferences_table()
+    columns = _roommate_preference_columns()
     entries = _parse_roommate_preferences(preferences)
+
+    if {'preferred_email', 'preferred_user_id'}.issubset(columns):
+        db.session.execute(
+            text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
+            {"uid": user_id}
+        )
+
+        for entry in entries:
+            db.session.execute(
+                text("""
+                    INSERT INTO roommate_preferences
+                        (user_id, preferred_email, preferred_user_id, updated_at)
+                    VALUES
+                        (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
+                """),
+                {
+                    "uid": user_id,
+                    "preferred_email": entry,
+                    "preferred_user_id": _find_user_id_for_preference(entry),
+                }
+            )
+        return
+
+    if 'preferences' in columns:
+        value = "\n".join(entries)
+        updated = db.session.execute(
+            text("""
+                UPDATE roommate_preferences
+                SET preferences = :preferences, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = :uid
+            """),
+            {"uid": user_id, "preferences": value}
+        )
+        if updated.rowcount == 0:
+            db.session.execute(
+                text("""
+                    INSERT INTO roommate_preferences (user_id, preferences, updated_at)
+                    VALUES (:uid, :preferences, CURRENT_TIMESTAMP)
+                """),
+                {"uid": user_id, "preferences": value}
+            )
+
+
+def _delete_roommate_preferences_for_user(user):
+    """Delete roommate preference rows safely for old and new table schemas."""
+    ensure_roommate_preferences_table()
+    columns = _roommate_preference_columns()
+    if 'user_id' not in columns:
+        return
+
+    if 'preferred_user_id' in columns:
+        db.session.execute(
+            text("""
+                DELETE FROM roommate_preferences
+                WHERE user_id = :uid OR preferred_user_id = :uid
+            """),
+            {"uid": user.id}
+        )
+        return
 
     db.session.execute(
         text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
-        {"uid": user_id}
+        {"uid": user.id}
     )
-
-    for entry in entries:
-        db.session.execute(
-            text("""
-                INSERT INTO roommate_preferences
-                    (user_id, preferred_email, preferred_user_id, updated_at)
-                VALUES
-                    (:uid, :preferred_email, :preferred_user_id, CURRENT_TIMESTAMP)
-            """),
-            {
-                "uid": user_id,
-                "preferred_email": entry,
-                "preferred_user_id": _find_user_id_for_preference(entry),
-            }
-        )
 
 
 def _can_assign_presentation(user, presentation_id):
@@ -345,14 +416,7 @@ def delete_user(user_id):
         return jsonify({"error": "User not found"}), 404
 
     try:
-        ensure_roommate_preferences_table()
-        db.session.execute(
-            text("""
-                DELETE FROM roommate_preferences
-                WHERE user_id = :uid OR preferred_user_id = :uid
-            """),
-            {"uid": user.id}
-        )
+        _delete_roommate_preferences_for_user(user)
         db.session.delete(user)
         db.session.commit()
     except Exception as error:
