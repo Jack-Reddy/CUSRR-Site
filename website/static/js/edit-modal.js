@@ -1,4 +1,19 @@
 (function () {
+  function normalizeRoleForSelect(auth) {
+    const roles = String(auth || '')
+      .split(',')
+      .map((role) => role.trim().toLowerCase())
+      .filter(Boolean);
+
+    const knownRoles = ['admin', 'organizer', 'judge', 'abstract-grader', 'presenter', 'attendee', 'banned'];
+    return roles.find((role) => knownRoles.includes(role)) || 'presenter';
+  }
+
+  async function errorMessageFromResponse(response, fallback) {
+    const data = await response.json().catch(() => ({}));
+    return data.error || data.reason || fallback;
+  }
+
   function fillAndShowModal(user) {
     const modalEl = document.getElementById('editUserModal');
     if (!modalEl) return;
@@ -6,9 +21,8 @@
     modalEl.querySelector('#editUserFirstName').value = user.firstname || '';
     modalEl.querySelector('#editUserLastName').value = user.lastname || '';
     modalEl.querySelector('#editUserEmail').value = user.email || '';
-    modalEl.querySelector('#editUserRole').value = user.auth || 'presenter';
-    //print user role:
-    console.log('User role:', user.auth);
+    modalEl.querySelector('#editUserRole').value = normalizeRoleForSelect(user.auth);
+
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
   }
@@ -25,11 +39,11 @@
       const data = Object.fromEntries(formData.entries());
 
       try {
-        await onSubmit(data);
+        await onSubmit(data, errorMessageFromResponse);
         bootstrap.Modal.getInstance(form.closest('.modal')).hide();
       } catch (err) {
         console.error('Failed to submit form:', err);
-        alert('Error saving user changes.');
+        alert(err.message || 'Error saving user changes.');
       }
     };
   }
