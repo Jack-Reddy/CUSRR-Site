@@ -44,19 +44,34 @@ def _is_organizer(user):
 
 def ensure_roommate_preferences_table():
     """Create the structured roommate preferences table if it does not exist."""
+    dialect_name = db.engine.dialect.name
     with db.engine.begin() as conn:
-        conn.execute(text(
-            """
-            CREATE TABLE IF NOT EXISTS roommate_preferences (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                preferred_email VARCHAR(120) NOT NULL,
-                preferred_user_id INTEGER,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, preferred_email)
-            )
-            """
-        ))
+        if dialect_name == 'sqlite':
+            conn.execute(text(
+                """
+                CREATE TABLE IF NOT EXISTS roommate_preferences (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    preferred_email VARCHAR(120) NOT NULL,
+                    preferred_user_id INTEGER,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, preferred_email)
+                )
+                """
+            ))
+        else:
+            conn.execute(text(
+                """
+                CREATE TABLE IF NOT EXISTS roommate_preferences (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    preferred_email VARCHAR(120) NOT NULL,
+                    preferred_user_id INTEGER,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, preferred_email)
+                )
+                """
+            ))
 
 
 def _parse_roommate_preferences(preferences):
@@ -332,7 +347,10 @@ def delete_user(user_id):
     try:
         ensure_roommate_preferences_table()
         db.session.execute(
-            text("DELETE FROM roommate_preferences WHERE user_id = :uid"),
+            text("""
+                DELETE FROM roommate_preferences
+                WHERE user_id = :uid OR preferred_user_id = :uid
+            """),
             {"uid": user.id}
         )
         db.session.delete(user)
