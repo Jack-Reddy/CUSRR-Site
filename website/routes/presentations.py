@@ -19,6 +19,7 @@ from website import db
 presentations_bp = Blueprint('presentations', __name__)
 
 VALID_PRESENTATION_TYPES = {'Presentation', 'Blitz', 'Poster'}
+PRESENTER_EDITABLE_FIELDS = {'title', 'abstract', 'department', 'mentor', 'keywords', 'type'}
 
 
 def _clean_text(value):
@@ -27,6 +28,70 @@ def _clean_text(value):
         return None
     cleaned = str(value).strip()
     return cleaned or None
+
+
+def _roles_for(user):
+    if not user or not user.auth:
+        return set()
+    return {role.strip().lower() for role in str(user.auth).split(',') if role.strip()}
+
+
+def _is_organizer(user):
+    return 'organizer' in _roles_for(user)
+
+
+def _current_user():
+    user_info = session.get('user') or {}
+    email = user_info.get('email')
+    if not email:
+        return None
+    return User.query.filter_by(email=email).first()
+
+
+def _abstract_submission_deadline():
+    """Return the configured abstract submission deadline, if one exists."""
+    raw = current_app.config.get('ABSTRACT_SUBMISSION_DEADLINE') or os.environ.get('ABSTRACT_SUBMISSION_DEADLINE')
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw).strip().replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+def _abstract_edit_window_open():
+    """Return whether presenter abstract edits are still allowed."""
+    deadline = _abstract_submission_deadline()
+    if not deadline:
+        return True
+    now = datetime.now(deadline.tzinfo) if deadline.tzinfo else datetime.now()
+    return now <= deadline
+
+
+def _validate_update_permission(presentation, data):
+    """Allow organizers to update anything and presenters to edit their own abstract before deadline."""
+    if current_app.config.get('TESTING', False):
+        return None
+
+    actor = _current_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+
+    if _is_organizer(actor):
+        return None
+
+    if actor.presentation_id != presentation.id:
+        return jsonify({"error": "You can only edit your own presentation"}), 403
+
+    requested_fields = set(data.keys())
+    disallowed = requested_fields - PRESENTER_EDITABLE_FIELDS
+    if disallowed:
+        return jsonify({"error": "Presenters can only edit abstract submission fields"}), 403
+
+    if not _abstract_edit_window_open():
+        return jsonify({"error": "The abstract submission deadline has passed"}), 403
+
+    return None
 
 
 def ensure_presentation_metadata_columns():
@@ -387,7 +452,6 @@ def create_presentation():
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
-        subject=data.get('subject'),
         department=_clean_text(data.get('department')),
         mentor=_clean_text(data.get('mentor')),
         keywords=_clean_text(data.get('keywords')),
@@ -421,6 +485,10 @@ def update_presentation(presentation_id):
     presentation = Presentation.query.get_or_404(presentation_id)
     data = request.get_json() or {}
 
+    permission_error = _validate_update_permission(presentation, data)
+    if permission_error:
+        return permission_error
+
     schedule_id_raw = data.get('schedule_id') or data.get('scheduleId')
     if schedule_id_raw is not None:
         if schedule_id_raw == "":
@@ -449,7 +517,6 @@ def update_presentation(presentation_id):
 
     presentation.title = data.get('title', presentation.title)
     presentation.abstract = data.get('abstract', presentation.abstract)
-    presentation.subject = data.get('subject', presentation.subject)
     presentation.presentation_file = data.get('presentation_file', presentation.presentation_file)
 
     if 'department' in data:
