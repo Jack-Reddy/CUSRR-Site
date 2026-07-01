@@ -6,6 +6,9 @@
     modalEl.querySelector('#editPresentationTitle').value = presentation.title || '';
     modalEl.querySelector('#editPresentationAbstract').value = presentation.abstract || '';
     modalEl.querySelector('#editPresentationSubject').value = presentation.subject || '';
+    modalEl.querySelector('#editPresentationDepartment').value = presentation.department || '';
+    modalEl.querySelector('#editPresentationMentor').value = presentation.mentor || '';
+    modalEl.querySelector('#editPresentationKeywords').value = presentation.keywords || '';
 
     const showOnScheduleCheckbox = modalEl.querySelector('#editPresentationShowOnSchedule');
     if (showOnScheduleCheckbox) {
