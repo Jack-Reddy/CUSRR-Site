@@ -176,13 +176,41 @@
         </div>
 
 
-        <!-- FORM B: FULL PRESENTATION UPLOAD (PPT/PPTX/PDF) -->
+        <!-- FORM B: EDIT ABSTRACT AND FULL PRESENTATION UPLOAD -->
         <div id="presentation-form" class="mt-5 d-none">
-          <h5 class="text-center mb-3">Full Presentation Upload</h5>
+          <h5 class="text-center mb-3">Submitted Abstract</h5>
 
-          <p class="text-muted text-center mb-4">
-            Please upload a <strong>.PPT</strong>, <strong>.PPTX</strong>, or <strong>.PDF</strong> version of your final presentation.
-          </p>
+          <div class="card p-4 shadow-sm mb-4">
+            <div id="edit-abstract-message" class="small mb-3"></div>
+
+            <label for="edit-title" class="form-label w-100">Title</label>
+            <input id="edit-title" type="text" class="form-control">
+
+            <label for="edit-department" class="form-label w-100 mt-3">Department</label>
+            <input id="edit-department" type="text" class="form-control">
+
+            <label for="edit-mentor" class="form-label w-100 mt-3">Mentor</label>
+            <input id="edit-mentor" type="text" class="form-control">
+
+            <label for="edit-keywords" class="form-label w-100 mt-3">Keywords</label>
+            <input id="edit-keywords" type="text" class="form-control">
+
+            <label for="edit-abstract" class="form-label w-100 mt-3">Abstract</label>
+            <textarea id="edit-abstract" rows="8" class="form-control"></textarea>
+
+            <label for="edit-type" class="form-label w-100 mt-3">Type</label>
+            <select id="edit-type" class="form-select">
+              <option value="Presentation">Presentation</option>
+              <option value="Blitz">Blitz</option>
+              <option value="Poster">Poster</option>
+            </select>
+
+            <button id="edit-abstract-submit" class="btn btn-primary mt-4 w-100">
+              Save Abstract Changes
+            </button>
+          </div>
+
+          <h5 class="text-center mb-3">Full Presentation Upload</h5>
 
           <div class="card p-4 shadow-sm">
             <div id="latest-presentation-upload" class="alert alert-secondary d-none mb-3"></div>
