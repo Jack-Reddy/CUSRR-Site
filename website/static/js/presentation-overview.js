@@ -14,6 +14,11 @@
     }
   }
 
+  function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value || '-';
+  }
+
   async function loadPresentations() {
     try {
       const response = await fetch('/overview/all');
@@ -57,14 +62,16 @@
 
       setCounter(`${currentIndex + 1} / ${allPresentations.length}`);
 
-      document.getElementById('session-id').textContent = detail.program_identifier || detail.id;
-      document.getElementById('presentation-title').textContent = detail.title || '-';
+      setText('session-id', detail.program_identifier || detail.id);
+      setText('presentation-title', detail.title);
+      setText('presentation-department', detail.department);
+      setText('presentation-mentor', detail.mentor);
+      setText('presentation-keywords', detail.keywords);
 
       if (detail.presenters && detail.presenters.length > 0) {
-        document.getElementById('presentation-authors').textContent =
-          detail.presenters.map((p) => p.name || p.email).join(', ');
+        setText('presentation-authors', detail.presenters.map((p) => p.name || p.email).join(', '));
       } else {
-        document.getElementById('presentation-authors').textContent = '-';
+        setText('presentation-authors', '-');
       }
 
       const abstractElement = document.getElementById('presentation-abstract');
