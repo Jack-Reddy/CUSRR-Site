@@ -59,7 +59,7 @@ def sample_user_fixture(app):
             email="jane@example.com",
             activity="active",
             presentation_id=None,
-            auth="admin,judge"
+            auth="organizer"
         )
         db.session.add(user)
         db.session.commit()
