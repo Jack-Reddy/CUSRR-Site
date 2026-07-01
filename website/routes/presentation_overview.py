@@ -7,14 +7,14 @@ import re
 from datetime import datetime, timedelta
 from xml.sax.saxutils import escape
 
-import requests
-from flask import Blueprint, current_app, render_template, jsonify, send_file
+from flask import Blueprint, render_template, jsonify, send_file
 from sqlalchemy import text
 
 from website import db
 from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
+    ensure_presentation_metadata_columns,
     get_show_on_schedule,
     presentation_to_dict,
     program_table_rows,
@@ -23,6 +23,12 @@ from website.routes.presentations import (
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
 
 IMAGE_RE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
+
+
+@presentation_overview_bp.before_request
+def ensure_overview_presentation_schema():
+    """Keep overview routes compatible with older databases."""
+    ensure_presentation_metadata_columns()
 
 
 def _user_full_name(user):
@@ -49,6 +55,10 @@ def _format_time(value):
         return value.strftime('%b %-d, %Y %-I:%M %p')
     except ValueError:
         return value.strftime('%b %d, %Y %I:%M %p') if hasattr(value, 'strftime') else str(value)
+
+
+def _metadata_value(presentation, field_name):
+    return escape(getattr(presentation, field_name, None) or '-')
 
 
 @presentation_overview_bp.route('/overview', methods=['GET'])
@@ -87,36 +97,16 @@ def _markdown_inline_to_reportlab(text):
 
 
 def _image_bytes_from_url(url):
-    if not url:
+    if not url or not url.startswith('/api/v1/presentations/abstract-images/'):
         return None
 
-    if url.startswith('/api/v1/presentations/abstract-images/'):
-        image_id = url.rstrip('/').split('/')[-1]
-        row = db.session.execute(
-            text('SELECT data_base64 FROM abstract_images WHERE id = :id'),
-            {'id': image_id}
-        ).fetchone()
-        if row:
-            return base64.b64decode(row[0])
-        return None
-
-    if url.startswith('/static/'):
-        static_path = url[len('/static/'):]
-        file_path = current_app.root_path + '/static/' + static_path
-        try:
-            with open(file_path, 'rb') as image_file:
-                return image_file.read()
-        except OSError:
-            return None
-
-    if url.startswith('http://') or url.startswith('https://'):
-        try:
-            response = requests.get(url, timeout=5)
-            if response.ok and response.content:
-                return response.content
-        except requests.RequestException:
-            return None
-
+    image_id = url.rstrip('/').split('/')[-1]
+    row = db.session.execute(
+        text('SELECT data_base64 FROM abstract_images WHERE id = :id'),
+        {'id': image_id}
+    ).fetchone()
+    if row:
+        return base64.b64decode(row[0])
     return None
 
 
@@ -461,6 +451,12 @@ def download_overview_pdf():
             story.append(Spacer(1, 0.08 * inch))
             story.append(_box([Paragraph(f'<b>Author(s):</b> {escape(authors)}', styles['BodyText'])], content_width))
             story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(f'<b>Department:</b> {_metadata_value(presentation, "department")}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(f'<b>Mentor:</b> {_metadata_value(presentation, "mentor")}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
+            story.append(_box([Paragraph(f'<b>Keywords:</b> {_metadata_value(presentation, "keywords")}', styles['BodyText'])], content_width))
+            story.append(Spacer(1, 0.08 * inch))
             abstract_flowables = [Paragraph('<b>Abstract</b>', styles['Heading2'])]
             _append_markdown_to_story(abstract_flowables, presentation.abstract or '-', styles)
             story.append(_box(abstract_flowables, content_width))
@@ -493,7 +489,6 @@ def get_presentation_detail(presentation_id):
         {
             'name': _user_full_name(p),
             'email': p.email,
-            'activity': p.activity,
         }
         for p in presenters
     ]
