@@ -67,13 +67,6 @@
         document.getElementById('presentation-authors').textContent = '-';
       }
 
-      if (detail.presenters && detail.presenters.length > 0 && detail.presenters[0].activity) {
-        document.getElementById('presentation-activity').textContent =
-          detail.presenters[0].activity;
-      } else {
-        document.getElementById('presentation-activity').textContent = '-';
-      }
-
       const abstractElement = document.getElementById('presentation-abstract');
       if (detail.abstract) {
         if (window.AbstractMarkdownEditor && typeof window.AbstractMarkdownEditor.renderToElement === 'function') {
