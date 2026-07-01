@@ -261,6 +261,9 @@ async function signupAbstract() {
     const title = document.getElementById('title').value.trim();
     const abstract = document.getElementById('Abstract').value.trim();
     const subject = document.getElementById('subject').value.trim();
+    const department = document.getElementById('department')?.value.trim() || '';
+    const mentor = document.getElementById('mentor')?.value.trim() || '';
+    const keywords = document.getElementById('keywords')?.value.trim() || '';
     const typeSelect = document.getElementById('Type');
     const type = typeSelect.options[typeSelect.selectedIndex].value;
 
@@ -274,6 +277,9 @@ async function signupAbstract() {
       title,
       abstract,
       subject,
+      department,
+      mentor,
+      keywords,
       type,
       partner_emails: partnerEmails,
       time: '2026-11-04 13:30',
