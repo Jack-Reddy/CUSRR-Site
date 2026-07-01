@@ -5,17 +5,12 @@
 {% block content %}
 
 <style>
-  .profile-tabs .nav-pills {
-    gap: 0.5rem;
-  }
-
   .profile-tabs .nav-link {
     white-space: normal;
   }
 
-  @media (max-width: 767.98px) {
+  @media (max-width: 990.98px) {
     .profile-tabs .nav-pills {
-      flex-direction: column;
       align-items: stretch;
     }
 
@@ -28,9 +23,9 @@
 
 <!-- NAV TABS -->
 <div class="row text-center py-3 mt-3 profile-tabs">
-  <div class="col-12 col-md-10 col-lg-8 mx-auto">
+  <div class="col-12 col-lg-8 mx-auto">
     <div class="nav-wrapper position-relative end-0">
-      <ul class="nav nav-pills nav-fill flex-column flex-md-row p-1" role="tablist">
+      <ul id="profile-tabs-nav" class="nav nav-pills nav-fill p-1" role="tablist">
 
         <li class="nav-item">
           <a class="nav-link active" data-bs-toggle="tab" href="#account-info" role="tab">
@@ -50,6 +45,24 @@
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    function syncProfileTabsDirection() {
+      const tabs = document.getElementById('profile-tabs-nav');
+      if (!tabs) return;
+
+      if (window.innerWidth < 991) {
+        tabs.classList.add('flex-column');
+      } else {
+        tabs.classList.remove('flex-column', 'on-resize');
+      }
+    }
+
+    syncProfileTabsDirection();
+    window.addEventListener('resize', syncProfileTabsDirection);
+  })();
+</script>
 
 <!-- TAB CONTENT -->
 <div class="tab-content mt-4">
