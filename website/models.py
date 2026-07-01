@@ -276,6 +276,7 @@ class BlockSchedule(db.Model):
     start_time = db.Column(DateTime, nullable=False)
     end_time = db.Column(DateTime, nullable=False)
     title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text)
     location = db.Column(db.String(120))
     block_type = db.Column(db.String(50))
     is_presentation = db.Column(db.Boolean, default=True)
@@ -289,6 +290,7 @@ class BlockSchedule(db.Model):
             "start_time": self.start_time.isoformat() if self.start_time else None,
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "title": self.title,
+            "description": self.description,
             "location": self.location,
             "type": self.block_type,
             "is_presentation": self.is_presentation,
