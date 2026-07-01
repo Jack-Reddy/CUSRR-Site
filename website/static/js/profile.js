@@ -260,14 +260,13 @@ async function signupAbstract() {
     // 3. Abstract fields
     const title = document.getElementById('title').value.trim();
     const abstract = document.getElementById('Abstract').value.trim();
-    const subject = document.getElementById('subject').value.trim();
     const department = document.getElementById('department')?.value.trim() || '';
     const mentor = document.getElementById('mentor')?.value.trim() || '';
     const keywords = document.getElementById('keywords')?.value.trim() || '';
     const typeSelect = document.getElementById('Type');
     const type = typeSelect.options[typeSelect.selectedIndex].value;
 
-    if (!title || !abstract || !subject || !type || typeSelect.selectedIndex === 0) {
+    if (!title || !abstract || !type || typeSelect.selectedIndex === 0) {
       msgDiv.innerHTML = '<p class="text-danger">Please fill in all required fields.</p>';
       return;
     }
@@ -276,7 +275,6 @@ async function signupAbstract() {
     const payload = {
       title,
       abstract,
-      subject,
       department,
       mentor,
       keywords,
