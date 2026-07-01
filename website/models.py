@@ -16,6 +16,9 @@ class Presentation(db.Model):
         title: Title of the presentation
         abstract: Abstract text
         subject: Subject area
+        department: Department associated with the presentation
+        mentor: Faculty/staff mentor
+        keywords: Search keywords
         time: Scheduled time (DateTime)
         num_in_block: Number of presentations in the same block
         schedule_id: Foreign key to BlockSchedule
@@ -32,6 +35,9 @@ class Presentation(db.Model):
     title = db.Column(db.String(120), nullable=False)
     abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
+    department = db.Column(db.String(120))
+    mentor = db.Column(db.String(120))
+    keywords = db.Column(db.Text)
     time = db.Column(DateTime)
     num_in_block = db.Column(db.Integer)
     schedule_id = db.Column(db.Integer, db.ForeignKey('blockSchedules.id'))
@@ -74,6 +80,9 @@ class Presentation(db.Model):
             "title": self.title,
             "abstract": self.abstract,
             "subject": self.subject,
+            "department": self.department,
+            "mentor": self.mentor,
+            "keywords": self.keywords,
             "time": fmt(calculated_time),
             "room": self.schedule.location if self.schedule else None,
             "type": self.schedule.block_type if self.schedule else None,
@@ -259,58 +268,29 @@ class AbstractGrade(db.Model):
 
 class BlockSchedule(db.Model):
     '''
-    BlockSchedule model representing a scheduled block of presentations or events.
-    Attributes:
-        id: Primary key
-        day: Day of the block
-        start_time: Start time of the block (DateTime)
-        end_time: End time of the block (DateTime)
-        title: Title of the block
-        description: Description of the block
-        location: Location of the block
-        block_type: Type of the block
-        sub_length: Length of each presentation in the block (in minutes)
-        is_presentation: Boolean indicating if this block contains presentations (True) or other events (False)
-        presentations: Relationship to Presentation model
-    Methods:
-        to_dict: Convert block schedule to dictionary format
+    Represents schedule blocks (presentation sessions, lunch, dinner, etc.).
     '''
-    __tablename__ = "blockSchedules"
-
+    __tablename__ = 'blockSchedules'
     id = db.Column(db.Integer, primary_key=True)
     day = db.Column(db.String(20), nullable=False)
     start_time = db.Column(DateTime, nullable=False)
     end_time = db.Column(DateTime, nullable=False)
-    title = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.String(300))
-    location = db.Column(db.String(100))
+    title = db.Column(db.String(120), nullable=False)
+    location = db.Column(db.String(120))
     block_type = db.Column(db.String(50))
-    sub_length = db.Column(db.Integer)
     is_presentation = db.Column(db.Boolean, default=True)
-
-    presentations = db.relationship(
-        'Presentation',
-        back_populates='schedule',
-        cascade='save-update')
+    sub_length = db.Column(db.Integer, nullable=True)
+    presentations = db.relationship('Presentation', back_populates='schedule')
 
     def to_dict(self):
-        """
-        Return a dictionary describing the block schedule.
-        """
-        length = None
-        if self.start_time and self.end_time:
-            length = (self.end_time - self.start_time).total_seconds() / 60
-
         return {
             "id": self.id,
             "day": self.day,
-            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
-            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
             "title": self.title,
-            "description": self.description,
             "location": self.location,
-            "length": length,
             "type": self.block_type,
+            "is_presentation": self.is_presentation,
             "sub_length": self.sub_length,
-            "is_presentation": self.is_presentation
         }
