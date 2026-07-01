@@ -43,7 +43,6 @@
     card.dataset.title = item.title || 'Untitled';
     card.dataset.time = timeDisplay;
     card.dataset.room = item.room || '';
-    card.dataset.subject = item.subject || '';
     card.dataset.type = item.type || '';
     card.dataset.programId = programId;
     card.dataset.presenters = JSON.stringify(item.presenters || []);
@@ -178,7 +177,6 @@
     m.querySelector('#mTitle').textContent = cardEl.dataset.title || '';
     m.querySelector('#mTime').textContent = cardEl.dataset.time || '';
     m.querySelector('#mRoom').textContent = cardEl.dataset.room || '';
-    m.querySelector('#mSubject').textContent = cardEl.dataset.subject || '';
     m.querySelector('#mType').textContent = cardEl.dataset.type || '';
     const programIdEl = m.querySelector('#mProgramId');
     if (programIdEl) programIdEl.textContent = cardEl.dataset.programId || '';
@@ -238,61 +236,30 @@
 
       const gradeBtn = e.target.closest('.grade-btn');
       if (gradeBtn) {
-        const pid = gradeBtn.dataset.presentationId;
-        const card = gradeBtn.closest('.session-card, .poster-card, .blitz-card');
-        const title = card ? card.dataset.title : '';
-        openGradeModal(pid, title);
+        e.stopPropagation();
+        const card = gradeBtn.closest('.session-card, .poster-card');
+        openGradeModal(gradeBtn.dataset.presentationId, card?.dataset.title || '');
         return;
       }
 
-      if (e.target.closest('button, a')) return;
-      const card = e.target.closest('.session-card, .poster-card, .blitz-card');
-      if (card) fillAndShowModal(card);
+      const card = e.target.closest('.session-card, .poster-card');
+      if (!card) return;
+      fillAndShowModal(card);
     });
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const gm = document.getElementById('gradeModal');
-    if (gm) {
-      const form = gm.querySelector('form');
-      if (form) form.addEventListener('submit', submitGradeForm);
+    loadSessions('/api/v1/presentations/recent', '#recent-sessions', 'session-card', 5);
+    loadSessions('/api/v1/presentations/type/Poster', '#poster-sessions', 'poster-card', 6);
+    loadSessions('/api/v1/presentations/type/Blitz', '#blitz-sessions', 'session-card', 6);
+    setupDelegatedClicks('#recent-sessions');
+    setupDelegatedClicks('#poster-sessions');
+    setupDelegatedClicks('#blitz-sessions');
+
+    const gradeForm = document.querySelector('#gradeModal form');
+    if (gradeForm && gradeForm.dataset.bound !== 'true') {
+      gradeForm.dataset.bound = 'true';
+      gradeForm.addEventListener('submit', submitGradeForm);
     }
   });
-
-  async function loadCards({ apiEndpoint, upcomingContainer, pastContainer, cardClass = 'session-card', limit = 5 }) {
-    const upEl = document.querySelector(upcomingContainer);
-    const pastEl = document.querySelector(pastContainer);
-    if (!upEl || !pastEl) return console.error('Containers not found');
-
-    try {
-      const resp = await fetch(apiEndpoint);
-      if (!resp.ok) throw new Error(`Network response not ok: ${resp.status}`);
-      const items = (await resp.json()).filter(item => item.show_on_schedule !== false);
-      const now = new Date();
-
-      const upcoming = items.filter(i => new Date(i.time) >= now).sort((a,b) => new Date(a.time) - new Date(b.time));
-      const past = items.filter(i => new Date(i.time) < now).sort((a,b) => new Date(b.time) - new Date(a.time));
-
-      upEl.innerHTML = upcoming.length === 0 ? '<p class="text-secondary">No upcoming items.</p>' : '';
-      pastEl.innerHTML = past.length === 0 ? '<p class="text-secondary">No past items.</p>' : '';
-
-      upcoming.slice(0, limit).forEach((i, idx) => upEl.appendChild(buildCard(i, idx, cardClass)));
-      past.slice(0, limit).forEach((i, idx) => pastEl.appendChild(buildCard(i, idx, cardClass)));
-
-      [upcomingContainer, pastContainer].forEach(c => setupDelegatedClicks(c));
-    } catch (err) {
-      console.error('Failed to load cards:', err);
-      upEl.innerHTML = '<p class="text-danger">Could not load items.</p>';
-      pastEl.innerHTML = '<p class="text-danger">Could not load items.</p>';
-    }
-  }
-
-  window.SessionModal = {
-    buildCard,
-    fillAndShowModal,
-    loadSessions,
-    setupDelegatedClicks,
-    loadCards,
-    formatTimeNoYear
-  };
 })();
