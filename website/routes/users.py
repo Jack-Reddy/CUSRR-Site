@@ -467,7 +467,7 @@ def create_user():
         return jsonify({"error": "Cannot create an account for a different email"}), 403
 
     if _security_checks_enabled():
-        auth_value = data.get('auth') if organizer else 'presenter'
+        auth_value = data.get('auth') if organizer else 'attendee'
         presentation_id = data.get('presentation_id') if organizer else None
     else:
         auth_value = data.get('auth')
