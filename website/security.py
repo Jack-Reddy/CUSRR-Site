@@ -149,10 +149,10 @@ def _check_presentations_api(User, path, method):
         if path == '/api/v1/presentations/order':
             return _require_roles(User, 'organizer')
         if path == '/api/v1/presentations/abstract-images':
-            return _require_roles(User, 'presenter', 'organizer')
+            return _require_authenticated_user(User)
         if path.endswith('/upload'):
             return _check_presentation_upload(User, path)
-        return _require_roles(User, 'presenter', 'organizer')
+        return _require_authenticated_user(User)
 
     if method in ('PUT', 'DELETE'):
         return _require_roles(User, 'organizer')
