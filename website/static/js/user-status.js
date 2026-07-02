@@ -6,6 +6,16 @@ async function apiErrorMessage(response, fallback) {
   return data.error || data.reason || fallback;
 }
 
+function statusBadge(isComplete) {
+  return isComplete
+    ? '<span class="badge bg-success">Complete</span>'
+    : '<span class="badge bg-warning text-dark">Incomplete</span>';
+}
+
+function isPresenterLike(user) {
+  return Boolean(user && user.presentation_id);
+}
+
 async function loadUsers() {
   const container = document.getElementById('user-container');
   if (!container) {
@@ -34,15 +44,9 @@ function getIncompleteStatusEmails() {
   const rows = userTable ? userTable.data().toArray() : allUsers;
   return rows
     .filter((u) => {
-      if (!u) return false;
-      if ((u.auth || '').trim().toLowerCase() !== 'presenter') return false;
-      const raw = u.status;
-      if (raw === null || raw === undefined) return true;
-      if (typeof raw === 'string') {
-        const trimmed = raw.trim().toLowerCase();
-        return trimmed === '' || trimmed === 'incomplete';
-      }
-      return false;
+      if (!u || !u.email) return false;
+      if (!isPresenterLike(u)) return false;
+      return !u.abstract_submitted || !u.presentation_uploaded;
     })
     .map((u) => u.email)
     .filter(Boolean);
@@ -51,7 +55,7 @@ function getIncompleteStatusEmails() {
 async function copyIncompleteStatusEmails() {
   const emails = getIncompleteStatusEmails();
   if (!emails.length) {
-    alert('No presenters with status = Incomplete to copy.');
+    alert('No presenters with incomplete abstract or presentation upload status to copy.');
     return;
   }
 
@@ -69,7 +73,7 @@ async function copyIncompleteStatusEmails() {
       document.execCommand('copy');
       document.body.removeChild(temp);
     }
-    alert('Copied emails to clipboard. Paste into Gmail To/CC/BCC.');
+    alert('Copied emails for presenters missing an abstract, presentation upload, or both. Paste into Gmail To/CC/BCC.');
   } catch (err) {
     console.error('Copy failed', err);
     alert('Could not copy emails.');
@@ -89,7 +93,8 @@ function renderTable(users) {
             <th>Email</th>
             <th>Activity</th>
             <th>Pres. ID</th>
-            <th>Status</th>
+            <th>Abstract Submitted</th>
+            <th>Presentation Uploaded</th>
             <th>Role</th>
             <th>Actions</th>
           </tr>
@@ -112,7 +117,22 @@ function renderTable(users) {
       { data: 'email', defaultContent: '—' },
       { data: 'activity', defaultContent: '—' },
       { data: 'presentation_id', defaultContent: '—' },
-      { data: 'status', defaultContent: '—' },
+      {
+        data: 'abstract_submitted',
+        render: function (data, type, row) {
+          if (type !== 'display') return data ? 'Complete' : 'Incomplete';
+          if (!isPresenterLike(row)) return '—';
+          return statusBadge(Boolean(data));
+        }
+      },
+      {
+        data: 'presentation_uploaded',
+        render: function (data, type, row) {
+          if (type !== 'display') return data ? 'Complete' : 'Incomplete';
+          if (!isPresenterLike(row)) return '—';
+          return statusBadge(Boolean(data));
+        }
+      },
       { data: 'auth', defaultContent: '—' },
       {
         data: 'id',
@@ -136,7 +156,7 @@ function renderTable(users) {
     ],  
     responsive: true,
     pageLength: 10,
-    order: [[1, 'asc']], // default sort by Name
+    order: [[1, 'asc']], // default sort by Email
   });
 }
 
