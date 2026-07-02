@@ -136,7 +136,17 @@ class User(db.Model):
 
     def to_dict(self):
         """turns user object into full dict"""
-        status = "complete" if self.presentation_id else "incomplete"
+        has_presentation = bool(self.presentation_id)
+        abstract_submitted = bool(
+            self.presentation
+            and self.presentation.abstract
+            and self.presentation.abstract.strip()
+        )
+        presentation_uploaded = bool(
+            self.presentation
+            and self.presentation.presentation_file
+        )
+        status = "complete" if has_presentation else "incomplete"
         """
         Return a full JSON representation of the user.
         """
@@ -151,6 +161,13 @@ class User(db.Model):
             "presentation": self.presentation.title if self.presentation else None,
             "presentation_id": self.presentation_id,
             "status": status,
+            "abstract_submitted": abstract_submitted,
+            "abstract_status": "complete" if abstract_submitted else "incomplete",
+            "presentation_uploaded": presentation_uploaded,
+            "presentation_upload_status": "complete" if presentation_uploaded else "incomplete",
+            "submission_incomplete": has_presentation and (
+                not abstract_submitted or not presentation_uploaded
+            ),
             "auth": self.auth}
 
     def to_dict_basic(self):
