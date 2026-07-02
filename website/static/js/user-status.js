@@ -6,10 +6,10 @@ async function apiErrorMessage(response, fallback) {
   return data.error || data.reason || fallback;
 }
 
-function statusBadge(isComplete) {
-  return isComplete
-    ? '<span class="badge bg-success">Complete</span>'
-    : '<span class="badge bg-warning text-dark">Incomplete</span>';
+function yesNoBadge(isSubmitted) {
+  return isSubmitted
+    ? '<span class="badge bg-success">Yes</span>'
+    : '<span class="badge bg-warning text-dark">No</span>';
 }
 
 function isPresenterLike(user) {
@@ -120,17 +120,17 @@ function renderTable(users) {
       {
         data: 'abstract_submitted',
         render: function (data, type, row) {
-          if (type !== 'display') return data ? 'Complete' : 'Incomplete';
+          if (type !== 'display') return data ? 'Yes' : 'No';
           if (!isPresenterLike(row)) return '—';
-          return statusBadge(Boolean(data));
+          return yesNoBadge(Boolean(data));
         }
       },
       {
         data: 'presentation_uploaded',
         render: function (data, type, row) {
-          if (type !== 'display') return data ? 'Complete' : 'Incomplete';
+          if (type !== 'display') return data ? 'Yes' : 'No';
           if (!isPresenterLike(row)) return '—';
-          return statusBadge(Boolean(data));
+          return yesNoBadge(Boolean(data));
         }
       },
       { data: 'auth', defaultContent: '—' },
