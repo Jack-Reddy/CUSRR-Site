@@ -48,13 +48,13 @@ async function signup(e) {
             return;
         }
 
-        if (!activitySelect || activitySelect.selectedIndex === 0) {
-            flash('Please select an activity.');
+        if (!activitySelect || !activitySelect.value) {
+            flash('Please select your attending/activity option.');
             return;
         }
 
         const selectedYear = studentYearSelect.value;
-        const selectedActivity = activitySelect.options[activitySelect.selectedIndex].text;
+        const selectedActivity = activitySelect.value;
 
         const response = await fetch('/api/v1/users/', {
             method: 'POST',
