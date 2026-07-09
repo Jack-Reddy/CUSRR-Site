@@ -33,11 +33,13 @@
         <option value="Other">Other</option>
       </select>
 
-      <label for="activity" class="form-label text-start w-100 mt-3">Activity</label>
-      <select id="activity" class="form-select" aria-label="Activity select">
-        <option selected>Select your activity</option>
-        <option value="2">Whitewater Raft</option>
-        <option value="3">1-Day</option>
+      <label for="activity" class="form-label text-start w-100 mt-3">Attending/Activity</label>
+      <select id="activity" class="form-select" aria-label="Attending activity select" required>
+        <option selected value="">Select your attending/activity option</option>
+        <option value="Hiking">Hiking</option>
+        <option value="Whitewater Rafting">Whitewater Rafting</option>
+        <option value="1-Day">1-Day</option>
+        <option value="Not Attending">Not Attending</option>
       </select>
 
       <button id="signup-submit" class="btn btn-primary mt-4">Submit</button>
