@@ -106,6 +106,9 @@ def _check_users_api(User, path, method):
     if path == '/api/v1/users/roommate-preferences' and method in ('GET', 'PUT'):
         return _require_authenticated_user(User)
 
+    if path == '/api/v1/users/roommate-preferences/export.csv' and method == 'GET':
+        return _require_roles(User, 'organizer')
+
     if method == 'POST':
         if not _session_email():
             return _error("authentication_required", 401)
