@@ -1,4 +1,5 @@
 """routes for user table in db"""
+import os
 import re
 
 from flask import Blueprint, current_app, jsonify, request, session
@@ -50,6 +51,38 @@ def _is_organizer(user):
 def _normalize_lookup(value):
     """Normalize names/emails for roommate preference matching."""
     return re.sub(r'\s+', ' ', str(value or '').strip().lower())
+
+
+def _load_email_allowlist(filename):
+    """Load normalized emails from a static allowlist file."""
+    path = os.path.join(current_app.root_path, 'static', 'data', filename)
+    try:
+        with open(path, encoding='utf-8') as handle:
+            contents = handle.read()
+    except OSError:
+        return set()
+
+    return {
+        email.lower()
+        for email in re.findall(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}', contents)
+    }
+
+
+def _signup_role_for_email(email):
+    """Return the default signup role for an email allowlist match."""
+    normalized_email = _normalize_lookup(email)
+    if not normalized_email:
+        return 'attendee'
+
+    faculty_emails = _load_email_allowlist('faculty_emails.txt')
+    if normalized_email in faculty_emails:
+        return 'abstract-grader'
+
+    student_presenter_emails = _load_email_allowlist('student_presenter_emails.txt')
+    if normalized_email in student_presenter_emails:
+        return 'presenter'
+
+    return 'attendee'
 
 
 def _compact_lookup(value):
@@ -467,10 +500,10 @@ def create_user():
         return jsonify({"error": "Cannot create an account for a different email"}), 403
 
     if _security_checks_enabled():
-        auth_value = data.get('auth') if organizer else 'attendee'
+        auth_value = data.get('auth') if organizer else _signup_role_for_email(requested_email)
         presentation_id = data.get('presentation_id') if organizer else None
     else:
-        auth_value = data.get('auth')
+        auth_value = data.get('auth') or _signup_role_for_email(requested_email)
         presentation_id = data.get('presentation_id')
 
     try:
