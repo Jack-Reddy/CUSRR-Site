@@ -1,8 +1,10 @@
 """routes for user table in db"""
+import csv
+import io
 import os
 import re
 
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, Response, current_app, jsonify, request, session
 from sqlalchemy import func, inspect, text
 from sqlalchemy.exc import IntegrityError
 from website.models import Presentation, User
@@ -407,6 +409,77 @@ def _delete_roommate_preferences_for_user(user):
     )
 
 
+def _full_name(firstname, lastname):
+    return f"{firstname or ''} {lastname or ''}".strip()
+
+
+def _write_roommate_preferences_csv(writer):
+    """Write matched and unmatched roommate preference rows to a CSV writer."""
+    writer.writerow([
+        'preference_status',
+        'attendee_id',
+        'attendee_name',
+        'attendee_email',
+        'preferred_roommate_id',
+        'preferred_roommate_name',
+        'preferred_roommate_email',
+        'raw_preference',
+    ])
+
+    matched_rows = db.session.execute(text("""
+        SELECT
+            rp.user_id,
+            rp.preferred_email,
+            rp.preferred_user_id,
+            u.firstname AS attendee_firstname,
+            u.lastname AS attendee_lastname,
+            u.email AS attendee_email,
+            preferred.firstname AS preferred_firstname,
+            preferred.lastname AS preferred_lastname,
+            preferred.email AS matched_preferred_email
+        FROM roommate_preferences rp
+        JOIN users u ON rp.user_id = u.id
+        LEFT JOIN users preferred ON rp.preferred_user_id = preferred.id
+        ORDER BY u.lastname ASC, u.firstname ASC, rp.id ASC
+    """)).mappings().all()
+
+    for row in matched_rows:
+        writer.writerow([
+            'matched',
+            row['user_id'],
+            _full_name(row['attendee_firstname'], row['attendee_lastname']),
+            row['attendee_email'],
+            row['preferred_user_id'] or '',
+            _full_name(row['preferred_firstname'], row['preferred_lastname']) if row['preferred_user_id'] else '',
+            row['matched_preferred_email'] or row['preferred_email'],
+            '',
+        ])
+
+    unmatched_rows = db.session.execute(text("""
+        SELECT
+            unmatched.user_id,
+            unmatched.raw_preference,
+            u.firstname AS attendee_firstname,
+            u.lastname AS attendee_lastname,
+            u.email AS attendee_email
+        FROM roommate_preference_unmatched unmatched
+        JOIN users u ON unmatched.user_id = u.id
+        ORDER BY u.lastname ASC, u.firstname ASC, unmatched.id ASC
+    """)).mappings().all()
+
+    for row in unmatched_rows:
+        writer.writerow([
+            'unmatched',
+            row['user_id'],
+            _full_name(row['attendee_firstname'], row['attendee_lastname']),
+            row['attendee_email'],
+            '',
+            '',
+            '',
+            row['raw_preference'],
+        ])
+
+
 def _can_assign_presentation(user, presentation_id):
     if presentation_id in (None, ''):
         user.presentation_id = None
@@ -467,6 +540,19 @@ def roommate_preferences():
         "preferences": _get_roommate_preferences(user.id),
         "preference_entries": _get_roommate_preference_entries(user.id),
     }), 200
+
+
+@users_bp.route('/roommate-preferences/export.csv', methods=['GET'])
+def export_roommate_preferences_csv():
+    """Export matched and unmatched roommate preferences as CSV."""
+    ensure_roommate_preferences_table()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    _write_roommate_preferences_csv(writer)
+
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=roommate_preferences.csv'
+    return response
 
 
 @users_bp.route('/<int:user_id>', methods=['GET'])
