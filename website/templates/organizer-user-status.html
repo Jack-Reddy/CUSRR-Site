@@ -25,8 +25,8 @@
         <img class="icon-img" src="{{ url_for('static', filename='icons/download.svg') }}" alt="" aria-hidden="true" style="height: 1rem; width: auto;"> Export Roommate Prefs CSV
       </a>
 
-      <button id="copy-incomplete-status-btn" class="btn btn-outline-secondary d-flex align-items-center gap-2 w-100 w-md-auto" type="button">
-        <img class="icon-img" src="{{ url_for('static', filename='icons/attendees.svg') }}" alt="" aria-hidden="true" style="height: 1rem; width: auto;"> Copy Incomplete Emails
+      <button id="open-copy-emails-modal-btn" class="btn btn-outline-secondary d-flex align-items-center gap-2 w-100 w-md-auto" type="button" data-bs-toggle="modal" data-bs-target="#copyEmailsModal">
+        <img class="icon-img" src="{{ url_for('static', filename='icons/attendees.svg') }}" alt="" aria-hidden="true" style="height: 1rem; width: auto;"> Copy Emails
       </button>
     </div>
   </div>
@@ -39,6 +39,56 @@
     </div>
   </div>
 
+</div>
+
+<!-- Copy Filtered Emails Modal -->
+<div class="modal fade" id="copyEmailsModal" tabindex="-1" aria-labelledby="copyEmailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow-lg">
+      <div class="modal-header">
+        <h5 class="modal-title" id="copyEmailsModalLabel">Copy Filtered Emails</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="copyEmailPresentationType" class="form-label fw-semibold">Presentation Type</label>
+          <select id="copyEmailPresentationType" class="form-select rounded-3">
+            <option value="all">All</option>
+            <option value="Poster">Poster</option>
+            <option value="Blitz">Blitz</option>
+            <option value="Presentation">Presentation</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="copyEmailCompletionStatus" class="form-label fw-semibold">Completion Status</label>
+          <select id="copyEmailCompletionStatus" class="form-select rounded-3">
+            <option value="abstract_only">Abstract submitted</option>
+            <option value="presentation_only">Presentation submitted</option>
+            <option value="both">Both submitted</option>
+            <option value="neither">Neither submitted</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="copyEmailActivity" class="form-label fw-semibold">Attending/Activity</label>
+          <select id="copyEmailActivity" class="form-select rounded-3">
+            <option value="all">All</option>
+            <option value="Hiking">Hiking</option>
+            <option value="Whitewater Rafting">Whitewater Rafting</option>
+            <option value="1-Day">1-Day</option>
+            <option value="Not Attending">Not Attending</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="copy-filtered-emails-btn" class="btn btn-primary rounded-pill px-4">Copy Emails</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% include "edit_user_modal.html" %}
