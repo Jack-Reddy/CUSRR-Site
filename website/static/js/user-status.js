@@ -93,6 +93,7 @@ function renderTable(users) {
             <th>Email</th>
             <th>Activity</th>
             <th>Pres. ID</th>
+            <th>Presentation Type</th>
             <th>Abstract Submitted</th>
             <th>Presentation Uploaded</th>
             <th>Role</th>
@@ -117,6 +118,13 @@ function renderTable(users) {
       { data: 'email', defaultContent: '—' },
       { data: 'activity', defaultContent: '—' },
       { data: 'presentation_id', defaultContent: '—' },
+      {
+        data: 'presentation_type',
+        render: function (data, type, row) {
+          if (!isPresenterLike(row)) return '—';
+          return data || '—';
+        }
+      },
       {
         data: 'abstract_submitted',
         render: function (data, type, row) {
