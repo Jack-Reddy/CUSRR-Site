@@ -14,6 +14,13 @@
     return data.error || data.reason || fallback;
   }
 
+  function setSelectValue(select, value, fallback = '') {
+    if (!select) return;
+    const wanted = String(value || '').trim();
+    const option = Array.from(select.options).find((item) => item.value.toLowerCase() === wanted.toLowerCase());
+    select.value = option ? option.value : fallback;
+  }
+
   function fillAndShowModal(user) {
     const modalEl = document.getElementById('editUserModal');
     if (!modalEl) return;
@@ -22,6 +29,16 @@
     modalEl.querySelector('#editUserLastName').value = user.lastname || '';
     modalEl.querySelector('#editUserEmail').value = user.email || '';
     modalEl.querySelector('#editUserRole').value = normalizeRoleForSelect(user.auth);
+
+    setSelectValue(modalEl.querySelector('#editUserActivity'), user.activity);
+
+    const presentationTypeSelect = modalEl.querySelector('#editUserPresentationType');
+    setSelectValue(presentationTypeSelect, user.presentation_type);
+    if (presentationTypeSelect) {
+      const hasPresentation = Boolean(user.presentation_id);
+      presentationTypeSelect.disabled = !hasPresentation;
+      presentationTypeSelect.title = hasPresentation ? '' : 'Assign a presentation before setting presentation type.';
+    }
 
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
