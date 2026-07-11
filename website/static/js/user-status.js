@@ -148,7 +148,7 @@ function renderTable(users) {
           <tr>
             <th>Name</th>
             <th>Email</th>
-            <th>Activity</th>
+            <th>Attending/Activity</th>
             <th>Pres. ID</th>
             <th>Presentation Type</th>
             <th>Abstract Submitted</th>
