@@ -204,6 +204,9 @@ async function editUser(userId) {
 
     // Handle form submission (set up once)
     EditModal.setupFormSubmit(async (data) => {
+      const presentationType = data.presentation_type;
+      delete data.presentation_type;
+
       const updateResp = await fetch(`/api/v1/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -212,6 +215,18 @@ async function editUser(userId) {
 
       if (!updateResp.ok) {
         throw new Error(await apiErrorMessage(updateResp, `Failed to update user: ${updateResp.status}`));
+      }
+
+      if (user.presentation_id && typeof presentationType !== 'undefined') {
+        const presentationResp = await fetch(`/api/v1/presentations/${user.presentation_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: presentationType }),
+        });
+
+        if (!presentationResp.ok) {
+          throw new Error(await apiErrorMessage(presentationResp, `Failed to update presentation type: ${presentationResp.status}`));
+        }
       }
 
       await loadUsers(); // refresh after save
