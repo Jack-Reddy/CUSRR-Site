@@ -14,6 +14,7 @@ users_bp = Blueprint('users', __name__)
 ROLE_ALIASES = {
     'admin': 'organizer',
 }
+VALID_PRESENTATION_TYPES = {'Presentation', 'Blitz', 'Poster'}
 
 
 def _security_checks_enabled():
@@ -85,6 +86,55 @@ def _signup_role_for_email(email):
         return 'presenter'
 
     return 'attendee'
+
+
+def _normalize_presentation_type(value):
+    """Normalize a presentation type for attendee table display."""
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    for valid_type in VALID_PRESENTATION_TYPES:
+        if cleaned.lower() == valid_type.lower():
+            return valid_type
+    return cleaned or None
+
+
+def _ensure_presentation_type_table():
+    """Create the per-presentation type override table if it does not exist."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS presentation_types (
+                presentation_id INTEGER PRIMARY KEY,
+                presentation_type VARCHAR(50) NOT NULL
+            )
+            """
+        ))
+
+
+def _presentation_type_for_user(user):
+    """Return a user's assigned presentation type, if they have a presentation."""
+    presentation = getattr(user, 'presentation', None)
+    if not presentation or not presentation.id:
+        return None
+
+    _ensure_presentation_type_table()
+    row = db.session.execute(
+        text("SELECT presentation_type FROM presentation_types WHERE presentation_id = :pid"),
+        {"pid": presentation.id}
+    ).fetchone()
+    if row and row[0]:
+        return _normalize_presentation_type(row[0])
+
+    schedule = getattr(presentation, 'schedule', None)
+    return _normalize_presentation_type(getattr(schedule, 'block_type', None))
+
+
+def _user_to_dict(user):
+    """Serialize a user with attendee-dashboard presentation metadata."""
+    data = user.to_dict()
+    data['presentation_type'] = _presentation_type_for_user(user)
+    return data
 
 
 def _compact_lookup(value):
@@ -509,7 +559,7 @@ def _can_assign_presentation(user, presentation_id):
 def get_users():
     """GET all users"""
     users = User.query.all()
-    return jsonify([u.to_dict() for u in users]), 200
+    return jsonify([_user_to_dict(u) for u in users]), 200
 
 
 @users_bp.route('/roommate-preferences', methods=['GET', 'PUT'])
@@ -561,7 +611,7 @@ def get_user(user_id):
     user = db.session.get(User, user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
-    data = user.to_dict()
+    data = _user_to_dict(user)
     data['roommate_preferences'] = _get_roommate_preferences(user.id)
     data['roommate_preference_entries'] = _get_roommate_preference_entries(user.id)
     return jsonify(data), 200
@@ -619,7 +669,7 @@ def create_user():
         db.session.rollback()
         return jsonify({"error": _route_error("Could not create user", error)}), 500
 
-    return jsonify(new_user.to_dict()), 201
+    return jsonify(_user_to_dict(new_user)), 201
 
 
 @users_bp.route('/<int:user_id>', methods=['PUT'])
@@ -674,7 +724,7 @@ def update_user(user_id):
         db.session.rollback()
         return jsonify({"error": _route_error("Could not update user", error)}), 500
 
-    return jsonify(user.to_dict()), 200
+    return jsonify(_user_to_dict(user)), 200
 
 
 @users_bp.route('/<int:user_id>', methods=['DELETE'])
