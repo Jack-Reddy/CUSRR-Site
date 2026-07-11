@@ -16,6 +16,103 @@ function isPresenterLike(user) {
   return Boolean(user && user.presentation_id);
 }
 
+function userRoles(user) {
+  return String(user && user.auth ? user.auth : '')
+    .split(',')
+    .map((role) => role.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isEmailFilterCandidate(user) {
+  return Boolean(user && user.email && (user.presentation_id || userRoles(user).includes('presenter')));
+}
+
+function normalizedValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function selectedValue(id, fallback = 'all') {
+  const element = document.getElementById(id);
+  return element ? element.value : fallback;
+}
+
+function matchesPresentationTypeFilter(user, selectedType) {
+  if (selectedType === 'all') return true;
+  return normalizedValue(user.presentation_type) === normalizedValue(selectedType);
+}
+
+function matchesActivityFilter(user, selectedActivity) {
+  if (selectedActivity === 'all') return true;
+  return normalizedValue(user.activity) === normalizedValue(selectedActivity);
+}
+
+function matchesCompletionStatusFilter(user, selectedStatus) {
+  const abstractSubmitted = Boolean(user.abstract_submitted);
+  const presentationUploaded = Boolean(user.presentation_uploaded);
+
+  if (selectedStatus === 'abstract_only') {
+    return abstractSubmitted && !presentationUploaded;
+  }
+  if (selectedStatus === 'presentation_only') {
+    return presentationUploaded && !abstractSubmitted;
+  }
+  if (selectedStatus === 'both') {
+    return abstractSubmitted && presentationUploaded;
+  }
+  if (selectedStatus === 'neither') {
+    return !abstractSubmitted && !presentationUploaded;
+  }
+  return false;
+}
+
+function filteredEmailRows() {
+  const rows = userTable ? userTable.data().toArray() : allUsers;
+  const selectedType = selectedValue('copyEmailPresentationType');
+  const selectedStatus = selectedValue('copyEmailCompletionStatus', 'neither');
+  const selectedActivity = selectedValue('copyEmailActivity');
+
+  return rows.filter((user) => (
+    isEmailFilterCandidate(user)
+    && matchesPresentationTypeFilter(user, selectedType)
+    && matchesCompletionStatusFilter(user, selectedStatus)
+    && matchesActivityFilter(user, selectedActivity)
+  ));
+}
+
+async function writeToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const temp = document.createElement('textarea');
+  temp.value = text;
+  temp.style.position = 'fixed';
+  temp.style.left = '-9999px';
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand('copy');
+  document.body.removeChild(temp);
+}
+
+async function copyFilteredEmails() {
+  const matchingRows = filteredEmailRows();
+  const emails = [...new Set(matchingRows.map((user) => user.email).filter(Boolean))];
+
+  if (!emails.length) {
+    alert('No matching emails to copy.');
+    return;
+  }
+
+  try {
+    await writeToClipboard(emails.join(', '));
+    alert(`Copied ${emails.length} email${emails.length === 1 ? '' : 's'}. Paste into Gmail To/CC/BCC.`);
+  } catch (err) {
+    console.error('Copy failed', err);
+    alert('Could not copy emails.');
+  }
+}
+
 async function loadUsers() {
   const container = document.getElementById('user-container');
   if (!container) {
@@ -37,46 +134,6 @@ async function loadUsers() {
   } catch (err) {
     console.error('Failed to load users', err);
     container.innerHTML = `<p class="text-danger">Could not load users: ${err.message}</p>`;
-  }
-}
-
-function getIncompleteStatusEmails() {
-  const rows = userTable ? userTable.data().toArray() : allUsers;
-  return rows
-    .filter((u) => {
-      if (!u || !u.email) return false;
-      if (!isPresenterLike(u)) return false;
-      return !u.abstract_submitted || !u.presentation_uploaded;
-    })
-    .map((u) => u.email)
-    .filter(Boolean);
-}
-
-async function copyIncompleteStatusEmails() {
-  const emails = getIncompleteStatusEmails();
-  if (!emails.length) {
-    alert('No presenters with incomplete abstract or presentation upload status to copy.');
-    return;
-  }
-
-  const text = emails.join(', ');
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const temp = document.createElement('textarea');
-      temp.value = text;
-      temp.style.position = 'fixed';
-      temp.style.left = '-9999px';
-      document.body.appendChild(temp);
-      temp.select();
-      document.execCommand('copy');
-      document.body.removeChild(temp);
-    }
-    alert('Copied emails for presenters missing an abstract, presentation upload, or both. Paste into Gmail To/CC/BCC.');
-  } catch (err) {
-    console.error('Copy failed', err);
-    alert('Could not copy emails.');
   }
 }
 
@@ -161,7 +218,7 @@ function renderTable(users) {
           `;
         }
       }
-    ],  
+    ],
     responsive: true,
     pageLength: 10,
     order: [[1, 'asc']], // default sort by Email
@@ -242,8 +299,8 @@ async function editUser(userId) {
 document.addEventListener('DOMContentLoaded', () => {
   loadUsers();
 
-  const copyBtn = document.getElementById('copy-incomplete-status-btn');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', copyIncompleteStatusEmails);
+  const copyFilteredBtn = document.getElementById('copy-filtered-emails-btn');
+  if (copyFilteredBtn) {
+    copyFilteredBtn.addEventListener('click', copyFilteredEmails);
   }
 });
