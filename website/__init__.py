@@ -55,6 +55,9 @@ def create_app(test_config=None):
     from .routes.abstract_grades import abstract_grades_bp
     from .routes.grades import grades_bp
     from .routes.presentation_overview import presentation_overview_bp
+    from .group_size_limits import install_group_size_limit_overrides
+
+    install_group_size_limit_overrides(app)
 
     # Register API blueprints under `/api/v1/...` so frontend endpoints match
     app.register_blueprint(users_bp, url_prefix='/api/v1/users')
