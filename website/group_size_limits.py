@@ -91,11 +91,6 @@ def create_presentation_with_five_person_limit():
 
 
 def install_group_size_limit_overrides(app):
-    """Install five-person group-size behavior before the API blueprints are registered."""
+    """Install five-person group-size behavior after the API blueprints are registered."""
     users_module._can_assign_presentation = _can_assign_presentation_with_five_person_limit
-    app.add_url_rule(
-        '/api/v1/presentations/',
-        'create_presentation_with_five_person_limit',
-        create_presentation_with_five_person_limit,
-        methods=['POST']
-    )
+    app.view_functions['presentations.create_presentation'] = create_presentation_with_five_person_limit
