@@ -19,6 +19,19 @@ function abstractSnippet(source, maxLength = 120) {
   let statusFilter = 'all';
   let query = '';
 
+  function actionButtons(p) {
+    if (p.status === 'done' && p.abstract_grade_id) {
+      return `
+        <a class="btn btn-sm btn-outline-info px-2" href="/abstract-scoring?id=${p.id}">Review</a>
+        <button class="btn btn-sm btn-outline-danger px-2" type="button" data-undo-grade-id="${p.abstract_grade_id}" data-presentation-title="${encodeURIComponent(p.title || '')}">
+          Undo grade
+        </button>
+      `;
+    }
+
+    return `<a class="btn btn-sm btn-outline-info px-2" href="/abstract-scoring?id=${p.id}">Grade</a>`;
+  }
+
   function createCard(p) {
     const col = document.createElement('div');
     col.className = "col";               
@@ -49,16 +62,47 @@ function abstractSnippet(source, maxLength = 120) {
   
               <p class="text-sm mb-2">${ abstractSnippet(p.abstract || "", 120) }</p>
   
-              <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-sm btn-outline-info px-2" href="/abstract-scoring?id=${p.id}">Grade</a>
-
-
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                ${actionButtons(p)}
               </div>
             </div>
           </div>
         </div>
       `;
     return col;
+  }
+
+  async function undoAbstractGrade(gradeId, title) {
+    if (!gradeId) return;
+
+    const decodedTitle = title ? decodeURIComponent(title) : 'this abstract';
+    if (!confirm(`Undo your grade for ${decodedTitle}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/v1/abstractgrades/${gradeId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || data.reason || `Could not undo grade: ${response.status}`);
+      }
+
+      await loadPresentations();
+    } catch (error) {
+      console.error('Could not undo abstract grade', error);
+      alert(error.message || 'Could not undo abstract grade.');
+    }
+  }
+
+  function bindUndoButtons() {
+    document.querySelectorAll('[data-undo-grade-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        undoAbstractGrade(button.dataset.undoGradeId, button.dataset.presentationTitle);
+      });
+    });
   }
   
   // Render cards
@@ -72,6 +116,7 @@ function abstractSnippet(source, maxLength = 120) {
       else todoGrid.append(card);
     });
 
+    bindUndoButtons();
     updateProgress();
     applyFilters();
   }
@@ -137,13 +182,18 @@ function abstractSnippet(source, maxLength = 120) {
 
     const completedRes = await fetch(`/api/v1/abstractgrades/completed/${meData.user_id}`);
     const completedData = await completedRes.json();
-    const completedIds = new Set(completedData.completed);
+    const completedIds = new Set(completedData.completed || []);
+    const gradeByPresentationId = new Map(
+      (completedData.grades || []).map((grade) => [grade.presentation_id, grade.id])
+    );
 
     presentations.forEach(p => {
       if (completedIds.has(p.id)) {
         p.status = "done";
-      } else if (!p.status) {
+        p.abstract_grade_id = gradeByPresentationId.get(p.id);
+      } else {
         p.status = "todo";
+        p.abstract_grade_id = null;
       }
     });
 
