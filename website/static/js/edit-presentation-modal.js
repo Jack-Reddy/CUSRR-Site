@@ -9,6 +9,16 @@
     modalEl.querySelector('#editPresentationMentor').value = presentation.mentor || '';
     modalEl.querySelector('#editPresentationKeywords').value = presentation.keywords || '';
 
+    const fileInput = modalEl.querySelector('#editPresentationFile');
+    if (fileInput) fileInput.value = '';
+
+    const currentFile = modalEl.querySelector('#editPresentationCurrentFile');
+    if (currentFile) {
+      currentFile.textContent = presentation.uploaded_presentation_filename
+        ? `Current uploaded file: ${presentation.uploaded_presentation_filename}`
+        : 'No presentation file uploaded yet.';
+    }
+
     const showOnScheduleCheckbox = modalEl.querySelector('#editPresentationShowOnSchedule');
     if (showOnScheduleCheckbox) {
       showOnScheduleCheckbox.checked = presentation.show_on_schedule !== false;
@@ -29,6 +39,11 @@
     modal.show();
   }
 
+  function getSelectedFile(form) {
+    const fileInput = form.querySelector('#editPresentationFile');
+    return fileInput && fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+  }
+
   function setupFormSubmit(onSubmit) {
     const form = document.getElementById('editPresentationForm');
     if (!form) return;
@@ -45,6 +60,7 @@
 
       const formData = new FormData(newForm);
       const data = Object.fromEntries(formData.entries());
+      const selectedFile = getSelectedFile(newForm);
 
       const showOnScheduleCheckbox = newForm.querySelector('#editPresentationShowOnSchedule');
       if (showOnScheduleCheckbox) {
@@ -52,11 +68,11 @@
       }
 
       try {
-        await onSubmit(data);
+        await onSubmit(data, selectedFile);
         bootstrap.Modal.getInstance(newForm.closest('.modal')).hide();
       } catch (err) {
         console.error('Failed to submit presentation form:', err);
-        alert('Error saving presentation changes.');
+        alert(err.message || 'Error saving presentation changes.');
       }
     });
   }
