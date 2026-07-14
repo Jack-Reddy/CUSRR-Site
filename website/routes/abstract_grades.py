@@ -94,14 +94,30 @@ def get_average_abstract_grades_by_presentation():
         .all()
     )
 
-
-
     return format_average_grades(averages)
+
 
 @abstract_grades_bp.route('/completed/<int:user_id>', methods=['GET'])
 def get_completed_presentations_for_user(user_id):
     """
-    Return presentation IDs and abstract grade IDs that have grades from this user.
+    Return all presentation_ids that have grades from this user.
+    """
+    results = (
+        db.session.query(AbstractGrade.presentation_id)
+        .filter_by(user_id=user_id)
+        .distinct()
+        .all()
+    )
+
+    completed = [r[0] for r in results]
+
+    return jsonify({"completed": completed})
+
+
+@abstract_grades_bp.route('/completed/<int:user_id>/details', methods=['GET'])
+def get_completed_abstract_grade_details_for_user(user_id):
+    """
+    Return completed presentation IDs plus abstract grade IDs for dashboard undo actions.
     """
     grades = (
         AbstractGrade.query
