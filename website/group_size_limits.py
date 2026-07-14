@@ -1,7 +1,7 @@
 """Group-size limits shared by presentation creation and attendee assignment."""
 from datetime import datetime
 
-from flask import jsonify, request
+from flask import jsonify, request, session
 
 from website import db
 from website.models import Presentation, User
@@ -9,6 +9,15 @@ from website.routes import presentations as presentations_module
 from website.routes import users as users_module
 
 MAX_PRESENTERS_PER_GROUP = 5
+
+
+def _current_user():
+    """Return the authenticated database user for presentation creation."""
+    user_info = session.get('user') or {}
+    email = user_info.get('email')
+    if not email:
+        return None
+    return User.query.filter_by(email=email).first()
 
 
 def _can_assign_presentation_with_five_person_limit(user, presentation_id):
@@ -43,6 +52,12 @@ def create_presentation_with_five_person_limit():
     schedule_id = data.get('schedule_id') or data.get('block_id')
     time_str = data.get('time')
 
+    creator = _current_user()
+    if not creator:
+        return jsonify({"error": "Authentication required"}), 401
+    if creator.presentation_id:
+        return jsonify({"error": "You already have an assigned presentation"}), 400
+
     parsed_time = None
     if time_str:
         try:
@@ -60,6 +75,10 @@ def create_presentation_with_five_person_limit():
     if len(partner_emails) > MAX_PRESENTERS_PER_GROUP - 1:
         return jsonify({"error": f"Groups can have at most {MAX_PRESENTERS_PER_GROUP} presenters total"}), 400
 
+    normalized_creator_email = str(creator.email or '').strip().lower()
+    if any(email.lower() == normalized_creator_email for email in partner_emails):
+        return jsonify({"error": "Do not include your own email as a partner email"}), 400
+
     new_presentation = Presentation(
         title=data['title'],
         abstract=data.get('abstract'),
@@ -75,6 +94,8 @@ def create_presentation_with_five_person_limit():
     presentations_module.set_show_on_schedule(new_presentation.id, data.get('show_on_schedule', True))
     if 'type' in data:
         presentations_module.set_presentation_type(new_presentation.id, data.get('type'))
+
+    creator.presentation_id = new_presentation.id
 
     for partner_email in partner_emails:
         partner_user = User.query.filter_by(email=partner_email).first()
