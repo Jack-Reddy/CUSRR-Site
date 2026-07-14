@@ -180,7 +180,7 @@ function abstractSnippet(source, maxLength = 120) {
       return;
     }
 
-    const completedRes = await fetch(`/api/v1/abstractgrades/completed/${meData.user_id}`);
+    const completedRes = await fetch(`/api/v1/abstractgrades/completed/${meData.user_id}/details`);
     const completedData = await completedRes.json();
     const completedIds = new Set(completedData.completed || []);
     const gradeByPresentationId = new Map(
