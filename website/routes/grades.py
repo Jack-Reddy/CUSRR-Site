@@ -7,7 +7,7 @@ import io
 
 from sqlalchemy import func, desc
 from flask import Blueprint, Response, jsonify, request
-from website.models import Grade, Presentation, BlockSchedule
+from website.models import AbstractGrade, Grade, Presentation, BlockSchedule
 from website import db
 from .utils import format_average_grades
 
@@ -51,6 +51,17 @@ def _presentation_presenter_names(presentation):
     return ', '.join(names) if names else '—'
 
 
+def _csv_grade_row(grade, grade_type):
+    """Return a normalized CSV row for presentation or abstract grades."""
+    return [
+        grade_type,
+        _grader_name(grade.grader),
+        _presentation_presenter_names(grade.presentation),
+        grade.presentation.title if grade.presentation else '—',
+        _total_score(grade),
+    ]
+
+
 @grades_bp.route('/', methods=['GET'])
 def get_grades():
     ''' GET all grades '''
@@ -82,10 +93,11 @@ def get_grades_dashboard_summary():
 
 @grades_bp.route('/export.csv', methods=['GET'])
 def export_grades_csv():
-    """Export individual presentation grades as a CSV."""
+    """Export individual presentation and abstract grades as a CSV."""
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
+        'Grade type',
         'Grader',
         'People associated with presentation',
         'Presentation',
@@ -100,13 +112,19 @@ def export_grades_csv():
         .all()
     )
 
+    abstract_grades = (
+        AbstractGrade.query
+        .join(AbstractGrade.presentation)
+        .outerjoin(AbstractGrade.grader)
+        .order_by(Presentation.title.asc(), AbstractGrade.id.asc())
+        .all()
+    )
+
     for grade in grades:
-        writer.writerow([
-            _grader_name(grade.grader),
-            _presentation_presenter_names(grade.presentation),
-            grade.presentation.title if grade.presentation else '—',
-            _total_score(grade),
-        ])
+        writer.writerow(_csv_grade_row(grade, 'Presentation'))
+
+    for grade in abstract_grades:
+        writer.writerow(_csv_grade_row(grade, 'Abstract'))
 
     response = Response(output.getvalue(), mimetype='text/csv')
     response.headers['Content-Disposition'] = 'attachment; filename=grades.csv'
