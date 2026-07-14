@@ -12,11 +12,52 @@ from .utils import format_average_grades
 grades_bp = Blueprint('grades', __name__)
 
 
+def _total_score(grade):
+    """Return the summed score for a grade row."""
+    return (grade.criteria_1 or 0) + (grade.criteria_2 or 0) + (grade.criteria_3 or 0)
+
+
+def _average_score(grades):
+    """Return a rounded average total score, or None if there are no grades."""
+    if not grades:
+        return None
+    return round(sum(_total_score(grade) for grade in grades) / len(grades), 2)
+
+
+def _presenter_name(user):
+    """Return a readable presenter name for a user."""
+    first = (user.firstname or '').strip()
+    last = (user.lastname or '').strip()
+    return f"{first} {last}".strip() or user.email
+
+
 @grades_bp.route('/', methods=['GET'])
 def get_grades():
     ''' GET all grades '''
     grades = Grade.query.all()
     return jsonify([g.to_dict() for g in grades])
+
+
+@grades_bp.route('/dashboard-summary', methods=['GET'])
+def get_grades_dashboard_summary():
+    """Return presentation grade summary rows for the organizer grades dashboard."""
+    presentations = Presentation.query.order_by(Presentation.id.asc()).all()
+    rows = []
+
+    for presentation in presentations:
+        presenter_names = [_presenter_name(user) for user in presentation.presenters]
+        rows.append({
+            "presentation_id": presentation.id,
+            "presentation_title": presentation.title,
+            "presenters": [presenter.to_dict_basic() for presenter in presentation.presenters],
+            "presenter_names": ', '.join(presenter_names) if presenter_names else '—',
+            "average_score": _average_score(presentation.grades),
+            "num_grades": len(presentation.grades),
+            "average_abstract_score": _average_score(presentation.abstract_grades),
+            "num_abstract_grades": len(presentation.abstract_grades),
+        })
+
+    return jsonify(rows)
 
 
 @grades_bp.route('/<int:grade_id>', methods=['GET'])
