@@ -45,6 +45,21 @@
               <input type="text" id="editPresentationKeywords" name="keywords" class="form-control">
             </div>
 
+            <!-- Organizer file upload -->
+            <div class="col-12">
+              <label for="editPresentationFile" class="form-label fw-semibold">Upload Presentation File</label>
+              <input
+                type="file"
+                id="editPresentationFile"
+                class="form-control"
+                accept=".ppt,.pptx,.pdf,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              >
+              <div class="form-text">
+                Optional. Uploading a new file will replace the current uploaded presentation. Allowed formats: PPT, PPTX, PDF. Max size: 20MB.
+              </div>
+              <div id="editPresentationCurrentFile" class="small text-muted mt-1"></div>
+            </div>
+
             <div class="col-12">
               <div class="form-check mt-1">
                 <input type="checkbox" id="editPresentationShowOnSchedule" name="show_on_schedule" class="form-check-input" value="true">
