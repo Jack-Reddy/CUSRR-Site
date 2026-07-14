@@ -48,7 +48,7 @@ function renderGradesTable(rows) {
         <thead class="table-light">
           <tr>
             <th>Presentation</th>
-            <th>People Associated</th>
+            <th>Presenters</th>
             <th>Average Grade</th>
             <th>Average Abstract Grade</th>
             <th>Number of Grades</th>
