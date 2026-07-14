@@ -1,9 +1,20 @@
 let userTable; // store DataTable instance
 let allUsers = []; // keep raw data for clipboard actions
+let allPresentations = []; // keep presentation list for assignment dropdowns
 
 async function apiErrorMessage(response, fallback) {
   const data = await response.json().catch(() => ({}));
   return data.error || data.reason || fallback;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
 }
 
 function yesNoBadge(isSubmitted) {
@@ -34,6 +45,39 @@ function normalizedValue(value) {
 function selectedValue(id, fallback = 'all') {
   const element = document.getElementById(id);
   return element ? element.value : fallback;
+}
+
+function presentationLabel(presentation) {
+  if (!presentation) return 'Unassigned';
+  const identifier = presentation.program_identifier || presentation.id;
+  const title = presentation.title || 'Untitled';
+  return `${identifier} — ${title}`;
+}
+
+function presentationAssignmentDropdown(user) {
+  const currentId = user && user.presentation_id ? String(user.presentation_id) : '';
+  const options = [{ id: '', label: 'Unassigned' }].concat(
+    allPresentations.map((presentation) => ({
+      id: String(presentation.id),
+      label: presentationLabel(presentation),
+    }))
+  );
+
+  const optionHtml = options.map((option) => {
+    const selected = option.id === currentId ? ' selected' : '';
+    return `<option value="${escapeHtml(option.id)}"${selected}>${escapeHtml(option.label)}</option>`;
+  }).join('');
+
+  return `
+    <select
+      class="form-select form-select-sm"
+      data-original-value="${escapeHtml(currentId)}"
+      onchange="updateUserPresentationAssignment(${user.id}, this.value, this)"
+      aria-label="Assign presentation"
+    >
+      ${optionHtml}
+    </select>
+  `;
 }
 
 function matchesPresentationTypeFilter(user, selectedType) {
@@ -121,13 +165,22 @@ async function loadUsers() {
   }
 
   try {
-    const response = await fetch('/api/v1/users/');
-    if (!response.ok) {
-      throw new Error(await apiErrorMessage(response, `Network response was not ok: ${response.status} ${response.statusText}`));
+    const [usersResponse, presentationsResponse] = await Promise.all([
+      fetch('/api/v1/users/'),
+      fetch('/api/v1/presentations/'),
+    ]);
+
+    if (!usersResponse.ok) {
+      throw new Error(await apiErrorMessage(usersResponse, `Network response was not ok: ${usersResponse.status} ${usersResponse.statusText}`));
+    }
+    if (!presentationsResponse.ok) {
+      throw new Error(await apiErrorMessage(presentationsResponse, `Could not load presentations: ${presentationsResponse.status}`));
     }
 
-    const users = await response.json();
+    const users = await usersResponse.json();
+    const presentations = await presentationsResponse.json();
     allUsers = users;
+    allPresentations = presentations.slice().sort((a, b) => presentationLabel(a).localeCompare(presentationLabel(b)));
 
     renderTable(users);
 
@@ -150,6 +203,7 @@ function renderTable(users) {
             <th>Email</th>
             <th>Attending/Activity</th>
             <th>Pres. ID</th>
+            <th>Assign Presentation</th>
             <th>Presentation Type</th>
             <th>Abstract Submitted</th>
             <th>Presentation Uploaded</th>
@@ -175,6 +229,17 @@ function renderTable(users) {
       { data: 'email', defaultContent: '—' },
       { data: 'activity', defaultContent: '—' },
       { data: 'presentation_id', defaultContent: '—' },
+      {
+        data: 'presentation_id',
+        orderable: false,
+        render: function (data, type, row) {
+          if (type !== 'display') {
+            const presentation = allPresentations.find((item) => String(item.id) === String(data));
+            return presentation ? presentationLabel(presentation) : 'Unassigned';
+          }
+          return presentationAssignmentDropdown(row);
+        }
+      },
       {
         data: 'presentation_type',
         render: function (data, type, row) {
@@ -224,6 +289,32 @@ function renderTable(users) {
     order: [[1, 'asc']], // default sort by Email
   });
 }
+
+window.updateUserPresentationAssignment = async function(userId, presentationId, selectEl) {
+  const originalValue = selectEl?.dataset?.originalValue ?? '';
+  if (selectEl) selectEl.disabled = true;
+
+  try {
+    const response = await fetch(`/api/v1/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ presentation_id: presentationId || '' }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await apiErrorMessage(response, `Could not update presentation assignment: ${response.status}`));
+    }
+
+    await loadUsers();
+  } catch (err) {
+    console.error('Failed to assign presentation', err);
+    if (selectEl) {
+      selectEl.value = originalValue;
+      selectEl.disabled = false;
+    }
+    alert(err.message || 'Could not update presentation assignment.');
+  }
+};
 
 removeUser = async function(userId) {
   if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
