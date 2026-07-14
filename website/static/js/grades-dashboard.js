@@ -12,27 +12,33 @@ async function loadGrades() {
   `;
 
   try {
-    // Fetch both grades
-    const [respGrades, respAbstract] = await Promise.all([
-      fetch('/api/v1/grades/averages'),
-      fetch('/api/v1/abstractgrades/averages')
-    ]);
+    const response = await fetch('/api/v1/grades/dashboard-summary');
 
-    if (!respGrades.ok) throw new Error('Failed to load grades');
-    if (!respAbstract.ok) throw new Error('Failed to load abstract grades');
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || data.reason || `Failed to load grades: ${response.status}`);
+    }
 
-    const grades = await respGrades.json();
-    const abstractGrades = await respAbstract.json();
-
-    renderGradesTable(grades, abstractGrades);
+    const summaryRows = await response.json();
+    renderGradesTable(summaryRows);
 
   } catch (err) {
     console.error('Failed to load grades', err);
-    container.innerHTML = `<p class="text-danger">Could not load grades.</p>`;
+    container.innerHTML = `<p class="text-danger">Could not load grades: ${err.message}</p>`;
   }
 }
 
-function renderGradesTable(grades, abstractGrades) {
+function formatScore(value) {
+  const score = Number(value);
+  return Number.isNaN(score) ? '—' : score.toFixed(2);
+}
+
+function formatCount(value) {
+  const count = Number(value);
+  return Number.isNaN(count) ? '—' : count;
+}
+
+function renderGradesTable(rows) {
   const container = document.getElementById('grades-container');
   if (!container) return;
 
@@ -42,6 +48,7 @@ function renderGradesTable(grades, abstractGrades) {
         <thead class="table-light">
           <tr>
             <th>Presentation</th>
+            <th>People Associated</th>
             <th>Average Grade</th>
             <th>Average Abstract Grade</th>
             <th>Number of Grades</th>
@@ -53,54 +60,33 @@ function renderGradesTable(grades, abstractGrades) {
     </div>
   `;
 
-  // Merge data by presentation_id
-  const merged = {};
-  grades.forEach(g => {
-    merged[g.presentation_id] = { ...g, avgAbstract: '—', numAbstract: 0 };
-  });
-  abstractGrades.forEach(ag => {
-    if (merged[ag.presentation_id]) {
-      merged[ag.presentation_id].avgAbstract = isNaN(Number(ag.average_score)) ? '—' : Number(ag.average_score).toFixed(2);
-      merged[ag.presentation_id].numAbstract = ag.num_grades || 0;
-    } else {
-      merged[ag.presentation_id] = { 
-        presentation_title: ag.presentation_title || '—',
-        average_score: '—',
-        num_grades: 0,
-        avgAbstract: isNaN(Number(ag.average_score)) ? '—' : Number(ag.average_score).toFixed(2),
-        numAbstract: ag.num_grades || 0
-      };
-    }
-  });
-
-  const data = Object.values(merged);
-
   if (gradesTable) gradesTable.destroy();
 
   gradesTable = new DataTable('#grades-table', {
-    data: data,
+    data: rows,
     columns: [
       { data: 'presentation_title', defaultContent: '—' },
-      { 
+      { data: 'presenter_names', defaultContent: '—' },
+      {
         data: 'average_score',
-        render: data => {
-          const score = Number(data);
-          return isNaN(score) ? '—' : score.toFixed(2);
-        }
+        render: formatScore,
       },
-      { data: 'avgAbstract', defaultContent: '—' },
-      { 
+      {
+        data: 'average_abstract_score',
+        render: formatScore,
+      },
+      {
         data: 'num_grades',
-        render: data => isNaN(Number(data)) ? '—' : data
+        render: formatCount,
       },
-      { 
-        data: 'numAbstract',
-        render: data => isNaN(Number(data)) ? '—' : data
+      {
+        data: 'num_abstract_grades',
+        render: formatCount,
       }
     ],
     responsive: true,
     pageLength: 10,
-    order: [[1, 'desc']], // sort by average grade
+    order: [[0, 'asc']],
   });
 }
 
