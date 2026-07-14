@@ -28,8 +28,20 @@ def get_abstract_grade(abstract_grade_id):
 
 @abstract_grades_bp.route('/', methods=['POST'])
 def create_abstract_grade():
-    ''' POST create new abstract grade '''
-    data = request.get_json()
+    ''' POST create new abstract grade, or update the existing grade for this grader/presentation. '''
+    data = request.get_json() or {}
+
+    existing = AbstractGrade.query.filter_by(
+        user_id=data['user_id'],
+        presentation_id=data['presentation_id']
+    ).first()
+
+    if existing:
+        existing.criteria_1 = data['criteria_1']
+        existing.criteria_2 = data['criteria_2']
+        existing.criteria_3 = data['criteria_3']
+        db.session.commit()
+        return jsonify(existing.to_dict()), 200
 
     new_grade = AbstractGrade(
         user_id=data['user_id'],
@@ -117,7 +129,7 @@ def get_completed_presentations_for_user(user_id):
 @abstract_grades_bp.route('/completed/<int:user_id>/details', methods=['GET'])
 def get_completed_abstract_grade_details_for_user(user_id):
     """
-    Return completed presentation IDs plus abstract grade IDs for dashboard undo actions.
+    Return completed presentation IDs plus one abstract grade ID per presentation for undo actions.
     """
     grades = (
         AbstractGrade.query
@@ -126,7 +138,11 @@ def get_completed_abstract_grade_details_for_user(user_id):
         .all()
     )
 
-    completed = [grade.presentation_id for grade in grades]
+    latest_by_presentation = {}
+    for grade in grades:
+        latest_by_presentation[grade.presentation_id] = grade
+
+    completed = list(latest_by_presentation.keys())
     grade_rows = [
         {
             "id": grade.id,
@@ -135,7 +151,7 @@ def get_completed_abstract_grade_details_for_user(user_id):
             "criteria_2": grade.criteria_2,
             "criteria_3": grade.criteria_3,
         }
-        for grade in grades
+        for grade in latest_by_presentation.values()
     ]
 
     return jsonify({"completed": completed, "grades": grade_rows})
