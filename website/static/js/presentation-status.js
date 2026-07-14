@@ -68,6 +68,23 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function uploadPresentationFile(presentationId, file) {
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`/api/v1/presentations/${presentationId}/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Failed to upload presentation file: ${response.status}`);
+  }
+}
+
 async function loadPresentations() {
   const container = document.getElementById('presentation-container');
   if (!container) {
@@ -242,7 +259,7 @@ async function editPresentation(presentationId) {
 
     await EditPresentationModal.fillAndShowModal(presentation);
 
-    EditPresentationModal.setupFormSubmit(async (data) => {
+    EditPresentationModal.setupFormSubmit(async (data, selectedFile) => {
       const updateResp = await fetch(`/api/v1/presentations/${presentationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -251,6 +268,7 @@ async function editPresentation(presentationId) {
 
       if (!updateResp.ok) throw new Error(`Failed to update presentation: ${updateResp.status}`);
 
+      await uploadPresentationFile(presentationId, selectedFile);
       await loadPresentations();
     });
 
