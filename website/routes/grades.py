@@ -62,6 +62,15 @@ def _csv_grade_row(grade, grade_type):
     ]
 
 
+def _latest_grade_rows(grades):
+    """Return only the latest row for each grader/presentation pair."""
+    latest = {}
+    for grade in grades:
+        key = (grade.user_id, grade.presentation_id)
+        latest[key] = grade
+    return list(latest.values())
+
+
 @grades_bp.route('/', methods=['GET'])
 def get_grades():
     ''' GET all grades '''
@@ -77,15 +86,17 @@ def get_grades_dashboard_summary():
 
     for presentation in presentations:
         presenter_names = [_presenter_name(user) for user in presentation.presenters]
+        presentation_grades = _latest_grade_rows(presentation.grades)
+        abstract_grades = _latest_grade_rows(presentation.abstract_grades)
         rows.append({
             "presentation_id": presentation.id,
             "presentation_title": presentation.title,
             "presenters": [presenter.to_dict_basic() for presenter in presentation.presenters],
             "presenter_names": ', '.join(presenter_names) if presenter_names else '—',
-            "average_score": _average_score(presentation.grades),
-            "num_grades": len(presentation.grades),
-            "average_abstract_score": _average_score(presentation.abstract_grades),
-            "num_abstract_grades": len(presentation.abstract_grades),
+            "average_score": _average_score(presentation_grades),
+            "num_grades": len(presentation_grades),
+            "average_abstract_score": _average_score(abstract_grades),
+            "num_abstract_grades": len(abstract_grades),
         })
 
     return jsonify(rows)
@@ -104,7 +115,7 @@ def export_grades_csv():
         'Grade given',
     ])
 
-    grades = (
+    grades = _latest_grade_rows(
         Grade.query
         .join(Grade.presentation)
         .outerjoin(Grade.grader)
@@ -112,7 +123,7 @@ def export_grades_csv():
         .all()
     )
 
-    abstract_grades = (
+    abstract_grades = _latest_grade_rows(
         AbstractGrade.query
         .join(AbstractGrade.presentation)
         .outerjoin(AbstractGrade.grader)
