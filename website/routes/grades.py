@@ -2,8 +2,11 @@
 Gerades API routes for the grade data model in the Flask app.
 Provides CRUD operations and average score calculations.
 '''
+import csv
+import io
+
 from sqlalchemy import func, desc
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from website.models import Grade, Presentation, BlockSchedule
 from website import db
 from .utils import format_average_grades
@@ -29,6 +32,23 @@ def _presenter_name(user):
     first = (user.firstname or '').strip()
     last = (user.lastname or '').strip()
     return f"{first} {last}".strip() or user.email
+
+
+def _grader_name(user):
+    """Return a readable grader name for a user."""
+    if not user:
+        return '—'
+    first = (user.firstname or '').strip()
+    last = (user.lastname or '').strip()
+    return f"{first} {last}".strip() or user.email or '—'
+
+
+def _presentation_presenter_names(presentation):
+    """Return comma-separated presenter names for a presentation."""
+    if not presentation:
+        return '—'
+    names = [_presenter_name(user) for user in presentation.presenters]
+    return ', '.join(names) if names else '—'
 
 
 @grades_bp.route('/', methods=['GET'])
@@ -58,6 +78,39 @@ def get_grades_dashboard_summary():
         })
 
     return jsonify(rows)
+
+
+@grades_bp.route('/export.csv', methods=['GET'])
+def export_grades_csv():
+    """Export individual presentation grades as a CSV."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        'Grader',
+        'People associated with presentation',
+        'Presentation',
+        'Grade given',
+    ])
+
+    grades = (
+        Grade.query
+        .join(Grade.presentation)
+        .outerjoin(Grade.grader)
+        .order_by(Presentation.title.asc(), Grade.id.asc())
+        .all()
+    )
+
+    for grade in grades:
+        writer.writerow([
+            _grader_name(grade.grader),
+            _presentation_presenter_names(grade.presentation),
+            grade.presentation.title if grade.presentation else '—',
+            _total_score(grade),
+        ])
+
+    response = Response(output.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=grades.csv'
+    return response
 
 
 @grades_bp.route('/<int:grade_id>', methods=['GET'])
