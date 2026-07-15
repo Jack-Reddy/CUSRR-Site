@@ -8,14 +8,30 @@
     '/api/v1/presentations': '/api/v1/presentations/table',
   };
 
+  function requestMethod(input, init) {
+    return String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+  }
+
+  function requestPath(input) {
+    const url = typeof input === 'string' ? input : input && input.url;
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).pathname;
+    } catch (error) {
+      return url;
+    }
+  }
+
   function installFetchRewrites() {
     if (window.__cusrrTableFetchRewritesInstalled || !window.fetch) return;
 
     const originalFetch = window.fetch.bind(window);
     window.fetch = function patchedFetch(input, init) {
-      const url = typeof input === 'string' ? input : input && input.url;
-      const replacementUrl = TABLE_ENDPOINTS[url];
+      if (requestMethod(input, init) !== 'GET') {
+        return originalFetch(input, init);
+      }
 
+      const replacementUrl = TABLE_ENDPOINTS[requestPath(input)];
       if (!replacementUrl) {
         return originalFetch(input, init);
       }
