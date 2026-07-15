@@ -1,7 +1,7 @@
 """Lightweight API endpoints for organizer dashboard tables."""
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from sqlalchemy import func, text
 from sqlalchemy.orm import joinedload, load_only
 
@@ -11,6 +11,14 @@ from website.models import BlockSchedule, Presentation, User
 users_table_bp = Blueprint('users_table', __name__)
 presentations_table_bp = Blueprint('presentations_table', __name__)
 VALID_PRESENTATION_TYPES = {'Presentation', 'Blitz', 'Poster'}
+
+
+def _clean_text(value):
+    """Normalize optional text fields for storage."""
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
 
 
 def _normalize_presentation_type(value):
@@ -37,6 +45,19 @@ def _ensure_presentation_type_table():
         ))
 
 
+def _ensure_presentation_visibility_table():
+    """Create the per-presentation visibility table if it does not exist."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS presentation_visibility (
+                presentation_id INTEGER PRIMARY KEY,
+                show_on_schedule BOOLEAN NOT NULL DEFAULT TRUE
+            )
+            """
+        ))
+
+
 def _presentation_type_overrides():
     """Return a map of presentation_id to explicit presentation type overrides."""
     _ensure_presentation_type_table()
@@ -44,6 +65,42 @@ def _presentation_type_overrides():
         text("SELECT presentation_id, presentation_type FROM presentation_types")
     ).fetchall()
     return {row[0]: _normalize_presentation_type(row[1]) for row in rows if row[1]}
+
+
+def _set_presentation_type(presentation_id, value):
+    """Persist per-presentation type. Empty/invalid values remove the override."""
+    _ensure_presentation_type_table()
+    normalized = _normalize_presentation_type(value)
+    if not normalized:
+        db.session.execute(
+            text("DELETE FROM presentation_types WHERE presentation_id = :pid"),
+            {"pid": presentation_id}
+        )
+        return
+
+    result = db.session.execute(
+        text("UPDATE presentation_types SET presentation_type = :ptype WHERE presentation_id = :pid"),
+        {"pid": presentation_id, "ptype": normalized}
+    )
+    if result.rowcount == 0:
+        db.session.execute(
+            text("INSERT INTO presentation_types (presentation_id, presentation_type) VALUES (:pid, :ptype)"),
+            {"pid": presentation_id, "ptype": normalized}
+        )
+
+
+def _set_show_on_schedule(presentation_id, value):
+    """Persist whether a presentation should show on schedule/program pages."""
+    _ensure_presentation_visibility_table()
+    result = db.session.execute(
+        text("UPDATE presentation_visibility SET show_on_schedule = :value WHERE presentation_id = :pid"),
+        {"pid": presentation_id, "value": bool(value)}
+    )
+    if result.rowcount == 0:
+        db.session.execute(
+            text("INSERT INTO presentation_visibility (presentation_id, show_on_schedule) VALUES (:pid, :value)"),
+            {"pid": presentation_id, "value": bool(value)}
+        )
 
 
 def _format_datetime(value):
@@ -107,6 +164,20 @@ def _user_full_name(user):
     last = (user.lastname or '').strip()
     full_name = f"{first} {last}".strip()
     return full_name or user.email
+
+
+def _quick_presentation_response(presentation):
+    """Return a small response for modal updates without expensive serialization."""
+    return {
+        'id': presentation.id,
+        'title': presentation.title,
+        'abstract': presentation.abstract,
+        'department': presentation.department,
+        'mentor': presentation.mentor,
+        'keywords': presentation.keywords,
+        'schedule_id': presentation.schedule_id,
+        'time': _format_datetime(presentation.time),
+    }
 
 
 @users_table_bp.route('/table', methods=['GET'])
@@ -235,3 +306,28 @@ def get_presentations_table():
         })
 
     return jsonify(data), 200
+
+
+@presentations_table_bp.route('/<int:presentation_id>/quick-update', methods=['PUT'])
+def quick_update_presentation(presentation_id):
+    """Update organizer-editable fields and return a small response."""
+    presentation = Presentation.query.get_or_404(presentation_id)
+    data = request.get_json() or {}
+
+    if 'title' in data:
+        presentation.title = data.get('title') or ''
+    if 'abstract' in data:
+        presentation.abstract = data.get('abstract')
+    if 'department' in data:
+        presentation.department = _clean_text(data.get('department'))
+    if 'mentor' in data:
+        presentation.mentor = _clean_text(data.get('mentor'))
+    if 'keywords' in data:
+        presentation.keywords = _clean_text(data.get('keywords'))
+    if 'show_on_schedule' in data:
+        _set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
+    if 'type' in data:
+        _set_presentation_type(presentation.id, data.get('type'))
+
+    db.session.commit()
+    return jsonify(_quick_presentation_response(presentation)), 200
