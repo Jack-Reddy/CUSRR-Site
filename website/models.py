@@ -217,6 +217,10 @@ class Grade(db.Model):
         """
         Return a dictionary describing the grade.
         """
+        grader_name = None
+        if self.grader:
+            grader_name = f"{self.grader.firstname} {self.grader.lastname}"
+
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -225,7 +229,9 @@ class Grade(db.Model):
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
             "grader": self.grader.to_dict_basic() if self.grader else None,
-            "presentation": self.presentation.to_dict() if self.presentation else None
+            "grader_name": grader_name,
+            "presentation": self.presentation.to_dict() if self.presentation else None,
+            "presentation_title": self.presentation.title if self.presentation else None
         }
 
 class AbstractGrade(db.Model):
@@ -263,6 +269,10 @@ class AbstractGrade(db.Model):
         """
         Return a dictionary describing the abstract grade.
         """
+        grader_name = None
+        if self.grader:
+            grader_name = f"{self.grader.firstname} {self.grader.lastname}"
+
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -271,7 +281,9 @@ class AbstractGrade(db.Model):
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
             "grader": self.grader.to_dict_basic() if self.grader else None,
-            "presentation": self.presentation.to_dict() if self.presentation else None
+            "grader_name": grader_name,
+            "presentation": self.presentation.to_dict() if self.presentation else None,
+            "presentation_title": self.presentation.title if self.presentation else None
         }
 
 class BlockSchedule(db.Model):
@@ -293,6 +305,10 @@ class BlockSchedule(db.Model):
 
     def to_dict(self):
         """Return a JSON-ready dictionary for the schedule block."""
+        length = None
+        if self.start_time and self.end_time:
+            length = (self.end_time - self.start_time).total_seconds() / 60
+
         return {
             "id": self.id,
             "day": self.day,
@@ -304,5 +320,6 @@ class BlockSchedule(db.Model):
             "block_type": self.block_type,
             "type": self.block_type,
             "sub_length": self.sub_length,
+            "length": length,
             "is_presentation": self.is_presentation,
         }
