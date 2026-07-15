@@ -60,10 +60,15 @@ function scheduleDropdown(row) {
   });
 }
 
+async function apiErrorMessage(response, fallback) {
+  const data = await response.json().catch(() => ({}));
+  return data.error || data.reason || fallback;
+}
+
 async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+    throw new Error(await apiErrorMessage(response, `Network response was not ok: ${response.status} ${response.statusText}`));
   }
   return response.json();
 }
@@ -94,7 +99,7 @@ async function loadPresentations() {
 
   try {
     const [presentations, blocks] = await Promise.all([
-      fetchJson('/api/v1/presentations/'),
+      fetchJson('/api/v1/presentations/table'),
       fetchJson('/api/v1/block-schedule/'),
     ]);
 
@@ -108,7 +113,7 @@ async function loadPresentations() {
 
   } catch (err) {
     console.error('Failed to load presentations', err);
-    container.innerHTML = '<p class="text-danger">Could not load presentations.</p>';
+    container.innerHTML = `<p class="text-danger">Could not load presentations: ${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -194,7 +199,8 @@ function renderPresentationTable(presentations) {
       }
     ],
     responsive: true,
-    pageLength: 10,
+    pageLength: 150,
+    deferRender: true,
     order: [[0, 'asc']],
   });
 }
@@ -211,7 +217,7 @@ window.updatePresentationInline = async function (presentationId, field, value, 
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to update presentation: ${response.status}`);
+      throw new Error(await apiErrorMessage(response, `Failed to update presentation: ${response.status}`));
     }
 
     await loadPresentations();
@@ -221,7 +227,7 @@ window.updatePresentationInline = async function (presentationId, field, value, 
       selectEl.value = originalValue;
       selectEl.disabled = false;
     }
-    alert('Could not save that presentation change.');
+    alert(err.message || 'Could not save that presentation change.');
   }
 };
 
@@ -236,14 +242,14 @@ removePresentation = async function (presentationId) {
     });
 
     if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+      throw new Error(await apiErrorMessage(response, `Could not delete presentation: ${response.status}`));
     }
 
     await loadPresentations();
 
   } catch (err) {
     console.error('Failed to delete presentation', err);
-    alert('Could not delete presentation.');
+    alert(err.message || 'Could not delete presentation.');
   }
 };
 
@@ -253,20 +259,22 @@ async function editPresentation(presentationId) {
       method: 'GET',
     });
 
-    if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+    if (!response.ok) throw new Error(await apiErrorMessage(response, `Network response was not ok: ${response.status}`));
 
     const presentation = await response.json();
 
     await EditPresentationModal.fillAndShowModal(presentation);
 
     EditPresentationModal.setupFormSubmit(async (data, selectedFile) => {
-      const updateResp = await fetch(`/api/v1/presentations/${presentationId}`, {
+      const updateResp = await fetch(`/api/v1/presentations/${presentationId}/quick-update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
 
-      if (!updateResp.ok) throw new Error(`Failed to update presentation: ${updateResp.status}`);
+      if (!updateResp.ok) {
+        throw new Error(await apiErrorMessage(updateResp, `Failed to update presentation: ${updateResp.status}`));
+      }
 
       await uploadPresentationFile(presentationId, selectedFile);
       await loadPresentations();
@@ -274,7 +282,7 @@ async function editPresentation(presentationId) {
 
   } catch (err) {
     console.error('Failed to edit presentation', err);
-    alert('Could not load presentation details.');
+    alert(err.message || 'Could not load presentation details.');
   }
 }
 
