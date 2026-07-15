@@ -1,5 +1,5 @@
 """Lightweight API endpoints for organizer dashboard tables."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify
 from sqlalchemy import func, text
@@ -62,9 +62,7 @@ def _effective_time(presentation):
         num = presentation.num_in_block if presentation.num_in_block is not None else 0
         sub = schedule.sub_length if schedule.sub_length is not None else 0
         try:
-            return schedule.start_time + (datetime.min - datetime.min) + __import__('datetime').timedelta(
-                minutes=(int(num) * int(sub))
-            )
+            return schedule.start_time + timedelta(minutes=(int(num) * int(sub)))
         except (TypeError, ValueError):
             return schedule.start_time
     return presentation.time
