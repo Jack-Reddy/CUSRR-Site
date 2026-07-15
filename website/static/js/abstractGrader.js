@@ -15,7 +15,7 @@ function abstractSnippet(source, maxLength = 120) {
   const searchInput = document.getElementById('searchInput');
   const statusButtons = document.querySelectorAll('[data-filter]');
 
-  let presentations = []; // loaded from API
+  let presentations = [];
   let statusFilter = 'all';
   let query = '';
 
@@ -34,16 +34,18 @@ function abstractSnippet(source, maxLength = 120) {
 
   function createCard(p) {
     const col = document.createElement('div');
-    col.className = "col";               
+    col.className = "col";
     col.dataset.card = "";
     col.dataset.status = p.status;
     col.dataset.id = p.id;
-    col.dataset.title = p.title.toLowerCase();
-  
+    col.dataset.title = String(p.title || '').toLowerCase();
+
+    const preview = p.abstract_preview || p.abstract || '';
+
     col.innerHTML = `
         <div class="card abstract-card shadow-xs border-0 rounded-4 h-100">
           <div class="card-body d-flex gap-3 align-items-center">
-  
+
             <div class="d-flex flex-column align-items-center pt-1">
               ${p.status === "done"
                 ? `<span class="btn btn-success rounded-circle p-0" style="width:36px;height:36px">
@@ -54,14 +56,14 @@ function abstractSnippet(source, maxLength = 120) {
                    </span>`
               }
             </div>
-  
+
             <div class="flex-grow-1 ms-3">
               <div class="d-flex justify-content-between align-items-start">
-                <h6 class="mb-1">${p.title}</h6>
+                <h6 class="mb-1">${p.title || 'Untitled'}</h6>
               </div>
-  
-              <p class="text-sm mb-2">${ abstractSnippet(p.abstract || "", 120) }</p>
-  
+
+              <p class="text-sm mb-2">${abstractSnippet(preview, 120)}</p>
+
               <div class="d-flex align-items-center gap-2 flex-wrap">
                 ${actionButtons(p)}
               </div>
@@ -104,8 +106,7 @@ function abstractSnippet(source, maxLength = 120) {
       });
     });
   }
-  
-  // Render cards
+
   function renderCards() {
     todoGrid.innerHTML = "";
     completedGrid.innerHTML = "";
@@ -121,7 +122,6 @@ function abstractSnippet(source, maxLength = 120) {
     applyFilters();
   }
 
-  // Filters
   function matchesQuery(card) {
     if (!query) return true;
     return card.dataset.title.includes(query);
@@ -138,11 +138,10 @@ function abstractSnippet(source, maxLength = 120) {
     });
   }
 
-  // Progress bar
   function updateProgress() {
     const cards = Array.from(document.querySelectorAll('[data-card]'));
     const total = cards.length;
-    const done  = cards.filter(c => c.dataset.status === 'done').length;
+    const done = cards.filter(c => c.dataset.status === 'done').length;
     const pct = total ? Math.round(done / total * 100) : 0;
 
     document.getElementById('progressBar').style.width = pct + "%";
@@ -150,13 +149,11 @@ function abstractSnippet(source, maxLength = 120) {
       `${pct}% complete · ${done}/${total}`;
   }
 
-  // Search
   searchInput.addEventListener('input', () => {
     query = searchInput.value.trim().toLowerCase();
     applyFilters();
   });
 
-  // Status filter buttons
   statusButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       statusButtons.forEach(b => b.classList.remove("active"));
@@ -166,41 +163,22 @@ function abstractSnippet(source, maxLength = 120) {
     });
   });
 
-  // Load presentations from API
   async function loadPresentations() {
-    const res = await fetch("/api/v1/presentations");
-    presentations = (await res.json()).filter(p => p.show_on_schedule !== false);
-
-    const meRes = await fetch("/me");
-    const meData = await meRes.json();
-
-    if (!meData.authenticated || !meData.user_id) {
-      console.warn("No logged-in user; skipping completion sync.");
-      renderCards();
-      return;
-    }
-
-    const completedRes = await fetch(`/api/v1/abstractgrades/completed/${meData.user_id}/details`);
-    const completedData = await completedRes.json();
-    const completedIds = new Set(completedData.completed || []);
-    const gradeByPresentationId = new Map(
-      (completedData.grades || []).map((grade) => [grade.presentation_id, grade.id])
-    );
-
-    presentations.forEach(p => {
-      if (completedIds.has(p.id)) {
-        p.status = "done";
-        p.abstract_grade_id = gradeByPresentationId.get(p.id);
-      } else {
-        p.status = "todo";
-        p.abstract_grade_id = null;
+    try {
+      const res = await fetch('/api/v1/abstractgrades/dashboard-list');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.reason || `Could not load abstracts: ${res.status}`);
       }
-    });
 
-    // Render
-    renderCards();
+      presentations = await res.json();
+      renderCards();
+    } catch (error) {
+      console.error('Could not load abstract grading cards', error);
+      todoGrid.innerHTML = `<div class="col"><p class="text-danger">${error.message || 'Could not load abstracts.'}</p></div>`;
+      completedGrid.innerHTML = "";
+    }
   }
 
-  // Init
   loadPresentations();
 })();
