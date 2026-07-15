@@ -32,7 +32,7 @@ class Presentation(db.Model):
     __tablename__ = "presentations"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text, nullable=False)
+    title = db.Column(db.String(120), nullable=False)
     abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
     department = db.Column(db.String(120))
@@ -224,12 +224,13 @@ class Grade(db.Model):
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
+            "grader": self.grader.to_dict_basic() if self.grader else None,
+            "presentation": self.presentation.to_dict() if self.presentation else None
         }
-
 
 class AbstractGrade(db.Model):
     '''
-    Grade model representing a grade given by a user to a presentation.
+    AbstractGrade model representing a grade given to an abstract.
     Attributes:
         id: Primary key
         user_id: Foreign key to User
@@ -240,9 +241,9 @@ class AbstractGrade(db.Model):
         grader: Relationship to User model
         presentation: Relationship to Presentation model
     Methods:
-        to_dict: Convert grade to dictionary format
+        to_dict: Convert abstract grade to dictionary format
     '''
-    __tablename__ = "abstract_grades"
+    __tablename__ = "abstractGrades"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -257,10 +258,10 @@ class AbstractGrade(db.Model):
 
     grader = db.relationship('User', back_populates='abstract_grades_given')
     presentation = db.relationship('Presentation', back_populates='abstract_grades')
-    
+
     def to_dict(self):
         """
-        Return a dictionary describing the grade.
+        Return a dictionary describing the abstract grade.
         """
         return {
             "id": self.id,
@@ -269,36 +270,39 @@ class AbstractGrade(db.Model):
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
+            "grader": self.grader.to_dict_basic() if self.grader else None,
+            "presentation": self.presentation.to_dict() if self.presentation else None
         }
 
 class BlockSchedule(db.Model):
-    __tablename__ = "blockSchedules"
+    """Scheduled block for presentations or events."""
+    __tablename__ = 'blockSchedules'
 
     id = db.Column(db.Integer, primary_key=True)
-    day = db.Column(db.String(50), nullable=False)  # Day 1, Day 2, etc.
+    day = db.Column(db.String(80), nullable=False)
     start_time = db.Column(DateTime, nullable=False)
     end_time = db.Column(DateTime, nullable=False)
     title = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
     location = db.Column(db.String(120))
-    block_type = db.Column(db.String(80))
+    block_type = db.Column(db.String(50))
     sub_length = db.Column(db.Integer)
-    is_presentation = db.Column(db.Boolean, default=True)
+    is_presentation = db.Column(db.Boolean, nullable=False, default=True)
 
     presentations = db.relationship('Presentation', back_populates='schedule')
 
     def to_dict(self):
-        """returns block schedule as dict"""
+        """Return a JSON-ready dictionary for the schedule block."""
         return {
             "id": self.id,
             "day": self.day,
-            "start_time": self.start_time.isoformat() if self.start_time else None,
-            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "start_time": self.start_time.strftime('%Y-%m-%dT%H:%M:%S') if self.start_time else None,
+            "end_time": self.end_time.strftime('%Y-%m-%dT%H:%M:%S') if self.end_time else None,
             "title": self.title,
             "description": self.description,
             "location": self.location,
-            "type": self.block_type,
             "block_type": self.block_type,
+            "type": self.block_type,
             "sub_length": self.sub_length,
             "is_presentation": self.is_presentation,
         }
