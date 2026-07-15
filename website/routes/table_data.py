@@ -21,6 +21,16 @@ def _clean_text(value):
     return cleaned or None
 
 
+def _error_payload(context, error):
+    """Return a detailed JSON error while debugging organizer table saves."""
+    return jsonify({
+        'error': context,
+        'exception_type': type(error).__name__,
+        'message': str(error),
+        'details': repr(error),
+    }), 500
+
+
 def _normalize_presentation_type(value):
     """Normalize a presentation type for table display."""
     if value is None:
@@ -311,23 +321,27 @@ def get_presentations_table():
 @presentations_table_bp.route('/<int:presentation_id>/quick-update', methods=['PUT'])
 def quick_update_presentation(presentation_id):
     """Update organizer-editable fields and return a small response."""
-    presentation = Presentation.query.get_or_404(presentation_id)
-    data = request.get_json() or {}
+    try:
+        presentation = Presentation.query.get_or_404(presentation_id)
+        data = request.get_json() or {}
 
-    if 'title' in data:
-        presentation.title = data.get('title') or ''
-    if 'abstract' in data:
-        presentation.abstract = data.get('abstract')
-    if 'department' in data:
-        presentation.department = _clean_text(data.get('department'))
-    if 'mentor' in data:
-        presentation.mentor = _clean_text(data.get('mentor'))
-    if 'keywords' in data:
-        presentation.keywords = _clean_text(data.get('keywords'))
-    if 'show_on_schedule' in data:
-        _set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
-    if 'type' in data:
-        _set_presentation_type(presentation.id, data.get('type'))
+        if 'title' in data:
+            presentation.title = data.get('title') or ''
+        if 'abstract' in data:
+            presentation.abstract = data.get('abstract')
+        if 'department' in data:
+            presentation.department = _clean_text(data.get('department'))
+        if 'mentor' in data:
+            presentation.mentor = _clean_text(data.get('mentor'))
+        if 'keywords' in data:
+            presentation.keywords = _clean_text(data.get('keywords'))
+        if 'show_on_schedule' in data:
+            _set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
+        if 'type' in data:
+            _set_presentation_type(presentation.id, data.get('type'))
 
-    db.session.commit()
-    return jsonify(_quick_presentation_response(presentation)), 200
+        db.session.commit()
+        return jsonify(_quick_presentation_response(presentation)), 200
+    except Exception as error:
+        db.session.rollback()
+        return _error_payload('presentation_quick_update_failed', error)
