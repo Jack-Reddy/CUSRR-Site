@@ -61,8 +61,30 @@ function scheduleDropdown(row) {
 }
 
 async function apiErrorMessage(response, fallback) {
-  const data = await response.json().catch(() => ({}));
-  return data.error || data.reason || fallback;
+  const statusLine = `${response.status} ${response.statusText || ''}`.trim();
+  let bodyText = '';
+
+  try {
+    bodyText = await response.clone().text();
+  } catch (error) {
+    bodyText = '';
+  }
+
+  let bodyDetails = bodyText;
+  if (bodyText) {
+    try {
+      bodyDetails = JSON.stringify(JSON.parse(bodyText), null, 2);
+    } catch (error) {
+      bodyDetails = bodyText;
+    }
+  }
+
+  return [
+    fallback,
+    `Status: ${statusLine}`,
+    response.url ? `URL: ${response.url}` : '',
+    bodyDetails ? `Response body:\n${bodyDetails}` : 'Response body: empty',
+  ].filter(Boolean).join('\n\n');
 }
 
 async function fetchJson(url) {
@@ -84,9 +106,8 @@ async function uploadPresentationFile(presentationId, file) {
     body: formData,
   });
 
-  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || `Failed to upload presentation file: ${response.status}`);
+    throw new Error(await apiErrorMessage(response, `Failed to upload presentation file: ${response.status}`));
   }
 }
 
@@ -301,7 +322,7 @@ document.getElementById("download-presentations")?.addEventListener("click", asy
     const response = await fetch("/api/v1/presentations/download-all");
 
     if (!response.ok) {
-      throw new Error("Failed to download presentations");
+      throw new Error(await apiErrorMessage(response, `Failed to download presentations: ${response.status}`));
     }
 
     const blob = await response.blob();
@@ -316,7 +337,7 @@ document.getElementById("download-presentations")?.addEventListener("click", asy
 
   } catch (err) {
     console.error(err);
-    alert("Could not download presentations.");
+    alert(err.message || "Could not download presentations.");
   } finally {
     if (btn) {
       btn.disabled = false;
