@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import current_app, jsonify, request, session
 
 from website import db
-from website.models import Presentation, User
+from website.models import BlockSchedule, Presentation, User
 from website.routes import presentations as presentations_module
 from website.routes import users as users_module
 
@@ -44,6 +44,82 @@ def _can_assign_presentation_with_five_person_limit(user, presentation_id):
 
     user.presentation_id = presentation.id
     return None
+
+
+def _presentation_update_response(presentation):
+    """Return a small response after updates without running the heavy serializer."""
+    calculated_time = presentations_module.effective_presentation_time(presentation)
+    return {
+        "id": presentation.id,
+        "title": presentation.title,
+        "abstract": presentation.abstract,
+        "department": getattr(presentation, "department", None),
+        "mentor": getattr(presentation, "mentor", None),
+        "keywords": getattr(presentation, "keywords", None),
+        "schedule_id": presentation.schedule_id,
+        "time": calculated_time.strftime('%Y-%m-%dT%H:%M:%S') if calculated_time else None,
+        "type": presentations_module.get_presentation_type(presentation),
+        "show_on_schedule": presentations_module.get_show_on_schedule(presentation.id),
+    }
+
+
+def update_presentation_with_lightweight_response(presentation_id):
+    """Update a presentation and avoid a slow/error-prone full serializer response."""
+    presentation = Presentation.query.get_or_404(presentation_id)
+    data = request.get_json() or {}
+
+    permission_error = presentations_module._validate_update_permission(presentation, data)
+    if permission_error:
+        return permission_error
+
+    schedule_id_raw = data.get('schedule_id') or data.get('scheduleId')
+    if schedule_id_raw is not None:
+        if schedule_id_raw == "":
+            presentation.schedule_id = None
+            presentation.num_in_block = None
+        else:
+            try:
+                schedule_id_int = int(schedule_id_raw)
+            except (TypeError, ValueError):
+                return jsonify({"error": "Invalid schedule_id"}), 400
+
+            block = BlockSchedule.query.get(schedule_id_int)
+            if not block:
+                return jsonify({"error": "Schedule block not found"}), 404
+            presentation.schedule_id = block.id
+
+    if 'time' in data:
+        time_raw = data.get('time')
+        if time_raw:
+            try:
+                presentation.time = datetime.fromisoformat(time_raw)
+            except ValueError:
+                return jsonify({"error": "Invalid datetime format. Use ISO 8601."}), 400
+        else:
+            presentation.time = None
+
+    if 'title' in data:
+        presentation.title = data.get('title')
+    if 'abstract' in data:
+        presentation.abstract = data.get('abstract')
+    if 'presentation_file' in data:
+        presentation.presentation_file = data.get('presentation_file')
+
+    if 'department' in data:
+        presentation.department = presentations_module._clean_text(data.get('department'))
+    if 'mentor' in data:
+        presentation.mentor = presentations_module._clean_text(data.get('mentor'))
+    if 'keywords' in data:
+        presentation.keywords = presentations_module._clean_text(data.get('keywords'))
+
+    if 'show_on_schedule' in data:
+        presentations_module.set_show_on_schedule(presentation.id, data.get('show_on_schedule'))
+
+    if 'type' in data:
+        presentations_module.set_presentation_type(presentation.id, data.get('type'))
+
+    db.session.commit()
+    return jsonify(_presentation_update_response(presentation))
 
 
 def create_presentation_with_five_person_limit():
@@ -117,3 +193,4 @@ def install_group_size_limit_overrides(app):
     """Install five-person group-size behavior after the API blueprints are registered."""
     users_module._can_assign_presentation = _can_assign_presentation_with_five_person_limit
     app.view_functions['presentations.create_presentation'] = create_presentation_with_five_person_limit
+    app.view_functions['presentations.update_presentation'] = update_presentation_with_lightweight_response
