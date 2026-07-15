@@ -3,44 +3,29 @@ Abstract grades routes for the Flask app.
 Provides CRUD operations and average score calculations.
 '''
 
-from flask import Blueprint, jsonify, request
-from sqlalchemy import func, desc, inspect, text
-from website.models import AbstractGrade, Presentation, BlockSchedule
+from flask import Blueprint, jsonify, request, session
+from sqlalchemy import func, desc, text
+from website.models import AbstractGrade, BlockSchedule, Presentation, User
 from website import db
 from .utils import format_average_grades
 
 abstract_grades_bp = Blueprint('abstract_grades', __name__)
 
 
-def _abstract_grade_columns():
-    """Return the existing abstract grade table columns."""
-    try:
-        inspector = inspect(db.engine)
-        if not inspector.has_table('abstract_grades'):
-            return set()
-        return {column['name'] for column in inspector.get_columns('abstract_grades')}
-    except Exception:
-        return set()
+def _abstract_grade_comments_table_sql():
+    """Return SQL for the optional abstract grade comments side table."""
+    return """
+        CREATE TABLE IF NOT EXISTS abstract_grade_comments (
+            abstract_grade_id INTEGER PRIMARY KEY,
+            comment TEXT
+        )
+    """
 
 
-def ensure_abstract_grade_comment_column():
-    """Add a persistent comments column for existing databases."""
-    columns = _abstract_grade_columns()
-    if not columns or 'comment_text' in columns:
-        return
-
-    try:
-        with db.engine.begin() as conn:
-            conn.execute(text("ALTER TABLE abstract_grades ADD COLUMN comment_text TEXT"))
-    except Exception:
-        # The column may already have been added by a concurrent request.
-        return
-
-
-@abstract_grades_bp.before_request
-def ensure_abstract_grade_schema_before_request():
-    """Keep older deployments compatible after adding abstract grade comments."""
-    ensure_abstract_grade_comment_column()
+def _ensure_abstract_grade_comments_table():
+    """Create the side table used to store optional abstract grade comments."""
+    with db.engine.begin() as conn:
+        conn.execute(text(_abstract_grade_comments_table_sql()))
 
 
 def _comment_from_payload(data):
@@ -50,49 +35,132 @@ def _comment_from_payload(data):
 
 
 def _set_abstract_grade_comment(grade_id, comment):
-    """Persist comment text for an abstract grade."""
-    ensure_abstract_grade_comment_column()
-    if 'comment_text' not in _abstract_grade_columns():
+    """Persist comment text without altering the core abstract_grades table."""
+    _ensure_abstract_grade_comments_table()
+    cleaned = str(comment or '')
+    if not cleaned.strip():
+        db.session.execute(
+            text("DELETE FROM abstract_grade_comments WHERE abstract_grade_id = :grade_id"),
+            {"grade_id": grade_id}
+        )
         return
 
-    db.session.execute(
-        text("UPDATE abstract_grades SET comment_text = :comment WHERE id = :grade_id"),
-        {"comment": comment, "grade_id": grade_id}
+    updated = db.session.execute(
+        text("""
+            UPDATE abstract_grade_comments
+            SET comment = :comment
+            WHERE abstract_grade_id = :grade_id
+        """),
+        {"comment": cleaned, "grade_id": grade_id}
     )
+    if updated.rowcount == 0:
+        db.session.execute(
+            text("""
+                INSERT INTO abstract_grade_comments (abstract_grade_id, comment)
+                VALUES (:grade_id, :comment)
+            """),
+            {"comment": cleaned, "grade_id": grade_id}
+        )
 
 
 def _abstract_grade_comment(grade_id):
     """Return saved comment text for an abstract grade."""
-    ensure_abstract_grade_comment_column()
-    if 'comment_text' not in _abstract_grade_columns():
-        return ''
-
+    _ensure_abstract_grade_comments_table()
     row = db.session.execute(
-        text("SELECT comment_text FROM abstract_grades WHERE id = :grade_id"),
+        text("SELECT comment FROM abstract_grade_comments WHERE abstract_grade_id = :grade_id"),
         {"grade_id": grade_id}
     ).fetchone()
     return row[0] if row and row[0] else ''
+
+
+def _abstract_grade_to_dict(grade):
+    """Serialize an abstract grade with optional comment text."""
+    data = grade.to_dict()
+    data['comment'] = _abstract_grade_comment(grade.id)
+    return data
+
+
+def _current_user_id():
+    """Return the current session user's database id, if available."""
+    user_info = session.get('user') or {}
+    email = user_info.get('email')
+    if not email:
+        return None
+    user = User.query.filter_by(email=email).first()
+    return user.id if user else None
+
+
+def _show_on_schedule(presentation_id):
+    """Return whether a presentation should show in public/grading lists."""
+    try:
+        row = db.session.execute(
+            text("SELECT show_on_schedule FROM presentation_visibility WHERE presentation_id = :pid"),
+            {"pid": presentation_id}
+        ).fetchone()
+    except Exception:
+        return True
+    return bool(row[0]) if row else True
 
 
 @abstract_grades_bp.route('/', methods=['GET'])
 def get_abstract_grades():
     ''' GET all abstract grades '''
     grades = AbstractGrade.query.all()
-    data = []
+    return jsonify([_abstract_grade_to_dict(g) for g in grades])
+
+
+@abstract_grades_bp.route('/dashboard-list', methods=['GET'])
+def get_abstract_grader_dashboard_list():
+    """Return lightweight abstract-grader cards for the current grader."""
+    user_id = request.args.get('user_id', type=int) or _current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    grades = (
+        AbstractGrade.query
+        .filter_by(user_id=user_id)
+        .order_by(AbstractGrade.id.asc())
+        .all()
+    )
+    latest_by_presentation = {}
     for grade in grades:
-        grade_data = grade.to_dict()
-        grade_data['comment'] = _abstract_grade_comment(grade.id)
-        data.append(grade_data)
-    return jsonify(data)
+        latest_by_presentation[grade.presentation_id] = grade
+
+    presentation_rows = (
+        db.session.query(
+            Presentation.id,
+            Presentation.title,
+            func.substr(Presentation.abstract, 1, 220).label('abstract_preview')
+        )
+        .order_by(Presentation.id.asc())
+        .all()
+    )
+
+    rows = []
+    for presentation in presentation_rows:
+        if not _show_on_schedule(presentation.id):
+            continue
+        grade = latest_by_presentation.get(presentation.id)
+        rows.append({
+            "id": presentation.id,
+            "title": presentation.title or 'Untitled',
+            "abstract_preview": presentation.abstract_preview or '',
+            "status": "done" if grade else "todo",
+            "abstract_grade_id": grade.id if grade else None,
+            "criteria_1": grade.criteria_1 if grade else None,
+            "criteria_2": grade.criteria_2 if grade else None,
+            "criteria_3": grade.criteria_3 if grade else None,
+            "comment": _abstract_grade_comment(grade.id) if grade else '',
+        })
+
+    return jsonify(rows)
 
 
 @abstract_grades_bp.route('/<int:abstract_grade_id>', methods=['GET'])
 def get_abstract_grade(abstract_grade_id):
     '''GET one abstract grade by ID '''
     grade = AbstractGrade.query.get_or_404(abstract_grade_id)
-    data = grade.to_dict()
-    data['comment'] = _abstract_grade_comment(grade.id)
-    return jsonify(data)
+    return jsonify(_abstract_grade_to_dict(grade))
 
 
 @abstract_grades_bp.route('/', methods=['POST'])
@@ -112,7 +180,7 @@ def create_abstract_grade():
         existing.criteria_3 = data['criteria_3']
         _set_abstract_grade_comment(existing.id, comment)
         db.session.commit()
-        response_data = existing.to_dict()
+        response_data = _abstract_grade_to_dict(existing)
         response_data['comment'] = comment
         return jsonify(response_data), 200
 
@@ -129,7 +197,7 @@ def create_abstract_grade():
     _set_abstract_grade_comment(new_grade.id, comment)
     db.session.commit()
 
-    response_data = new_grade.to_dict()
+    response_data = _abstract_grade_to_dict(new_grade)
     response_data['comment'] = comment
     return jsonify(response_data), 201
 
@@ -149,15 +217,14 @@ def update_abstract_grade(abstract_grade_id):
         _set_abstract_grade_comment(grade.id, _comment_from_payload(data))
 
     db.session.commit()
-    response_data = grade.to_dict()
-    response_data['comment'] = _abstract_grade_comment(grade.id)
-    return jsonify(response_data)
+    return jsonify(_abstract_grade_to_dict(grade))
 
 
 @abstract_grades_bp.route('/<int:abstract_grade_id>', methods=['DELETE'])
 def delete_abstract_grade(abstract_grade_id):
     ''' DELETE abstract grade '''
     grade = AbstractGrade.query.get_or_404(abstract_grade_id)
+    _set_abstract_grade_comment(grade.id, '')
     db.session.delete(grade)
     db.session.commit()
     return jsonify({"message": "Abstract grade deleted"})
@@ -210,7 +277,7 @@ def get_completed_presentations_for_user(user_id):
 @abstract_grades_bp.route('/completed/<int:user_id>/details', methods=['GET'])
 def get_completed_abstract_grade_details_for_user(user_id):
     """
-    Return completed presentation IDs plus one abstract grade ID per presentation for undo/review actions.
+    Return completed presentation IDs plus one abstract grade ID per presentation.
     """
     grades = (
         AbstractGrade.query
