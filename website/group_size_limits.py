@@ -2,6 +2,7 @@
 from datetime import datetime
 
 from flask import current_app, jsonify, request, session
+from sqlalchemy import text
 
 from website import db
 from website.models import BlockSchedule, Presentation, User
@@ -18,6 +19,20 @@ def _current_user():
     if not email:
         return None
     return User.query.filter_by(email=email).first()
+
+
+def ensure_long_presentation_title_column():
+    """Make existing production databases accept long presentation titles."""
+    dialect_name = db.engine.dialect.name
+
+    try:
+        with db.engine.begin() as conn:
+            if dialect_name == 'postgresql':
+                conn.execute(text("ALTER TABLE presentations ALTER COLUMN title TYPE TEXT"))
+            elif dialect_name in ('mysql', 'mariadb'):
+                conn.execute(text("ALTER TABLE presentations MODIFY title TEXT NOT NULL"))
+    except Exception as error:  # keep updates from crashing if the migration already ran or is unsupported
+        current_app.logger.warning("Could not widen presentation title column: %s", error)
 
 
 def _can_assign_presentation_with_five_person_limit(user, presentation_id):
@@ -65,6 +80,8 @@ def _presentation_update_response(presentation):
 
 def update_presentation_with_lightweight_response(presentation_id):
     """Update a presentation and avoid a slow/error-prone full serializer response."""
+    ensure_long_presentation_title_column()
+
     presentation = Presentation.query.get_or_404(presentation_id)
     data = request.get_json() or {}
 
@@ -99,7 +116,7 @@ def update_presentation_with_lightweight_response(presentation_id):
             presentation.time = None
 
     if 'title' in data:
-        presentation.title = data.get('title')
+        presentation.title = data.get('title') or ''
     if 'abstract' in data:
         presentation.abstract = data.get('abstract')
     if 'presentation_file' in data:
@@ -124,6 +141,8 @@ def update_presentation_with_lightweight_response(presentation_id):
 
 def create_presentation_with_five_person_limit():
     """Create a presentation while allowing up to five presenters total."""
+    ensure_long_presentation_title_column()
+
     data = request.get_json() or {}
     schedule_id = data.get('schedule_id') or data.get('block_id')
     time_str = data.get('time')
