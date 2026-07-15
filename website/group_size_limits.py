@@ -23,6 +23,9 @@ def _current_user():
 
 def ensure_long_presentation_title_column():
     """Make existing production databases accept long presentation titles."""
+    if current_app.config.get('TESTING', False):
+        return
+
     dialect_name = db.engine.dialect.name
 
     try:
