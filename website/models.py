@@ -32,7 +32,7 @@ class Presentation(db.Model):
     __tablename__ = "presentations"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(120), nullable=False)
+    title = db.Column(db.Text, nullable=False)
     abstract = db.Column(db.Text)
     subject = db.Column(db.String(100))
     department = db.Column(db.String(120))
@@ -220,12 +220,7 @@ class Grade(db.Model):
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "grader_name": (
-                f"{self.grader.firstname} {self.grader.lastname}"
-                if self.grader else None
-            ),
             "presentation_id": self.presentation_id,
-            "presentation_title": self.presentation.title if self.presentation else None,
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
@@ -234,7 +229,7 @@ class Grade(db.Model):
 
 class AbstractGrade(db.Model):
     '''
-    AbstractGrade model representing an abstract grade given by a user to a presentation.
+    Grade model representing a grade given by a user to a presentation.
     Attributes:
         id: Primary key
         user_id: Foreign key to User
@@ -245,7 +240,7 @@ class AbstractGrade(db.Model):
         grader: Relationship to User model
         presentation: Relationship to Presentation model
     Methods:
-        to_dict: Convert abstract grade to dictionary format
+        to_dict: Convert grade to dictionary format
     '''
     __tablename__ = "abstract_grades"
 
@@ -256,55 +251,44 @@ class AbstractGrade(db.Model):
         db.ForeignKey('presentations.id'),
         nullable=False)
 
-    criteria_1 = db.Column(db.Float, nullable=False)
-    criteria_2 = db.Column(db.Float, nullable=False)
-    criteria_3 = db.Column(db.Float, nullable=False)
+    criteria_1 = db.Column(db.Integer, nullable=False)
+    criteria_2 = db.Column(db.Integer, nullable=False)
+    criteria_3 = db.Column(db.Integer, nullable=False)
 
     grader = db.relationship('User', back_populates='abstract_grades_given')
-    presentation = db.relationship(
-        'Presentation',
-        back_populates='abstract_grades')
-
+    presentation = db.relationship('Presentation', back_populates='abstract_grades')
+    
     def to_dict(self):
         """
-        Return a dictionary describing the abstract grade.
+        Return a dictionary describing the grade.
         """
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "grader_name": f'''{self.grader.firstname} {self.grader.lastname}'''
-            if self.grader else None,
             "presentation_id": self.presentation_id,
-            "presentation_title": self.presentation.title 
-            if self.presentation else None,
             "criteria_1": self.criteria_1,
             "criteria_2": self.criteria_2,
             "criteria_3": self.criteria_3,
         }
 
-
 class BlockSchedule(db.Model):
-    '''
-    Represents schedule blocks (presentation sessions, lunch, dinner, etc.).
-    '''
-    __tablename__ = 'blockSchedules'
+    __tablename__ = "blockSchedules"
+
     id = db.Column(db.Integer, primary_key=True)
-    day = db.Column(db.String(20), nullable=False)
+    day = db.Column(db.String(50), nullable=False)  # Day 1, Day 2, etc.
     start_time = db.Column(DateTime, nullable=False)
     end_time = db.Column(DateTime, nullable=False)
     title = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
     location = db.Column(db.String(120))
-    block_type = db.Column(db.String(50))
+    block_type = db.Column(db.String(80))
+    sub_length = db.Column(db.Integer)
     is_presentation = db.Column(db.Boolean, default=True)
-    sub_length = db.Column(db.Integer, nullable=True)
+
     presentations = db.relationship('Presentation', back_populates='schedule')
 
     def to_dict(self):
-        length = None
-        if self.start_time and self.end_time:
-            length = (self.end_time - self.start_time).total_seconds() / 60
-
+        """returns block schedule as dict"""
         return {
             "id": self.id,
             "day": self.day,
@@ -314,7 +298,7 @@ class BlockSchedule(db.Model):
             "description": self.description,
             "location": self.location,
             "type": self.block_type,
-            "is_presentation": self.is_presentation,
+            "block_type": self.block_type,
             "sub_length": self.sub_length,
-            "length": length,
+            "is_presentation": self.is_presentation,
         }
