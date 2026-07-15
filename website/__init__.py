@@ -55,12 +55,19 @@ def create_app(test_config=None):
     from .routes.abstract_grades import abstract_grades_bp
     from .routes.grades import grades_bp
     from .routes.presentation_overview import presentation_overview_bp
+    from .routes.table_data import users_table_bp, presentations_table_bp
     from .group_size_limits import install_group_size_limit_overrides
 
     # Register API blueprints under `/api/v1/...` so frontend endpoints match
     app.register_blueprint(users_bp, url_prefix='/api/v1/users')
     app.register_blueprint(
         presentations_bp,
+        url_prefix='/api/v1/presentations')
+    app.register_blueprint(
+        users_table_bp,
+        url_prefix='/api/v1/users')
+    app.register_blueprint(
+        presentations_table_bp,
         url_prefix='/api/v1/presentations')
     app.register_blueprint(
         block_schedule_bp,
@@ -332,6 +339,7 @@ def create_app(test_config=None):
         Render the signup page.
         '''
         return render_template('signup.html')
+
     @app.route('/grades-dashboard')
     @auth.organizer_required
     def grades_dashboard():
