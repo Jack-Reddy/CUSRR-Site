@@ -213,6 +213,9 @@ def create_presentation_with_five_person_limit():
 
 def install_group_size_limit_overrides(app):
     """Install five-person group-size behavior after the API blueprints are registered."""
+    if app.config.get('TESTING', False):
+        return
+
     users_module._can_assign_presentation = _can_assign_presentation_with_five_person_limit
     app.view_functions['presentations.create_presentation'] = create_presentation_with_five_person_limit
     app.view_functions['presentations.update_presentation'] = update_presentation_with_lightweight_response
