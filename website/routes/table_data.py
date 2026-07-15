@@ -1,7 +1,7 @@
 """Lightweight API endpoints for organizer dashboard tables."""
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import func, text
 from sqlalchemy.orm import joinedload, load_only
 
@@ -29,6 +29,25 @@ def _error_payload(context, error):
         'message': str(error),
         'details': repr(error),
     }), 500
+
+
+def _ensure_long_presentation_title_column():
+    """Make existing production databases accept long presentation titles."""
+    if current_app.config.get('TESTING', False):
+        return
+
+    dialect_name = db.engine.dialect.name
+    if dialect_name not in ('postgresql', 'mysql', 'mariadb'):
+        return
+
+    try:
+        with db.engine.begin() as conn:
+            if dialect_name == 'postgresql':
+                conn.execute(text("ALTER TABLE presentations ALTER COLUMN title TYPE TEXT"))
+            else:
+                conn.execute(text("ALTER TABLE presentations MODIFY title TEXT NOT NULL"))
+    except Exception as error:  # keep unsupported/duplicate migrations from hiding the real save error
+        current_app.logger.warning("Could not widen presentation title column: %s", error)
 
 
 def _normalize_presentation_type(value):
@@ -322,6 +341,7 @@ def get_presentations_table():
 def quick_update_presentation(presentation_id):
     """Update organizer-editable fields and return a small response."""
     try:
+        _ensure_long_presentation_title_column()
         presentation = Presentation.query.get_or_404(presentation_id)
         data = request.get_json() or {}
 
