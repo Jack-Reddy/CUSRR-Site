@@ -5,7 +5,8 @@ Provides CRUD operations and querying by day.
 from datetime import datetime
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import func
-from website.models import BlockSchedule
+from sqlalchemy.orm import joinedload, load_only
+from website.models import BlockSchedule, Presentation, User
 from website import db
 
 
@@ -89,6 +90,150 @@ def _default_schedule_objects():
             is_presentation=item.get("is_presentation", True),
         ))
     return blocks
+
+
+def _format_datetime(value):
+    """Format datetimes as naive local ISO strings for schedule JSON."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%dT%H:%M:%S')
+    return str(value)
+
+
+def _presenter_to_schedule_dict(user):
+    """Return the presenter fields needed by the schedule cards/modal."""
+    return {
+        "id": user.id,
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "email": user.email,
+        "activity": user.activity,
+        "name": f"{user.firstname or ''} {user.lastname or ''}".strip() or user.email,
+    }
+
+
+def _presentation_to_schedule_dict(presentation, program_ids):
+    """Return a lightweight presentation payload for the schedule page."""
+    from website.routes.presentations import effective_presentation_time, get_presentation_type
+
+    schedule = presentation.schedule
+    display_time = effective_presentation_time(presentation)
+    return {
+        "id": presentation.id,
+        "title": presentation.title,
+        "abstract": presentation.abstract,
+        "time": _format_datetime(display_time),
+        "room": schedule.location if schedule else None,
+        "type": get_presentation_type(presentation),
+        "program_identifier": program_ids.get(presentation.id),
+        "show_on_schedule": True,
+        "schedule_id": presentation.schedule_id,
+        "num_in_block": presentation.num_in_block,
+        "presenters": [
+            _presenter_to_schedule_dict(presenter)
+            for presenter in presentation.presenters
+        ],
+    }
+
+
+def _schedule_payload_for_day(day):
+    """Return blocks plus lightweight presentation rows for one schedule day."""
+    from website.routes.presentations import get_show_on_schedule, _program_identifier_map
+
+    blocks = (
+        BlockSchedule.query
+        .filter_by(day=day)
+        .order_by(BlockSchedule.start_time, BlockSchedule.id)
+        .all()
+    )
+    block_ids = [block.id for block in blocks]
+
+    if not block_ids:
+        return {
+            "blocks": [],
+            "presentations": [],
+        }
+
+    identifier_presentations = (
+        Presentation.query
+        .options(
+            load_only(
+                Presentation.id,
+                Presentation.time,
+                Presentation.num_in_block,
+                Presentation.schedule_id,
+            ),
+            joinedload(Presentation.schedule).load_only(
+                BlockSchedule.id,
+                BlockSchedule.block_type,
+                BlockSchedule.start_time,
+                BlockSchedule.sub_length,
+            ),
+        )
+        .all()
+    )
+    visible_identifier_presentations = [
+        presentation
+        for presentation in identifier_presentations
+        if get_show_on_schedule(presentation.id)
+    ]
+    program_ids = _program_identifier_map(visible_identifier_presentations)
+    visible_ids = {presentation.id for presentation in visible_identifier_presentations}
+
+    presentations = (
+        Presentation.query
+        .options(
+            load_only(
+                Presentation.id,
+                Presentation.title,
+                Presentation.abstract,
+                Presentation.time,
+                Presentation.num_in_block,
+                Presentation.schedule_id,
+            ),
+            joinedload(Presentation.schedule).load_only(
+                BlockSchedule.id,
+                BlockSchedule.location,
+                BlockSchedule.block_type,
+                BlockSchedule.start_time,
+                BlockSchedule.sub_length,
+            ),
+            joinedload(Presentation.presenters).load_only(
+                User.id,
+                User.firstname,
+                User.lastname,
+                User.email,
+                User.activity,
+            ),
+        )
+        .filter(Presentation.schedule_id.in_(block_ids))
+        .order_by(
+            Presentation.schedule_id.asc(),
+            Presentation.num_in_block.asc().nullsfirst(),
+            Presentation.id.asc(),
+        )
+        .all()
+    )
+
+    presentations_by_block = {block.id: [] for block in blocks}
+    for presentation in presentations:
+        if presentation.id not in visible_ids:
+            continue
+        presentations_by_block.setdefault(presentation.schedule_id, []).append(
+            _presentation_to_schedule_dict(presentation, program_ids)
+        )
+
+    return {
+        "blocks": [block.to_dict() for block in blocks],
+        "presentations": [
+            {
+                "block": block.to_dict(),
+                "presentations": presentations_by_block.get(block.id, []),
+            }
+            for block in blocks
+        ],
+    }
 
 
 block_schedule_bp = Blueprint('block_schedule', __name__)
@@ -233,6 +378,12 @@ def get_schedules_by_day(day):
         day=day).order_by(
         BlockSchedule.start_time).all()
     return jsonify([s.to_dict() for s in schedules])
+
+
+@block_schedule_bp.route('/day/<string:day>/full', methods=['GET'])
+def get_schedule_page_by_day(day):
+    ''' GET blocks and lightweight presentation rows for the schedule page. '''
+    return jsonify(_schedule_payload_for_day(day))
 
 
 @block_schedule_bp.route('/days', methods=['GET'])
