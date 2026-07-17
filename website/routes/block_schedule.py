@@ -3,10 +3,58 @@ Block Schedule API routes.
 Provides CRUD operations and querying by day.
 '''
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import func
 from website.models import BlockSchedule
 from website import db
+
+
+DEFAULT_SCHEDULE_BLOCKS = [
+    {
+        "title": "Opening Remarks",
+        "start_time": "2026-11-06T08:30",
+        "end_time": "2026-11-06T09:00",
+        "location": "Main Hall",
+        "day": "Day 1",
+        "block_type": "Keynote",
+        "description": None,
+        "sub_length": None,
+        "is_presentation": True,
+    },
+    {
+        "title": "Keynote Address",
+        "start_time": "2026-11-06T09:00",
+        "end_time": "2026-11-06T10:00",
+        "location": "Auditorium",
+        "day": "Day 1",
+        "block_type": "Keynote",
+        "description": None,
+        "sub_length": None,
+        "is_presentation": True,
+    },
+    {
+        "title": "Poster Session I",
+        "start_time": "2026-11-06T10:15",
+        "end_time": "2026-11-06T11:00",
+        "location": "Exhibition Hall",
+        "day": "Day 1",
+        "block_type": "Poster",
+        "description": None,
+        "sub_length": 15,
+        "is_presentation": True,
+    },
+    {
+        "title": "Lunch Break",
+        "start_time": "2026-11-06T12:00",
+        "end_time": "2026-11-06T13:00",
+        "location": "Courtyard",
+        "day": "Day 1",
+        "block_type": "Break",
+        "description": None,
+        "sub_length": None,
+        "is_presentation": False,
+    },
+]
 
 
 def parse_local_datetime(val):
@@ -23,6 +71,24 @@ def parse_local_datetime(val):
             except ValueError:
                 continue
     return None
+
+
+def _default_schedule_objects():
+    """Create default schedule block model instances without committing."""
+    blocks = []
+    for item in DEFAULT_SCHEDULE_BLOCKS:
+        blocks.append(BlockSchedule(
+            day=item["day"],
+            start_time=parse_local_datetime(item["start_time"]),
+            end_time=parse_local_datetime(item["end_time"]),
+            title=item["title"],
+            description=item.get("description"),
+            location=item.get("location"),
+            block_type=item.get("block_type"),
+            sub_length=item.get("sub_length"),
+            is_presentation=item.get("is_presentation", True),
+        ))
+    return blocks
 
 
 block_schedule_bp = Blueprint('block_schedule', __name__)
@@ -45,6 +111,26 @@ def get_schedules():
 
     schedules = query.all()
     return jsonify([s.to_dict() for s in schedules])
+
+
+@block_schedule_bp.route('/restore-defaults', methods=['POST'])
+def restore_default_schedules():
+    ''' POST restore default schedule blocks if the schedule was emptied. '''
+    if BlockSchedule.query.count() > 0:
+        return jsonify({
+            "message": "Schedule blocks already exist; restore skipped.",
+            "created": 0,
+        })
+
+    blocks = _default_schedule_objects()
+    db.session.add_all(blocks)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Default schedule blocks restored.",
+        "created": len(blocks),
+        "blocks": [block.to_dict() for block in blocks],
+    }), 201
 
 
 @block_schedule_bp.route('/<int:block_id>', methods=['GET'])
@@ -112,7 +198,7 @@ def update_schedule(block_id):
         'block_type', data.get(
             'type', schedule.block_type))
     schedule.sub_length = data.get('sub_length', schedule.sub_length)
-    
+
     # Update is_presentation if provided
     if 'is_presentation' in data:
         schedule.is_presentation = data.get('is_presentation', True)
@@ -125,6 +211,16 @@ def update_schedule(block_id):
 def delete_schedule(block_id):
     ''' DELETE block '''
     schedule = BlockSchedule.query.get_or_404(block_id)
+
+    if (
+        not current_app.config.get('TESTING', False)
+        and BlockSchedule.query.count() <= 1
+    ):
+        return jsonify({
+            "error": "Cannot delete the final schedule block.",
+            "message": "Create another block first or use restore defaults after clearing the schedule.",
+        }), 400
+
     db.session.delete(schedule)
     db.session.commit()
     return jsonify({"message": "Schedule deleted"})
