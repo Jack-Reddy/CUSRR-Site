@@ -70,6 +70,57 @@ async function get_presentations_by_day(day) {
   return await res.json();
 }
 
+function renderEmptyScheduleState(daySelect, overview, details) {
+  if (daySelect) {
+    daySelect.innerHTML = '<option value="">No schedule blocks</option>';
+  }
+  if (details) {
+    details.innerHTML = '';
+  }
+
+  const restoreButton = window.IS_ORGANIZER ? `
+    <button type="button" class="btn btn-primary btn-sm mt-2" id="restore-default-schedule-btn">
+      Restore Default Schedule Blocks
+    </button>
+  ` : '';
+
+  if (overview) {
+    overview.innerHTML = `
+      <div class="col-12">
+        <div class="alert alert-warning rounded-4 shadow-xs mb-0">
+          <strong>No schedule blocks found.</strong>
+          ${window.IS_ORGANIZER ? '<div class="mt-1">The schedule table is empty. You can restore the default blocks or add a new block manually.</div>' : ''}
+          ${restoreButton}
+        </div>
+      </div>
+    `;
+  }
+
+  const restoreBtn = document.getElementById('restore-default-schedule-btn');
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', async () => {
+      restoreBtn.disabled = true;
+      restoreBtn.textContent = 'Restoring...';
+      try {
+        const response = await fetch('/api/v1/block-schedule/restore-defaults', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || `Restore failed: ${response.status}`);
+        }
+        window.location.reload();
+      } catch (err) {
+        console.error('Failed to restore schedule blocks', err);
+        restoreBtn.disabled = false;
+        restoreBtn.textContent = 'Restore Default Schedule Blocks';
+        alert(`Could not restore schedule blocks. ${err.message || ''}`);
+      }
+    });
+  }
+}
+
 function renderOverview(sessions, overviewContainer) {
   overviewContainer.innerHTML = '';
 
@@ -247,20 +298,24 @@ async function initializeScheduleUI() {
 
   const days = await fetchDays();
 
-  daySelect.innerHTML = '';
-  days.forEach(day => {
-    const opt = document.createElement('option');
-    opt.value = day;
-    opt.textContent = day;
-    daySelect.appendChild(opt);
-  });
+  if (!Array.isArray(days) || days.length === 0) {
+    renderEmptyScheduleState(daySelect, overview, details);
+  } else {
+    daySelect.innerHTML = '';
+    days.forEach(day => {
+      const opt = document.createElement('option');
+      opt.value = day;
+      opt.textContent = day;
+      daySelect.appendChild(opt);
+    });
 
-  if (days.length > 0) {
     loadForDay(days[0], overview, details);
   }
 
   daySelect.addEventListener('change', () => {
-    loadForDay(daySelect.value, overview, details);
+    if (daySelect.value) {
+      loadForDay(daySelect.value, overview, details);
+    }
   });
 
   if (addBlockBtn && window.IS_ORGANIZER) {
@@ -273,10 +328,11 @@ async function initializeScheduleUI() {
       if (deleteBtn) deleteBtn.style.display = 'none';
 
       if (window.EditBlockModal) {
-        const sessions = await fetchScheduleByDay(daySelect.value);
+        const selectedDay = daySelect.value || 'Day 1';
+        const sessions = daySelect.value ? await fetchScheduleByDay(daySelect.value) : [];
 
-        let defaultStartTime = '';
-        let defaultEndTime = '';
+        let defaultStartTime = '2026-11-06T09:00';
+        let defaultEndTime = '2026-11-06T10:00';
 
         if (sessions.length > 0) {
           const firstBlockStart = new Date(sessions[0].start_time);
@@ -289,7 +345,7 @@ async function initializeScheduleUI() {
 
         window.EditBlockModal.fillAndShowModal({
           id: '',
-          day: daySelect.value || '',
+          day: selectedDay,
           title: '',
           description: '',
           location: '',
@@ -308,7 +364,11 @@ async function initializeScheduleUI() {
           });
           if (!resp.ok) throw new Error(`Failed to create block: ${resp.status}`);
 
-          await loadForDay(daySelect.value, overview, details);
+          if (daySelect.value) {
+            await loadForDay(daySelect.value, overview, details);
+          } else {
+            window.location.reload();
+          }
         });
       }
     });
