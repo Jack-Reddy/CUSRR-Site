@@ -61,12 +61,20 @@ async function fetchDays() {
 }
 
 async function fetchScheduleByDay(day) {
-  const res = await fetch(`/api/v1/block-schedule/day/${day}`);
+  const res = await fetch(`/api/v1/block-schedule/day/${encodeURIComponent(day)}`);
+  return await res.json();
+}
+
+async function fetchScheduleBundle(day) {
+  const res = await fetch(`/api/v1/block-schedule/day/${encodeURIComponent(day)}/full`);
+  if (!res.ok) {
+    throw new Error(`Failed to load schedule bundle: ${res.status}`);
+  }
   return await res.json();
 }
 
 async function get_presentations_by_day(day) {
-  const res = await fetch(`/api/v1/presentations/day/${day}`);
+  const res = await fetch(`/api/v1/presentations/day/${encodeURIComponent(day)}`);
   return await res.json();
 }
 
@@ -276,8 +284,19 @@ function initSortables() {
 }
 
 async function loadForDay(day, overview, details) {
-  const sessions = await fetchScheduleByDay(day);
-  const presentations = await get_presentations_by_day(day);
+  let sessions;
+  let presentations;
+
+  try {
+    const scheduleData = await fetchScheduleBundle(day);
+    sessions = scheduleData.blocks || [];
+    presentations = scheduleData.presentations || [];
+  } catch (err) {
+    console.warn('Falling back to legacy schedule requests', err);
+    sessions = await fetchScheduleByDay(day);
+    presentations = await get_presentations_by_day(day);
+  }
+
   renderOverview(sessions, overview);
   renderDetails(sessions, details, presentations);
 
