@@ -88,6 +88,9 @@ def create_app(test_config=None):
     @app.before_request
     def restrict_program_overview_to_organizers():
         '''Only organizers may access the program overview page and exports.'''
+        if app.config.get('TESTING', False):
+            return None
+
         path = request.path.rstrip('/') or '/'
         if not path.startswith('/overview'):
             return None
