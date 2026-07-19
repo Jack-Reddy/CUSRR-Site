@@ -85,6 +85,45 @@ def create_app(test_config=None):
     auth.banned_user_redirect,
     auth.presenter_required) = auth.init_role_auth(app, User)
 
+    @app.before_request
+    def restrict_program_overview_to_organizers():
+        '''Only organizers may access the program overview page and exports.'''
+        path = request.path.rstrip('/') or '/'
+        if not path.startswith('/overview'):
+            return None
+
+        user_info = session.get('user')
+        if not user_info:
+            return redirect(url_for('google_login'))
+
+        email = user_info.get('email')
+        if not email:
+            return redirect(url_for('google_login'))
+
+        db_user = User.query.filter_by(email=email).first()
+        if not db_user:
+            return redirect(url_for('signup'))
+
+        roles = {
+            role.strip().lower()
+            for role in str(db_user.auth or '').split(',')
+            if role.strip()
+        }
+        if 'admin' in roles:
+            roles.add('organizer')
+
+        if 'organizer' in roles:
+            return None
+
+        wants_json = (
+            path != '/overview'
+            or request.is_json
+            or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        )
+        if wants_json:
+            return jsonify({'error': 'forbidden', 'reason': 'organizer_required'}), 403
+        return redirect(url_for('dashboard'))
+
     from .security import install_api_security
     install_api_security(app, User)
 
@@ -298,111 +337,26 @@ def create_app(test_config=None):
         email = user.get('email')
         db_user = User.query.filter_by(
             email=email).first()  # check if account exists
+        if not db_user:
+            return jsonify({
+                'authenticated': True,
+                'name': user.get('name'),
+                'email': email,
+                'picture': user.get('picture'),
+                'registered': False
+            })
 
         return jsonify({
             'authenticated': True,
-            'name': user.get('name'),
-            'email': email,
+            'user_id': db_user.id,
+            'name': f"{db_user.firstname} {db_user.lastname}",
+            'email': db_user.email,
             'picture': user.get('picture'),
-            'account_exists': bool(db_user),  # True if user exists in DB
-            'user_id': db_user.id if db_user else None,  # optionally include the DB id
-            'auth': db_user.auth if db_user else None,
-            'presentation_id': db_user.presentation_id if db_user else None,
-            'student_year': db_user.student_year if db_user else None,
-            'activity': db_user.activity if db_user else None
+            'auth': db_user.auth,
+            'registered': True
         })
 
-    @app.route('/blitz_page')
-    def blitz_page():
-        '''
-        Render the blitz page.
-        '''
-        return render_template('blitz_page.html')
+    from .pages import register_pages
+    register_pages(app)
 
-    @app.route('/presentation_page')
-    def presentation_page():
-        '''
-        Render the presentation page.
-        '''
-        return render_template('presentation_page.html')
-
-    @app.route('/poster_page')
-    def poster_page():
-        '''
-        Render the poster page.
-        '''
-        return render_template('poster_page.html')
-
-    @app.route('/signup')
-    def signup():
-        '''
-        Render the signup page.
-        '''
-        return render_template('signup.html')
-
-    @app.route('/grades-dashboard')
-    @auth.organizer_required
-    def grades_dashboard():
-        '''
-        Render the grades page.
-        '''
-        return render_template('grades_dashboard.html')
-
-    @app.route('/profile')
-    # @presenter_required
-    def profile():
-        '''
-        Render the profile page.
-        Permissions: Presenter required.
-        '''
-
-        if 'user' not in session:
-            return redirect(url_for('google_login'))
-        
-        #if user presenter show abstract submission
-        user_info = session['user']
-        email = user_info.get('email')
-
-        db_user = User.query.filter_by(email=email).first()
-        if not db_user:
-            return redirect(url_for('signup'))
-
-        if db_user.auth in ('presenter', 'organizer'):
-            return render_template('profile.html', abstract = True)
-
-        return render_template('profile.html', abstract = False)
-
-    @app.route('/abstract-scoring')
-    @auth.abstract_grader_required
-    def abstract_scoring():
-        '''
-        Render the abstract scoring page.
-        Permissions: Abstract Grader required.
-        '''
-        # Get presentation
-        pres_id = request.args.get("id", type=int)
-        presentation = Presentation.query.get_or_404(pres_id)
-
-        # Get current user from session
-        user_id = None
-        if 'user' in session:
-            user_info = session['user']
-            email = user_info.get('email')
-            db_user = User.query.filter_by(email=email).first()
-            if db_user:
-                user_id = db_user.id
-
-        return render_template(
-            "abstract-scoring.html",
-            presentation=presentation,
-            user_id=user_id  # pass user_id to template
-        )
-
-    if not app.config.get("TESTING", False):
-        with app.app_context():
-            db.create_all()
     return app
-
-
-if __name__ == '__main__':
-    create_app()
