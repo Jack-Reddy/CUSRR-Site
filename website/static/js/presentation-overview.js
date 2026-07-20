@@ -20,7 +20,7 @@
   }
 
   async function fetchJson(url) {
-    const response = await fetch(url, { credentials: 'same-origin' });
+    const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       throw new Error(`${url} failed with ${response.status}: ${text || response.statusText}`);
@@ -29,22 +29,17 @@
   }
 
   async function loadPresentationList() {
-    try {
-      const rows = await fetchJson('/api/v1/presentations/table');
-      return (rows || [])
-        .filter((item) => item && item.id && item.show_on_schedule !== false)
-        .sort((a, b) => {
-          const aTime = a.time || '';
-          const bTime = b.time || '';
-          if (aTime !== bTime) return aTime.localeCompare(bTime);
-          const aId = a.program_identifier || String(a.id);
-          const bId = b.program_identifier || String(b.id);
-          return aId.localeCompare(bId);
-        });
-    } catch (tableError) {
-      console.warn('Lightweight program list failed; falling back to overview list.', tableError);
-      return await fetchJson('/overview/all');
-    }
+    const rows = await fetchJson('/overview/list');
+    return (rows || [])
+      .filter((item) => item && item.id && item.show_on_schedule !== false)
+      .sort((a, b) => {
+        const aTime = a.time || '';
+        const bTime = b.time || '';
+        if (aTime !== bTime) return aTime.localeCompare(bTime);
+        const aId = a.program_identifier || String(a.id);
+        const bId = b.program_identifier || String(b.id);
+        return aId.localeCompare(bId);
+      });
   }
 
   async function loadPresentations() {
@@ -60,7 +55,7 @@
     } catch (error) {
       console.error('Error loading presentations:', error);
       setCounter('Load failed');
-      showError('Could not load presentations.');
+      showError(`Could not load presentations. ${error.message || ''}`);
     }
   }
 
@@ -72,12 +67,12 @@
     const pres = allPresentations[currentIndex];
 
     try {
-      const response = await fetch(`/overview/${pres.id}`, { credentials: 'same-origin' });
+      const response = await fetch(`/overview/${pres.id}`, { credentials: 'same-origin', cache: 'no-store' });
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         console.error('Failed to fetch presentation detail:', response.status, text || response.statusText);
         setCounter('Load failed');
-        showError('Could not load this presentation.');
+        showError(`Could not load this presentation. ${response.status}: ${text || response.statusText}`);
         return;
       }
       const detail = await response.json();
@@ -113,7 +108,7 @@
     } catch (error) {
       console.error('Error rendering presentation:', error);
       setCounter('Load failed');
-      showError('Could not render presentation.');
+      showError(`Could not render presentation. ${error.message || ''}`);
     }
   }
 
