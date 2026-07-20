@@ -357,7 +357,4 @@ def create_app(test_config=None):
             'registered': True
         })
 
-    from .pages import register_pages
-    register_pages(app)
-
     return app
