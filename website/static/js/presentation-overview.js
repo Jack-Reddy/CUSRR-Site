@@ -19,16 +19,37 @@
     if (element) element.textContent = value || '-';
   }
 
+  async function fetchJson(url) {
+    const response = await fetch(url, { credentials: 'same-origin' });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`${url} failed with ${response.status}: ${text || response.statusText}`);
+    }
+    return response.json();
+  }
+
+  async function loadPresentationList() {
+    try {
+      const rows = await fetchJson('/api/v1/presentations/table');
+      return (rows || [])
+        .filter((item) => item && item.id && item.show_on_schedule !== false)
+        .sort((a, b) => {
+          const aTime = a.time || '';
+          const bTime = b.time || '';
+          if (aTime !== bTime) return aTime.localeCompare(bTime);
+          const aId = a.program_identifier || String(a.id);
+          const bId = b.program_identifier || String(b.id);
+          return aId.localeCompare(bId);
+        });
+    } catch (tableError) {
+      console.warn('Lightweight program list failed; falling back to overview list.', tableError);
+      return await fetchJson('/overview/all');
+    }
+  }
+
   async function loadPresentations() {
     try {
-      const response = await fetch('/overview/all');
-      if (!response.ok) {
-        console.error('Failed to fetch presentations:', response.statusText);
-        setCounter('Load failed');
-        showError('Could not load presentations.');
-        return;
-      }
-      allPresentations = await response.json();
+      allPresentations = await loadPresentationList();
       if (allPresentations.length > 0) {
         currentIndex = 0;
         renderPresentation();
@@ -51,9 +72,10 @@
     const pres = allPresentations[currentIndex];
 
     try {
-      const response = await fetch(`/overview/${pres.id}`);
+      const response = await fetch(`/overview/${pres.id}`, { credentials: 'same-origin' });
       if (!response.ok) {
-        console.error('Failed to fetch presentation detail:', response.statusText);
+        const text = await response.text().catch(() => '');
+        console.error('Failed to fetch presentation detail:', response.status, text || response.statusText);
         setCounter('Load failed');
         showError('Could not load this presentation.');
         return;
@@ -62,14 +84,15 @@
 
       setCounter(`${currentIndex + 1} / ${allPresentations.length}`);
 
-      setText('session-id', detail.program_identifier || detail.id);
-      setText('presentation-title', detail.title);
-      setText('presentation-department', detail.department);
-      setText('presentation-mentor', detail.mentor);
-      setText('presentation-keywords', detail.keywords);
+      setText('session-id', detail.program_identifier || pres.program_identifier || detail.id || pres.id);
+      setText('presentation-title', detail.title || pres.title);
+      setText('presentation-department', detail.department || pres.department);
+      setText('presentation-mentor', detail.mentor || pres.mentor);
+      setText('presentation-keywords', detail.keywords || pres.keywords);
 
-      if (detail.presenters && detail.presenters.length > 0) {
-        setText('presentation-authors', detail.presenters.map((p) => p.name || p.email).join(', '));
+      const presenters = detail.presenters || pres.presenters || [];
+      if (presenters.length > 0) {
+        setText('presentation-authors', presenters.map((p) => p.name || p.email).join(', '));
       } else {
         setText('presentation-authors', '-');
       }
