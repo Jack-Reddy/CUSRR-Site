@@ -85,47 +85,45 @@ def create_app(test_config=None):
     auth.banned_user_redirect,
     auth.presenter_required) = auth.init_role_auth(app, User)
 
-    @app.before_request
-    def restrict_program_overview_to_organizers():
-        '''Only organizers may access the program overview page and exports.'''
-        if app.config.get('TESTING', False):
-            return None
+    if not app.config.get('TESTING', False):
+        @app.before_request
+        def restrict_program_overview_to_organizers():
+            '''Only organizers may access the program overview page and exports.'''
+            path = request.path.rstrip('/') or '/'
+            if not path.startswith('/overview'):
+                return None
 
-        path = request.path.rstrip('/') or '/'
-        if not path.startswith('/overview'):
-            return None
+            user_info = session.get('user')
+            if not user_info:
+                return redirect(url_for('google_login'))
 
-        user_info = session.get('user')
-        if not user_info:
-            return redirect(url_for('google_login'))
+            email = user_info.get('email')
+            if not email:
+                return redirect(url_for('google_login'))
 
-        email = user_info.get('email')
-        if not email:
-            return redirect(url_for('google_login'))
+            db_user = User.query.filter_by(email=email).first()
+            if not db_user:
+                return redirect(url_for('signup'))
 
-        db_user = User.query.filter_by(email=email).first()
-        if not db_user:
-            return redirect(url_for('signup'))
+            roles = {
+                role.strip().lower()
+                for role in str(db_user.auth or '').split(',')
+                if role.strip()
+            }
+            if 'admin' in roles:
+                roles.add('organizer')
 
-        roles = {
-            role.strip().lower()
-            for role in str(db_user.auth or '').split(',')
-            if role.strip()
-        }
-        if 'admin' in roles:
-            roles.add('organizer')
+            if 'organizer' in roles:
+                return None
 
-        if 'organizer' in roles:
-            return None
-
-        wants_json = (
-            path != '/overview'
-            or request.is_json
-            or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        )
-        if wants_json:
-            return jsonify({'error': 'forbidden', 'reason': 'organizer_required'}), 403
-        return redirect(url_for('dashboard'))
+            wants_json = (
+                path != '/overview'
+                or request.is_json
+                or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            )
+            if wants_json:
+                return jsonify({'error': 'forbidden', 'reason': 'organizer_required'}), 403
+            return redirect(url_for('dashboard'))
 
     from .security import install_api_security
     install_api_security(app, User)
