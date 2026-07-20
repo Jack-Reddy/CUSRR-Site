@@ -15,9 +15,11 @@ from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
     ensure_presentation_metadata_columns,
+    get_presentation_type,
     get_show_on_schedule,
     presentation_to_dict,
     program_table_rows,
+    _program_identifier_map,
 )
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
@@ -39,6 +41,15 @@ def _user_full_name(user):
     return full_name or user.email
 
 
+def _format_datetime(value):
+    """Format datetimes as naive local ISO strings for JSON."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%dT%H:%M:%S')
+    return str(value)
+
+
 def _visible_presentations():
     presentations = [
         p for p in Presentation.query.order_by(Presentation.id.asc()).all()
@@ -46,6 +57,21 @@ def _visible_presentations():
     ]
     presentations.sort(key=lambda p: effective_presentation_time(p) or datetime.max)
     return presentations
+
+
+def _overview_list_item(presentation, program_ids):
+    """Return the small list payload needed to navigate the Program page."""
+    return {
+        'id': presentation.id,
+        'title': presentation.title,
+        'department': getattr(presentation, 'department', None),
+        'mentor': getattr(presentation, 'mentor', None),
+        'keywords': getattr(presentation, 'keywords', None),
+        'time': _format_datetime(effective_presentation_time(presentation)),
+        'type': get_presentation_type(presentation),
+        'program_identifier': program_ids.get(presentation.id),
+        'show_on_schedule': True,
+    }
 
 
 def _format_time(value):
@@ -65,6 +91,17 @@ def _metadata_value(presentation, field_name):
 def overview():
     """Display the presentation overview page."""
     return render_template('presentation-overview.html')
+
+
+@presentation_overview_bp.route('/overview/list', methods=['GET'])
+def get_presentation_list():
+    """Return a lightweight visible-presentation list for the Program page."""
+    presentations = _visible_presentations()
+    program_ids = _program_identifier_map(presentations)
+    return jsonify([
+        _overview_list_item(presentation, program_ids)
+        for presentation in presentations
+    ])
 
 
 @presentation_overview_bp.route('/overview/all', methods=['GET'])
