@@ -95,8 +95,7 @@
       <span class="label">Schedule</span>
     </a>
 
-    {# Program page button temporarily hidden. Restore this block when ready to re-enable. #}
-    {#
+    {% if is_authenticated and is_organizer %}
     <a class="btn btn-outline-secondary mb-2 nav-link" href="/overview">
       <img class="icon-img"
            src="{{ url_for('static', filename='icons/program.svg') }}"
@@ -104,7 +103,7 @@
            aria-hidden="true">
       <span class="label">Program</span>
     </a>
-    #}
+    {% endif %}
 
     {# ONLY for abstract graders and organizers #}
     {% if 'abstract-grader' in roles or is_organizer %}
