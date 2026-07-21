@@ -1,13 +1,16 @@
 """
 Routes for the organizer Program page and program downloads.
 """
+import base64
 import io
 import re
 from datetime import datetime
 from xml.sax.saxutils import escape
 
 from flask import Blueprint, jsonify, render_template, send_file
+from sqlalchemy import text
 
+from website import db
 from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
@@ -108,12 +111,94 @@ def _overview_detail_item(presentation, program_ids):
     return result
 
 
-def _abstract_for_pdf(abstract):
+def _image_id_from_markdown_url(url):
+    """Extract an abstract image id from the app's abstract-image URL."""
+    if not url:
+        return None
+
+    marker = '/api/v1/presentations/abstract-images/'
+    if marker not in url:
+        return None
+
+    image_id = url.split(marker, 1)[1]
+    image_id = image_id.split('?', 1)[0].split('#', 1)[0].strip().strip('/')
+    return image_id or None
+
+
+def _image_bytes_from_url(url):
+    """Return stored abstract image bytes for a markdown image URL."""
+    image_id = _image_id_from_markdown_url(url)
+    if not image_id:
+        return None
+
+    try:
+        row = db.session.execute(
+            text('SELECT data_base64 FROM abstract_images WHERE id = :id'),
+            {'id': image_id}
+        ).fetchone()
+        if not row or not row[0]:
+            return None
+        return base64.b64decode(row[0])
+    except Exception:
+        return None
+
+
+def _abstract_text_for_pdf(value):
     """Convert markdown-ish abstract text into safe ReportLab paragraph text."""
-    value = abstract or '-'
-    value = IMAGE_RE.sub(lambda match: f"[image: {match.group(1) or 'image'}]", value)
-    value = re.sub(r'[#*_`$!\[\]()]', '', value)
-    return escape(value).replace('\n', '<br/>')
+    cleaned = value or ''
+    cleaned = re.sub(r'[#*_`$]', '', cleaned)
+    cleaned = cleaned.replace('[', '').replace(']', '')
+    return escape(cleaned).replace('\n', '<br/>')
+
+
+def _append_abstract_to_pdf(story, abstract, styles, content_width):
+    """Append abstract text and locally stored abstract images to the PDF."""
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Image, Paragraph, Spacer
+
+    body_style = styles['BodyText']
+    body_style.leading = 14
+
+    def add_text_block(text_block):
+        for block in re.split(r'\n\s*\n', text_block or ''):
+            block = block.strip()
+            if not block:
+                continue
+            story.append(Paragraph(_abstract_text_for_pdf(block), body_style))
+            story.append(Spacer(1, 0.08 * inch))
+
+    position = 0
+    for match in IMAGE_RE.finditer(abstract or ''):
+        add_text_block((abstract or '')[position:match.start()])
+
+        alt_text = match.group(1) or 'figure'
+        image_url = match.group(2)
+        image_data = _image_bytes_from_url(image_url)
+
+        if image_data:
+            try:
+                image = Image(io.BytesIO(image_data))
+                max_width = content_width - (0.4 * inch)
+                max_height = 3.5 * inch
+                scale = min(max_width / image.imageWidth, max_height / image.imageHeight, 1)
+                image.drawWidth = image.imageWidth * scale
+                image.drawHeight = image.imageHeight * scale
+                image.hAlign = 'LEFT'
+                story.append(image)
+                story.append(Spacer(1, 0.12 * inch))
+            except Exception:
+                story.append(Paragraph(f'[figure unavailable: {escape(alt_text)}]', body_style))
+                story.append(Spacer(1, 0.08 * inch))
+        else:
+            story.append(Paragraph(f'[figure unavailable: {escape(alt_text)}]', body_style))
+            story.append(Spacer(1, 0.08 * inch))
+
+        position = match.end()
+
+    add_text_block((abstract or '')[position:])
+
+    if not (abstract or '').strip():
+        story.append(Paragraph('-', body_style))
 
 
 def _append_box(story, label, value, styles, content_width):
@@ -301,7 +386,7 @@ def download_overview_pdf():
             _append_box(story, 'Keywords', getattr(presentation, 'keywords', None) or '-', styles, content_width)
 
             story.append(Paragraph('<b>Abstract</b>', styles['Heading2']))
-            story.append(Paragraph(_abstract_for_pdf(presentation.abstract), styles['BodyText']))
+            _append_abstract_to_pdf(story, presentation.abstract, styles, content_width)
 
             if index < len(presentations) - 1:
                 story.append(PageBreak())
