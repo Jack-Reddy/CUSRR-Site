@@ -10,7 +10,6 @@ from xml.sax.saxutils import escape
 from flask import Blueprint, jsonify, render_template, send_file
 from sqlalchemy import text
 
-from website import db
 from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
@@ -22,7 +21,9 @@ from website.routes.presentations import (
 
 presentation_overview_bp = Blueprint('presentation_overview', __name__)
 
-IMAGE_RE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
+MARKDOWN_IMAGE_RE = re.compile(r'!\[([^\]]*)\]\(([^)]+)\)')
+HTML_IMAGE_RE = re.compile(r'<img\b[^>]*\bsrc=["\']([^"\']+)["\'][^>]*>', re.IGNORECASE)
+HTML_TAG_RE = re.compile(r'<[^>]+>')
 
 
 @presentation_overview_bp.before_request
@@ -111,7 +112,7 @@ def _overview_detail_item(presentation, program_ids):
     return result
 
 
-def _image_id_from_markdown_url(url):
+def _image_id_from_url(url):
     """Extract an abstract image id from the app's abstract-image URL."""
     if not url:
         return None
@@ -126,8 +127,8 @@ def _image_id_from_markdown_url(url):
 
 
 def _image_bytes_from_url(url):
-    """Return stored abstract image bytes for a markdown image URL."""
-    image_id = _image_id_from_markdown_url(url)
+    """Return stored abstract image bytes for a markdown or HTML image URL."""
+    image_id = _image_id_from_url(url)
     if not image_id:
         return None
 
@@ -143,18 +144,77 @@ def _image_bytes_from_url(url):
         return None
 
 
+def _html_attribute(tag, attribute):
+    """Return a simple quoted HTML attribute value from a tag string."""
+    pattern = rf'\b{re.escape(attribute)}=["\']([^"\']+)["\']'
+    match = re.search(pattern, tag or '', flags=re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def _abstract_image_matches(abstract):
+    """Yield markdown and HTML image references in their original order."""
+    matches = []
+    text = abstract or ''
+
+    for match in MARKDOWN_IMAGE_RE.finditer(text):
+        matches.append({
+            'start': match.start(),
+            'end': match.end(),
+            'alt': match.group(1) or 'figure',
+            'url': match.group(2),
+        })
+
+    for match in HTML_IMAGE_RE.finditer(text):
+        tag = match.group(0)
+        matches.append({
+            'start': match.start(),
+            'end': match.end(),
+            'alt': _html_attribute(tag, 'alt') or 'figure',
+            'url': match.group(1),
+        })
+
+    matches.sort(key=lambda item: item['start'])
+    return matches
+
+
 def _abstract_text_for_pdf(value):
-    """Convert markdown-ish abstract text into safe ReportLab paragraph text."""
+    """Convert markdown-ish/HTML abstract text into safe ReportLab paragraph text."""
     cleaned = value or ''
+    cleaned = HTML_TAG_RE.sub('', cleaned)
     cleaned = re.sub(r'[#*_`$]', '', cleaned)
     cleaned = cleaned.replace('[', '').replace(']', '')
     return escape(cleaned).replace('\n', '<br/>')
 
 
+def _append_image_to_pdf(story, image_data, alt_text, styles, content_width):
+    """Append a stored abstract image to the PDF, or a placeholder if unavailable."""
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Image, Paragraph, Spacer
+
+    body_style = styles['BodyText']
+    if image_data:
+        try:
+            image = Image(io.BytesIO(image_data))
+            max_width = content_width - (0.4 * inch)
+            max_height = 3.5 * inch
+            scale = min(max_width / image.imageWidth, max_height / image.imageHeight, 1)
+            image.drawWidth = image.imageWidth * scale
+            image.drawHeight = image.imageHeight * scale
+            image.hAlign = 'CENTER'
+            story.append(image)
+            story.append(Spacer(1, 0.12 * inch))
+            return
+        except Exception:
+            pass
+
+    story.append(Paragraph(f'[figure unavailable: {escape(alt_text or "figure")}]', body_style))
+    story.append(Spacer(1, 0.08 * inch))
+
+
 def _append_abstract_to_pdf(story, abstract, styles, content_width):
     """Append abstract text and locally stored abstract images to the PDF."""
     from reportlab.lib.units import inch
-    from reportlab.platypus import Image, Paragraph, Spacer
+    from reportlab.platypus import Paragraph, Spacer
 
     body_style = styles['BodyText']
     body_style.leading = 14
@@ -167,37 +227,20 @@ def _append_abstract_to_pdf(story, abstract, styles, content_width):
             story.append(Paragraph(_abstract_text_for_pdf(block), body_style))
             story.append(Spacer(1, 0.08 * inch))
 
+    text = abstract or ''
     position = 0
-    for match in IMAGE_RE.finditer(abstract or ''):
-        add_text_block((abstract or '')[position:match.start()])
+    for image_match in _abstract_image_matches(text):
+        if image_match['start'] < position:
+            continue
 
-        alt_text = match.group(1) or 'figure'
-        image_url = match.group(2)
-        image_data = _image_bytes_from_url(image_url)
+        add_text_block(text[position:image_match['start']])
+        image_data = _image_bytes_from_url(image_match['url'])
+        _append_image_to_pdf(story, image_data, image_match['alt'], styles, content_width)
+        position = image_match['end']
 
-        if image_data:
-            try:
-                image = Image(io.BytesIO(image_data))
-                max_width = content_width - (0.4 * inch)
-                max_height = 3.5 * inch
-                scale = min(max_width / image.imageWidth, max_height / image.imageHeight, 1)
-                image.drawWidth = image.imageWidth * scale
-                image.drawHeight = image.imageHeight * scale
-                image.hAlign = 'LEFT'
-                story.append(image)
-                story.append(Spacer(1, 0.12 * inch))
-            except Exception:
-                story.append(Paragraph(f'[figure unavailable: {escape(alt_text)}]', body_style))
-                story.append(Spacer(1, 0.08 * inch))
-        else:
-            story.append(Paragraph(f'[figure unavailable: {escape(alt_text)}]', body_style))
-            story.append(Spacer(1, 0.08 * inch))
+    add_text_block(text[position:])
 
-        position = match.end()
-
-    add_text_block((abstract or '')[position:])
-
-    if not (abstract or '').strip():
+    if not text.strip():
         story.append(Paragraph('-', body_style))
 
 
