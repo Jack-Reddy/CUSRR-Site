@@ -10,9 +10,11 @@ from xml.sax.saxutils import escape
 from flask import Blueprint, jsonify, render_template, send_file
 from sqlalchemy import text
 
+from website import db
 from website.models import BlockSchedule, Presentation, User
 from website.routes.presentations import (
     effective_presentation_time,
+    ensure_abstract_image_table,
     ensure_presentation_metadata_columns,
     get_presentation_type,
     get_show_on_schedule,
@@ -122,7 +124,8 @@ def _image_id_from_url(url):
         return None
 
     image_id = url.split(marker, 1)[1]
-    image_id = image_id.split('?', 1)[0].split('#', 1)[0].strip().strip('/')
+    image_id = image_id.split('?', 1)[0].split('#', 1)[0]
+    image_id = image_id.strip().strip('/').strip('"\'<>')
     return image_id or None
 
 
@@ -133,13 +136,17 @@ def _image_bytes_from_url(url):
         return None
 
     try:
+        ensure_abstract_image_table()
         row = db.session.execute(
             text('SELECT data_base64 FROM abstract_images WHERE id = :id'),
             {'id': image_id}
         ).fetchone()
         if not row or not row[0]:
             return None
-        return base64.b64decode(row[0])
+        value = row[0]
+        if isinstance(value, bytes):
+            value = value.decode('ascii')
+        return base64.b64decode(value)
     except Exception:
         return None
 
