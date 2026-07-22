@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from xml.sax.saxutils import escape
 
-from flask import Blueprint, jsonify, render_template, send_file
+from flask import Blueprint, jsonify, render_template, request, send_file
 from sqlalchemy import text
 
 from website import db
@@ -82,6 +82,24 @@ def _presenters_for(presentation_id):
     return User.query.filter_by(presentation_id=presentation_id).order_by(User.id.asc()).all()
 
 
+def _presenters_by_presentation(presentation_ids):
+    """Return presenter rows grouped by presentation id."""
+    ids = [pid for pid in presentation_ids if pid is not None]
+    grouped = {pid: [] for pid in ids}
+    if not ids:
+        return grouped
+
+    presenters = (
+        User.query
+        .filter(User.presentation_id.in_(ids))
+        .order_by(User.id.asc())
+        .all()
+    )
+    for presenter in presenters:
+        grouped.setdefault(presenter.presentation_id, []).append(presenter)
+    return grouped
+
+
 def _overview_list_item(presentation, program_ids):
     """Return the small list payload needed to navigate the Program page."""
     schedule = presentation.schedule
@@ -95,23 +113,39 @@ def _overview_list_item(presentation, program_ids):
         'type': get_presentation_type(presentation),
         'program_identifier': program_ids.get(presentation.id),
         'schedule_title': schedule.title if schedule else None,
+        'room': schedule.location if schedule else None,
         'show_on_schedule': True,
     }
 
 
-def _overview_detail_item(presentation, program_ids):
-    """Return the detail payload used by the Program page."""
+def _overview_detail_item(presentation, program_ids, presenter_map=None):
+    """Return the detail payload used by the Program page and dashboard cards."""
     result = _overview_list_item(presentation, program_ids)
-    presenters = _presenters_for(presentation.id)
+    presenters = (
+        (presenter_map or {}).get(presentation.id)
+        if presenter_map is not None
+        else _presenters_for(presentation.id)
+    ) or []
     result['abstract'] = presentation.abstract
     result['presenters'] = [
         {
+            'id': presenter.id,
+            'firstname': presenter.firstname,
+            'lastname': presenter.lastname,
             'name': _user_full_name(presenter),
             'email': presenter.email,
+            'activity': presenter.activity,
         }
         for presenter in presenters
     ]
     return result
+
+
+def _type_matches(presentation, requested_type):
+    """Return whether a presentation matches a requested program type."""
+    if not requested_type:
+        return True
+    return (get_presentation_type(presentation) or '').strip().lower() == str(requested_type).strip().lower()
 
 
 def _image_id_from_url(url):
@@ -286,8 +320,9 @@ def _meal_type_for_block(block):
 def _program_table_rows(presentations, program_ids):
     """Return simple rows for the program PDF quick-view table."""
     rows = []
+    presenter_map = _presenters_by_presentation([presentation.id for presentation in presentations])
     for presentation in presentations:
-        presenters = _presenters_for(presentation.id)
+        presenters = presenter_map.get(presentation.id, [])
         authors = ', '.join(_user_full_name(presenter) for presenter in presenters) or '-'
         display_time = effective_presentation_time(presentation)
         rows.append({
@@ -368,6 +403,23 @@ def overview():
     return render_template('presentation-overview.html')
 
 
+@presentation_overview_bp.route('/program/list', methods=['GET'])
+def get_public_program_list():
+    """Return a fast public list for dashboard and type pages."""
+    all_presentations = _visible_presentations()
+    requested_type = request.args.get('type')
+    presentations = [
+        presentation for presentation in all_presentations
+        if _type_matches(presentation, requested_type)
+    ]
+    program_ids = _program_identifier_map(all_presentations)
+    presenter_map = _presenters_by_presentation([presentation.id for presentation in presentations])
+    return jsonify([
+        _overview_detail_item(presentation, program_ids, presenter_map)
+        for presentation in presentations
+    ])
+
+
 @presentation_overview_bp.route('/overview/list', methods=['GET'])
 def get_presentation_list():
     """Return a lightweight visible-presentation list for the Program page."""
@@ -384,8 +436,9 @@ def get_all_presentations():
     """Return all visible presentations as JSON, ordered by date/time."""
     presentations = _visible_presentations()
     program_ids = _program_identifier_map(presentations)
+    presenter_map = _presenters_by_presentation([presentation.id for presentation in presentations])
     return jsonify([
-        _overview_detail_item(presentation, program_ids)
+        _overview_detail_item(presentation, program_ids, presenter_map)
         for presentation in presentations
     ])
 
@@ -414,13 +467,14 @@ def download_overview_pdf():
     styles = getSampleStyleSheet()
     content_width = 7.2 * inch
     story = []
+    presenter_map = _presenters_by_presentation([presentation.id for presentation in presentations])
 
     _append_program_table(story, styles, content_width, rows)
 
     if presentations:
         story.append(PageBreak())
         for index, presentation in enumerate(presentations):
-            presenters = _presenters_for(presentation.id)
+            presenters = presenter_map.get(presentation.id, [])
             authors = ', '.join(_user_full_name(presenter) for presenter in presenters) or '-'
             display_time = _format_time(effective_presentation_time(presentation))
             program_id = program_ids.get(presentation.id, '-')
