@@ -83,12 +83,12 @@
 {% block scripts %}
 {{ super() }}
 
-<script src="{{ url_for('static', filename='js/session-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/session-modal.js') }}?v=program-fast-1"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // Load only upcoming presentations
-  SessionModal.loadSessions('/api/v1/presentations/recent', '#upcoming-container', 'session-card', 5);
+  // Use the fast public program list so the dashboard does not go blank after conference dates pass.
+  SessionModal.loadSessions('/program/list', '#upcoming-container', 'session-card', 5);
 
   // Enable modal clicks
   SessionModal.setupDelegatedClicks('#upcoming-container');
