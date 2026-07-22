@@ -15,11 +15,11 @@
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/session-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/session-modal.js') }}?v=program-fast-1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   SessionModal.loadCards({
-    apiEndpoint: '/api/v1/presentations/type/Blitz',
+    apiEndpoint: '/program/list?type=Blitz',
     upcomingContainer: '#upcoming-blitz-container',
     pastContainer: '#past-blitz-container',
     cardClass: 'blitz-card'
