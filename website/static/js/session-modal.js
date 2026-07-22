@@ -27,8 +27,33 @@
     const raw = String(source || '');
     const plain = window.AbstractMarkdownEditor
       ? window.AbstractMarkdownEditor.plainText(raw)
-      : raw.replace(/[#*_`$!\[\]()]/g, '');
+      : raw.replace(/<[^>]*>/g, '').replace(/[#*_`$!\[\]()]/g, '');
     return plain.length > maxLength ? plain.slice(0, maxLength).trim() + '…' : plain;
+  }
+
+  function timeValue(item) {
+    const d = new Date(item?.time || '');
+    return isNaN(d.getTime()) ? Number.MAX_SAFE_INTEGER : d.getTime();
+  }
+
+  function sortByProgramOrder(items) {
+    return (items || []).slice().sort((a, b) => {
+      const timeDiff = timeValue(a) - timeValue(b);
+      if (timeDiff !== 0) return timeDiff;
+      const aId = a.program_identifier || String(a.id || '');
+      const bId = b.program_identifier || String(b.id || '');
+      return aId.localeCompare(bId);
+    });
+  }
+
+  function visibleItems(items) {
+    return sortByProgramOrder((items || []).filter(item => item && item.show_on_schedule !== false));
+  }
+
+  async function fetchJson(url) {
+    const resp = await fetch(url, { credentials: 'same-origin' });
+    if (!resp.ok) throw resp;
+    return await resp.json();
   }
 
   function buildCard(item, index, cardClass = 'session-card') {
@@ -42,7 +67,7 @@
 
     card.dataset.title = item.title || 'Untitled';
     card.dataset.time = timeDisplay;
-    card.dataset.room = item.room || '';
+    card.dataset.room = item.room || item.schedule_title || '';
     card.dataset.type = item.type || '';
     card.dataset.programId = programId;
     card.dataset.presenters = JSON.stringify(item.presenters || []);
@@ -69,6 +94,22 @@
       </div>
     `;
     return card;
+  }
+
+  function renderItems(containerSelector, items, cardClass = 'session-card', limit = 5, emptyText = 'No sessions found.') {
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+
+    container.innerHTML = '';
+    const rows = visibleItems(items);
+    if (!rows.length) {
+      container.innerHTML = `<p class="text-secondary">${escapeHtml(emptyText)}</p>`;
+      return;
+    }
+
+    rows.slice(0, limit).forEach((item, idx) => {
+      container.appendChild(buildCard(item, idx, cardClass));
+    });
   }
 
   function openGradeModal(presentationId, title) {
@@ -163,13 +204,6 @@
     totalEl.textContent = o + c + s;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    ['gScoreOrig', 'gScoreClar', 'gScoreSign'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('input', updateGradeScores);
-    });
-  });
-
   function fillAndShowModal(cardEl) {
     const m = document.getElementById('sessionModal');
     if (!m) return;
@@ -203,27 +237,52 @@
     modal.show();
   }
 
-  function loadSessions(apiUrl, containerSelector, cardClass = 'session-card', limit = 5) {
+  async function loadSessions(apiUrl, containerSelector, cardClass = 'session-card', limit = 5) {
     const container = document.querySelector(containerSelector);
     if (!container) return;
 
-    fetch(apiUrl)
-      .then(resp => resp.ok ? resp.json() : Promise.reject(resp))
-      .then(items => {
-        container.innerHTML = '';
-        items = (items || []).filter(item => item.show_on_schedule !== false);
-        if (!items || items.length === 0) {
-          container.innerHTML = '<p class="text-secondary">No sessions found.</p>';
-          return;
+    try {
+      let items = visibleItems(await fetchJson(apiUrl));
+
+      // The dashboard calls /recent. If all configured conference dates are before
+      // today's real date, /recent can be empty even though the schedule is valid.
+      // Fall back to visible scheduled presentations so the dashboard does not look blank.
+      if (!items.length && apiUrl.includes('/recent')) {
+        items = visibleItems(await fetchJson('/api/v1/presentations/'));
+      }
+
+      renderItems(containerSelector, items, cardClass, limit);
+    } catch (err) {
+      console.error('Failed to load sessions', err);
+      container.innerHTML = '<p class="text-danger">Could not load sessions.</p>';
+    }
+  }
+
+  async function loadCards({ apiEndpoint, upcomingContainer, pastContainer, cardClass = 'session-card', limit = 50 }) {
+    try {
+      const items = visibleItems(await fetchJson(apiEndpoint));
+      const now = Date.now();
+      const upcoming = [];
+      const past = [];
+
+      items.forEach((item) => {
+        const t = timeValue(item);
+        if (t === Number.MAX_SAFE_INTEGER || t >= now) {
+          upcoming.push(item);
+        } else {
+          past.push(item);
         }
-        items.slice(0, limit).forEach((item, idx) => {
-          container.appendChild(buildCard(item, idx, cardClass));
-        });
-      })
-      .catch(err => {
-        console.error('Failed to load sessions', err);
-        container.innerHTML = '<p class="text-danger">Could not load sessions.</p>';
       });
+
+      renderItems(upcomingContainer, upcoming, cardClass, limit, 'No upcoming sessions found.');
+      renderItems(pastContainer, past.reverse(), cardClass, limit, 'No past sessions found.');
+    } catch (err) {
+      console.error('Failed to load cards', err);
+      const upcomingEl = document.querySelector(upcomingContainer);
+      const pastEl = document.querySelector(pastContainer);
+      if (upcomingEl) upcomingEl.innerHTML = '<p class="text-danger">Could not load sessions.</p>';
+      if (pastEl) pastEl.innerHTML = '<p class="text-danger">Could not load sessions.</p>';
+    }
   }
 
   function setupDelegatedClicks(containerSelector) {
@@ -248,7 +307,18 @@
     });
   }
 
+  window.SessionModal = {
+    loadSessions,
+    loadCards,
+    setupDelegatedClicks
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
+    ['gScoreOrig', 'gScoreClar', 'gScoreSign'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateGradeScores);
+    });
+
     loadSessions('/api/v1/presentations/recent', '#recent-sessions', 'session-card', 5);
     loadSessions('/api/v1/presentations/type/Poster', '#poster-sessions', 'poster-card', 6);
     loadSessions('/api/v1/presentations/type/Blitz', '#blitz-sessions', 'session-card', 6);
