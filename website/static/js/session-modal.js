@@ -1,5 +1,7 @@
 (function () {
   const DEFAULT_IMG = 'https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg';
+  let currentUserPromise = null;
+  let canGradePromise = null;
 
   function formatTimeNoYear(value) {
     if (!value) return '';
@@ -50,13 +52,47 @@
     return sortByProgramOrder((items || []).filter(item => item && item.show_on_schedule !== false));
   }
 
-  async function fetchJson(url) {
-    const resp = await fetch(url, { credentials: 'same-origin' });
-    if (!resp.ok) throw resp;
+  async function fetchJson(url, options = {}) {
+    const resp = await fetch(url, { credentials: 'same-origin', ...options });
+    if (!resp.ok) {
+      let body = '';
+      try { body = await resp.text(); } catch (_) {}
+      throw new Error(`${url} failed with ${resp.status}: ${body || resp.statusText}`);
+    }
     return await resp.json();
   }
 
-  function buildCard(item, index, cardClass = 'session-card') {
+  function loadCurrentUser() {
+    if (!currentUserPromise) {
+      currentUserPromise = fetch('/me', { credentials: 'same-origin', cache: 'no-store' })
+        .then(resp => resp.ok ? resp.json() : null)
+        .catch(() => null);
+    }
+    return currentUserPromise;
+  }
+
+  function rolesFor(user) {
+    const roles = new Set(
+      String(user?.auth || '')
+        .split(',')
+        .map(role => role.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    if (roles.has('admin')) roles.add('organizer');
+    return roles;
+  }
+
+  async function canUseNormalGrading() {
+    if (!canGradePromise) {
+      canGradePromise = loadCurrentUser().then(user => {
+        const roles = rolesFor(user);
+        return roles.has('organizer') || roles.has('abstract_grader');
+      });
+    }
+    return canGradePromise;
+  }
+
+  function buildCard(item, index, cardClass = 'session-card', options = {}) {
     const card = document.createElement('div');
     card.className = `card shadow-xs border-0 rounded-4 ${cardClass}`;
     card.role = 'button';
@@ -64,6 +100,7 @@
     const timeDisplay = formatTimeNoYear(item.time);
     const preview = abstractPreview(item.abstract, 100);
     const programId = item.program_identifier || '';
+    const showGradeButton = options.showGradeButton === true;
 
     card.dataset.title = item.title || 'Untitled';
     card.dataset.time = timeDisplay;
@@ -85,7 +122,7 @@
               </div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-gray-100 text-secondary">${escapeHtml(timeDisplay)}</span>
-                <button type="button" class="btn btn-sm btn-outline-primary grade-btn" data-presentation-id="${escapeHtml(card.dataset.id)}">Grade</button>
+                ${showGradeButton ? `<button type="button" class="btn btn-sm btn-outline-primary grade-btn" data-presentation-id="${escapeHtml(card.dataset.id)}">Grade</button>` : ''}
               </div>
             </div>
             <p class="text-sm text-secondary mb-0">${escapeHtml(preview)}</p>
@@ -96,7 +133,7 @@
     return card;
   }
 
-  function renderItems(containerSelector, items, cardClass = 'session-card', limit = 5, emptyText = 'No sessions found.') {
+  function renderItems(containerSelector, items, cardClass = 'session-card', limit = 5, emptyText = 'No sessions found.', options = {}) {
     const container = document.querySelector(containerSelector);
     if (!container) return;
 
@@ -108,11 +145,39 @@
     }
 
     rows.slice(0, limit).forEach((item, idx) => {
-      container.appendChild(buildCard(item, idx, cardClass));
+      container.appendChild(buildCard(item, idx, cardClass, options));
     });
   }
 
-  function openGradeModal(presentationId, title) {
+  async function refreshUndoGradeButton(presentationId) {
+    const undoBtn = document.getElementById('gUndoGradeBtn');
+    if (!undoBtn) return;
+
+    undoBtn.classList.add('d-none');
+    undoBtn.disabled = true;
+    undoBtn.dataset.presentationId = presentationId || '';
+
+    if (!presentationId || !(await canUseNormalGrading())) {
+      return;
+    }
+
+    try {
+      const result = await fetchJson(`/api/v1/grades/mine/${encodeURIComponent(presentationId)}`);
+      if (result && result.grade) {
+        undoBtn.classList.remove('d-none');
+        undoBtn.disabled = false;
+      }
+    } catch (error) {
+      console.warn('Could not check existing grade', error);
+    }
+  }
+
+  async function openGradeModal(presentationId, title) {
+    if (!(await canUseNormalGrading())) {
+      alert('Only organizers and abstract graders can submit presentation grades.');
+      return;
+    }
+
     const gm = document.getElementById('gradeModal');
     if (!gm) return;
     gm.querySelector('#gPresentationId').value = presentationId || '';
@@ -120,11 +185,12 @@
     const orig = gm.querySelector('#gScoreOrig');
     const clar = gm.querySelector('#gScoreClar');
     const sign = gm.querySelector('#gScoreSign');
-    if (orig) orig.value = orig.value || 2;
-    if (clar) clar.value = clar.value || 2;
-    if (sign) sign.value = sign.value || 2;
+    if (orig) orig.value = 2;
+    if (clar) clar.value = 2;
+    if (sign) sign.value = 2;
     gm.querySelector('#gComments').value = '';
     updateGradeScores();
+    refreshUndoGradeButton(presentationId);
 
     const modal = bootstrap.Modal.getOrCreateInstance(gm, { backdrop: true });
     modal.show();
@@ -137,6 +203,12 @@
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
 
+    if (!(await canUseNormalGrading())) {
+      alert('Only organizers and abstract graders can submit presentation grades.');
+      if (submitBtn) submitBtn.disabled = false;
+      return;
+    }
+
     const presentationId = gm.querySelector('#gPresentationId').value;
     const criteria_1 = Number(gm.querySelector('#gScoreOrig').value) || 0;
     const criteria_2 = Number(gm.querySelector('#gScoreClar').value) || 0;
@@ -145,9 +217,9 @@
 
     let userId;
     try {
-      const resp = await fetch('/me', { credentials: 'same-origin' });
-      if (!resp.ok) throw new Error('not authenticated');
-      userId = (await resp.json()).user_id;
+      const user = await loadCurrentUser();
+      if (!user || !user.user_id) throw new Error('not authenticated');
+      userId = user.user_id;
     } catch (e) {
       alert('You must be logged in to submit a grade.');
       if (submitBtn) submitBtn.disabled = false;
@@ -173,16 +245,44 @@
         return;
       }
 
-      const modal = bootstrap.Modal.getInstance(gm);
-      if (modal) modal.hide();
-      form.reset();
-      alert('Grade submitted successfully');
+      await refreshUndoGradeButton(presentationId);
+      alert('Grade submitted successfully.');
 
     } catch (err) {
       console.error('Grade submit error', err);
       alert('Could not submit grade: ' + (err.message || err));
     } finally {
       if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  async function undoGrade() {
+    const gm = document.getElementById('gradeModal');
+    const presentationId = gm?.querySelector('#gPresentationId')?.value;
+    const undoBtn = document.getElementById('gUndoGradeBtn');
+    if (!presentationId || !undoBtn) return;
+
+    if (!confirm('Undo your grade for this presentation?')) return;
+
+    undoBtn.disabled = true;
+    try {
+      const resp = await fetch(`/api/v1/grades/mine/${encodeURIComponent(presentationId)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      let data = {};
+      try { data = await resp.json(); } catch (_) {}
+      if (!resp.ok) {
+        alert(data.error || data.message || 'Could not undo grade.');
+        undoBtn.disabled = false;
+        return;
+      }
+      undoBtn.classList.add('d-none');
+      alert('Grade undone.');
+    } catch (error) {
+      console.error('Undo grade error', error);
+      alert('Could not undo grade: ' + (error.message || error));
+      undoBtn.disabled = false;
     }
   }
 
@@ -244,14 +344,12 @@
     try {
       let items = visibleItems(await fetchJson(apiUrl));
 
-      // The dashboard calls /recent. If all configured conference dates are before
-      // today's real date, /recent can be empty even though the schedule is valid.
-      // Fall back to visible scheduled presentations so the dashboard does not look blank.
       if (!items.length && apiUrl.includes('/recent')) {
-        items = visibleItems(await fetchJson('/api/v1/presentations/'));
+        items = visibleItems(await fetchJson('/program/list'));
       }
 
-      renderItems(containerSelector, items, cardClass, limit);
+      const showGradeButton = await canUseNormalGrading();
+      renderItems(containerSelector, items, cardClass, limit, 'No sessions found.', { showGradeButton });
     } catch (err) {
       console.error('Failed to load sessions', err);
       container.innerHTML = '<p class="text-danger">Could not load sessions.</p>';
@@ -274,8 +372,9 @@
         }
       });
 
-      renderItems(upcomingContainer, upcoming, cardClass, limit, 'No upcoming sessions found.');
-      renderItems(pastContainer, past.reverse(), cardClass, limit, 'No past sessions found.');
+      const showGradeButton = await canUseNormalGrading();
+      renderItems(upcomingContainer, upcoming, cardClass, limit, 'No upcoming sessions found.', { showGradeButton });
+      renderItems(pastContainer, past.reverse(), cardClass, limit, 'No past sessions found.', { showGradeButton });
     } catch (err) {
       console.error('Failed to load cards', err);
       const upcomingEl = document.querySelector(upcomingContainer);
@@ -296,12 +395,12 @@
       const gradeBtn = e.target.closest('.grade-btn');
       if (gradeBtn) {
         e.stopPropagation();
-        const card = gradeBtn.closest('.session-card, .poster-card');
+        const card = gradeBtn.closest('.session-card, .poster-card, .blitz-card');
         openGradeModal(gradeBtn.dataset.presentationId, card?.dataset.title || '');
         return;
       }
 
-      const card = e.target.closest('.session-card, .poster-card');
+      const card = e.target.closest('.session-card, .poster-card, .blitz-card');
       if (!card) return;
       fillAndShowModal(card);
     });
@@ -310,7 +409,9 @@
   window.SessionModal = {
     loadSessions,
     loadCards,
-    setupDelegatedClicks
+    setupDelegatedClicks,
+    openGradeModal,
+    canUseNormalGrading
   };
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -319,9 +420,15 @@
       if (el) el.addEventListener('input', updateGradeScores);
     });
 
+    const undoBtn = document.getElementById('gUndoGradeBtn');
+    if (undoBtn && undoBtn.dataset.bound !== 'true') {
+      undoBtn.dataset.bound = 'true';
+      undoBtn.addEventListener('click', undoGrade);
+    }
+
     loadSessions('/api/v1/presentations/recent', '#recent-sessions', 'session-card', 5);
-    loadSessions('/api/v1/presentations/type/Poster', '#poster-sessions', 'poster-card', 6);
-    loadSessions('/api/v1/presentations/type/Blitz', '#blitz-sessions', 'session-card', 6);
+    loadSessions('/program/list?type=Poster', '#poster-sessions', 'poster-card', 6);
+    loadSessions('/program/list?type=Blitz', '#blitz-sessions', 'session-card', 6);
     setupDelegatedClicks('#recent-sessions');
     setupDelegatedClicks('#poster-sessions');
     setupDelegatedClicks('#blitz-sessions');
