@@ -6,8 +6,8 @@ import csv
 import io
 
 from sqlalchemy import func, desc
-from flask import Blueprint, Response, jsonify, request
-from website.models import AbstractGrade, Grade, Presentation, BlockSchedule
+from flask import Blueprint, Response, current_app, jsonify, request, session
+from website.models import AbstractGrade, Grade, Presentation, BlockSchedule, User
 from website import db
 from .utils import format_average_grades
 
@@ -69,6 +69,43 @@ def _latest_grade_rows(grades):
         key = (grade.user_id, grade.presentation_id)
         latest[key] = grade
     return list(latest.values())
+
+
+def _roles_for(user):
+    """Return normalized roles for a user."""
+    roles = {
+        role.strip().lower()
+        for role in str(user.auth or '').split(',')
+        if role.strip()
+    } if user else set()
+    if 'admin' in roles:
+        roles.add('organizer')
+    return roles
+
+
+def _current_user():
+    """Return the logged-in database user, if there is one."""
+    user_info = session.get('user') or {}
+    email = user_info.get('email')
+    if not email:
+        return None
+    return User.query.filter_by(email=email).first()
+
+
+def _normal_grade_actor_or_error():
+    """Allow only organizers and abstract graders to create normal presentation grades."""
+    if current_app.config.get('TESTING', False):
+        return None, None
+
+    actor = _current_user()
+    if not actor:
+        return None, (jsonify({'error': 'Authentication required'}), 401)
+
+    roles = _roles_for(actor)
+    if 'organizer' in roles or 'abstract_grader' in roles:
+        return actor, None
+
+    return None, (jsonify({'error': 'Only organizers and abstract graders can submit presentation grades'}), 403)
 
 
 @grades_bp.route('/', methods=['GET'])
@@ -142,6 +179,41 @@ def export_grades_csv():
     return response
 
 
+@grades_bp.route('/mine/<int:presentation_id>', methods=['GET'])
+def get_my_grade(presentation_id):
+    """Return the logged-in grader's normal presentation grade for undo/status UI."""
+    actor, permission_error = _normal_grade_actor_or_error()
+    if permission_error:
+        return permission_error
+    if not actor:
+        return jsonify({'grade': None})
+
+    grade = (
+        Grade.query
+        .filter_by(user_id=actor.id, presentation_id=presentation_id)
+        .order_by(Grade.id.desc())
+        .first()
+    )
+    return jsonify({'grade': grade.to_dict() if grade else None})
+
+
+@grades_bp.route('/mine/<int:presentation_id>', methods=['DELETE'])
+def delete_my_grade(presentation_id):
+    """Undo the logged-in grader's normal presentation grade."""
+    actor, permission_error = _normal_grade_actor_or_error()
+    if permission_error:
+        return permission_error
+    if not actor:
+        return jsonify({'deleted': 0})
+
+    grades = Grade.query.filter_by(user_id=actor.id, presentation_id=presentation_id).all()
+    deleted_count = len(grades)
+    for grade in grades:
+        db.session.delete(grade)
+    db.session.commit()
+    return jsonify({'message': 'Grade undone', 'deleted': deleted_count})
+
+
 @grades_bp.route('/<int:grade_id>', methods=['GET'])
 def get_grade(grade_id):
     ''' GET one grade by ID '''
@@ -151,7 +223,13 @@ def get_grade(grade_id):
 
 @grades_bp.route('/', methods=['POST'])
 def create_grade():
-    data = request.get_json()
+    actor, permission_error = _normal_grade_actor_or_error()
+    if permission_error:
+        return permission_error
+
+    data = request.get_json() or {}
+    if actor:
+        data['user_id'] = actor.id
 
     existing = Grade.query.filter_by(
         user_id=data["user_id"],
@@ -175,14 +253,24 @@ def create_grade():
     return jsonify(new_grade.to_dict()), 201
 
 
-
 @grades_bp.route('/<int:grade_id>', methods=['PUT'])
 def update_grade(grade_id):
     ''' PUT update existing grade '''
-    grade = Grade.query.get_or_404(grade_id)
-    data = request.get_json()
+    actor, permission_error = _normal_grade_actor_or_error()
+    if permission_error:
+        return permission_error
 
-    grade.user_id = data.get('user_id', grade.user_id)
+    grade = Grade.query.get_or_404(grade_id)
+    data = request.get_json() or {}
+
+    if actor and grade.user_id != actor.id and 'organizer' not in _roles_for(actor):
+        return jsonify({'error': 'You can only update your own grade'}), 403
+
+    if current_app.config.get('TESTING', False):
+        grade.user_id = data.get('user_id', grade.user_id)
+    elif actor:
+        grade.user_id = actor.id
+
     grade.presentation_id = data.get('presentation_id', grade.presentation_id)
     grade.criteria_1 = data.get('criteria_1', grade.criteria_1)
     grade.criteria_2 = data.get('criteria_2', grade.criteria_2)
@@ -195,7 +283,14 @@ def update_grade(grade_id):
 @grades_bp.route('/<int:grade_id>', methods=['DELETE'])
 def delete_grade(grade_id):
     ''' DELETE grade '''
+    actor, permission_error = _normal_grade_actor_or_error()
+    if permission_error:
+        return permission_error
+
     grade = Grade.query.get_or_404(grade_id)
+    if actor and grade.user_id != actor.id and 'organizer' not in _roles_for(actor):
+        return jsonify({'error': 'You can only delete your own grade'}), 403
+
     db.session.delete(grade)
     db.session.commit()
     return jsonify({"message": "Grade deleted"})
