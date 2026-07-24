@@ -1,5 +1,4 @@
 (function () {
-  const DEFAULT_IMG = 'https://raw.githubusercontent.com/creativetimofficial/public-assets/master/soft-ui-design-system/assets/img/color-bags.jpg';
   let currentUserPromise = null;
   let canGradePromise = null;
 
@@ -53,7 +52,7 @@
   }
 
   async function fetchJson(url, options = {}) {
-    const resp = await fetch(url, { credentials: 'same-origin', ...options });
+    const resp = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...options });
     if (!resp.ok) {
       let body = '';
       try { body = await resp.text(); } catch (_) {}
@@ -71,23 +70,51 @@
     return currentUserPromise;
   }
 
+  function normalizeRole(role) {
+    return String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  }
+
   function rolesFor(user) {
-    const roles = new Set(
-      String(user?.auth || '')
-        .split(',')
-        .map(role => role.trim().toLowerCase())
-        .filter(Boolean)
-    );
+    const roles = new Set();
+    const rawRoles = [];
+
+    if (Array.isArray(user?.roles)) {
+      rawRoles.push(...user.roles);
+    }
+    if (user?.role) {
+      rawRoles.push(user.role);
+    }
+    if (user?.auth) {
+      rawRoles.push(...String(user.auth).split(','));
+    }
+
+    rawRoles.forEach(role => {
+      const normalized = normalizeRole(role);
+      if (normalized) roles.add(normalized);
+    });
+
     if (roles.has('admin')) roles.add('organizer');
     return roles;
   }
 
+  function fallbackCanGradeFromUser(user) {
+    const roles = rolesFor(user);
+    return roles.has('organizer') || roles.has('abstract_grader');
+  }
+
   async function canUseNormalGrading() {
     if (!canGradePromise) {
-      canGradePromise = loadCurrentUser().then(user => {
-        const roles = rolesFor(user);
-        return roles.has('organizer') || roles.has('abstract_grader');
-      });
+      canGradePromise = fetch('/api/v1/grades/can-submit', { credentials: 'same-origin', cache: 'no-store' })
+        .then(async resp => {
+          if (resp.ok) {
+            const data = await resp.json();
+            if (typeof data.can_submit_grade === 'boolean') {
+              return data.can_submit_grade;
+            }
+          }
+          return fallbackCanGradeFromUser(await loadCurrentUser());
+        })
+        .catch(async () => fallbackCanGradeFromUser(await loadCurrentUser()));
     }
     return canGradePromise;
   }
@@ -242,6 +269,7 @@
       if (!resp.ok) {
         alert(errData.error || errData.message || 'Failed to submit grade');
         if (submitBtn) submitBtn.disabled = false;
+        await refreshUndoGradeButton(presentationId);
         return;
       }
 
@@ -350,6 +378,7 @@
 
       const showGradeButton = await canUseNormalGrading();
       renderItems(containerSelector, items, cardClass, limit, 'No sessions found.', { showGradeButton });
+      setupDelegatedClicks(containerSelector);
     } catch (err) {
       console.error('Failed to load sessions', err);
       container.innerHTML = '<p class="text-danger">Could not load sessions.</p>';
@@ -375,6 +404,8 @@
       const showGradeButton = await canUseNormalGrading();
       renderItems(upcomingContainer, upcoming, cardClass, limit, 'No upcoming sessions found.', { showGradeButton });
       renderItems(pastContainer, past.reverse(), cardClass, limit, 'No past sessions found.', { showGradeButton });
+      setupDelegatedClicks(upcomingContainer);
+      setupDelegatedClicks(pastContainer);
     } catch (err) {
       console.error('Failed to load cards', err);
       const upcomingEl = document.querySelector(upcomingContainer);
@@ -425,13 +456,6 @@
       undoBtn.dataset.bound = 'true';
       undoBtn.addEventListener('click', undoGrade);
     }
-
-    loadSessions('/api/v1/presentations/recent', '#recent-sessions', 'session-card', 5);
-    loadSessions('/program/list?type=Poster', '#poster-sessions', 'poster-card', 6);
-    loadSessions('/program/list?type=Blitz', '#blitz-sessions', 'session-card', 6);
-    setupDelegatedClicks('#recent-sessions');
-    setupDelegatedClicks('#poster-sessions');
-    setupDelegatedClicks('#blitz-sessions');
 
     const gradeForm = document.querySelector('#gradeModal form');
     if (gradeForm && gradeForm.dataset.bound !== 'true') {
