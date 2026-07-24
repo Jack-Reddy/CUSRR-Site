@@ -9,11 +9,6 @@
   #sessionModal #mProgramId {
     display: none !important;
   }
-
-  /* Keep grading temporarily hidden on the main dashboard only. */
-  #upcoming-container .grade-btn {
-    display: none !important;
-  }
 </style>
 
 <h3 class="mb-3">Dashboard</h3>
@@ -88,11 +83,12 @@
 {% block scripts %}
 {{ super() }}
 
-<script src="{{ url_for('static', filename='js/session-modal.js') }}?v=grading-controls-2"></script>
+<script src="{{ url_for('static', filename='js/session-modal.js') }}?v=grading-controls-4"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   // Use the fast public program list so the dashboard does not go blank after conference dates pass.
+  // SessionModal only renders Grade buttons for organizers and abstract graders.
   SessionModal.loadSessions('/program/list', '#upcoming-container', 'session-card', 5);
 
   // Enable modal clicks
