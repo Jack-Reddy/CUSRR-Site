@@ -7,10 +7,15 @@ ROLE_ALIASES = {
 }
 
 
+def _normalize_role(role):
+    """Normalize role strings so abstract-grader and abstract grader match abstract_grader."""
+    return str(role or '').strip().lower().replace('-', '_').replace(' ', '_')
+
+
 def _roles_for(user):
     if not user or not user.auth:
         return set()
-    roles = {role.strip().lower() for role in str(user.auth).split(',') if role.strip()}
+    roles = {_normalize_role(role) for role in str(user.auth).split(',') if role.strip()}
     roles.update(ROLE_ALIASES[role] for role in list(roles) if role in ROLE_ALIASES)
     return roles
 
@@ -32,7 +37,7 @@ def _current_user(User):
 
 
 def _has_any_role(user, *roles):
-    allowed = {role.lower() for role in roles}
+    allowed = {_normalize_role(role) for role in roles}
     return bool(_roles_for(user) & allowed)
 
 
@@ -94,7 +99,7 @@ def install_api_security(app, User):
             return _check_presentations_api(User, path, method)
 
         if path.startswith('/api/v1/grades'):
-            return _require_roles(User, 'organizer', 'judge')
+            return _require_roles(User, 'organizer', 'judge', 'abstract_grader')
 
         if path.startswith('/api/v1/abstractgrades'):
             return _check_abstract_grades_api(User, path, method)
@@ -184,8 +189,8 @@ def _check_abstract_grades_api(User, path, method):
         if response:
             return response
         requested_user_id = _path_int_after(path, 'completed')
-        if requested_user_id == user.id or _has_any_role(user, 'organizer', 'abstract-grader'):
+        if requested_user_id == user.id or _has_any_role(user, 'organizer', 'abstract_grader'):
             return None
         return _error("grader_or_self_required")
 
-    return _require_roles(User, 'organizer', 'abstract-grader')
+    return _require_roles(User, 'organizer', 'abstract_grader')
