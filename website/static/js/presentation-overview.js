@@ -19,6 +19,43 @@
     if (element) element.textContent = value || '-';
   }
 
+  function gradeButton() {
+    return document.getElementById('overview-grade-btn');
+  }
+
+  function hideGradeButton() {
+    const button = gradeButton();
+    if (!button) return;
+    button.classList.add('d-none');
+    button.disabled = true;
+    button.dataset.presentationId = '';
+    button.dataset.presentationTitle = '';
+  }
+
+  async function updateGradeButton(detail, fallback) {
+    const button = gradeButton();
+    if (!button) return;
+
+    const presentationId = detail.id || fallback.id;
+    const title = detail.title || fallback.title || 'Untitled';
+    button.dataset.presentationId = presentationId || '';
+    button.dataset.presentationTitle = title;
+    button.disabled = true;
+    button.classList.add('d-none');
+
+    try {
+      const canGrade = window.SessionModal &&
+        typeof window.SessionModal.canUseNormalGrading === 'function' &&
+        await window.SessionModal.canUseNormalGrading();
+      if (canGrade && presentationId) {
+        button.classList.remove('d-none');
+        button.disabled = false;
+      }
+    } catch (error) {
+      console.warn('Could not check grade permission', error);
+    }
+  }
+
   async function fetchJson(url) {
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
     if (!response.ok) {
@@ -50,17 +87,20 @@
         renderPresentation();
       } else {
         setCounter('0 / 0');
+        hideGradeButton();
         showError('No presentations found.');
       }
     } catch (error) {
       console.error('Error loading presentations:', error);
       setCounter('Load failed');
+      hideGradeButton();
       showError(`Could not load presentations. ${error.message || ''}`);
     }
   }
 
   async function renderPresentation() {
     if (allPresentations.length === 0) {
+      hideGradeButton();
       return;
     }
 
@@ -72,6 +112,7 @@
         const text = await response.text().catch(() => '');
         console.error('Failed to fetch presentation detail:', response.status, text || response.statusText);
         setCounter('Load failed');
+        hideGradeButton();
         showError(`Could not load this presentation. ${response.status}: ${text || response.statusText}`);
         return;
       }
@@ -103,11 +144,14 @@
         abstractElement.textContent = '-';
       }
 
+      await updateGradeButton(detail, pres);
+
       document.getElementById('prev-btn').disabled = currentIndex === 0;
       document.getElementById('next-btn').disabled = currentIndex === allPresentations.length - 1;
     } catch (error) {
       console.error('Error rendering presentation:', error);
       setCounter('Load failed');
+      hideGradeButton();
       showError(`Could not render presentation. ${error.message || ''}`);
     }
   }
@@ -133,9 +177,20 @@
     }
   }
 
+  function openCurrentGradeModal() {
+    const button = gradeButton();
+    const presentationId = button?.dataset.presentationId;
+    const title = button?.dataset.presentationTitle;
+    if (!presentationId || !window.SessionModal || typeof window.SessionModal.openGradeModal !== 'function') {
+      return;
+    }
+    window.SessionModal.openGradeModal(presentationId, title || 'Untitled');
+  }
+
   function init() {
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
+    const overviewGradeBtn = gradeButton();
 
     if (prevBtn) {
       prevBtn.addEventListener('click', previousPresentation);
@@ -143,6 +198,10 @@
 
     if (nextBtn) {
       nextBtn.addEventListener('click', nextPresentation);
+    }
+
+    if (overviewGradeBtn) {
+      overviewGradeBtn.addEventListener('click', openCurrentGradeModal);
     }
 
     loadPresentations();
