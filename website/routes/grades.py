@@ -71,16 +71,27 @@ def _latest_grade_rows(grades):
     return list(latest.values())
 
 
+def _normalize_role(role):
+    """Normalize role strings such as abstract grader, abstract-grader, and abstract_grader."""
+    return str(role or '').strip().lower().replace('-', '_').replace(' ', '_')
+
+
 def _roles_for(user):
     """Return normalized roles for a user."""
     roles = {
-        role.strip().lower()
+        _normalize_role(role)
         for role in str(user.auth or '').split(',')
-        if role.strip()
+        if str(role or '').strip()
     } if user else set()
     if 'admin' in roles:
         roles.add('organizer')
     return roles
+
+
+def _can_submit_normal_grade(user):
+    """Return whether a user may submit normal presentation grades."""
+    roles = _roles_for(user)
+    return 'organizer' in roles or 'abstract_grader' in roles
 
 
 def _current_user():
@@ -101,8 +112,7 @@ def _normal_grade_actor_or_error():
     if not actor:
         return None, (jsonify({'error': 'Authentication required'}), 401)
 
-    roles = _roles_for(actor)
-    if 'organizer' in roles or 'abstract_grader' in roles:
+    if _can_submit_normal_grade(actor):
         return actor, None
 
     return None, (jsonify({'error': 'Only organizers and abstract graders can submit presentation grades'}), 403)
@@ -113,6 +123,17 @@ def get_grades():
     ''' GET all grades '''
     grades = Grade.query.all()
     return jsonify([g.to_dict() for g in grades])
+
+
+@grades_bp.route('/can-submit', methods=['GET'])
+def can_submit_grade():
+    """Return whether the current user can use normal presentation grading controls."""
+    actor = _current_user()
+    roles = _roles_for(actor)
+    return jsonify({
+        'can_submit_grade': bool(actor and _can_submit_normal_grade(actor)),
+        'roles': sorted(roles),
+    })
 
 
 @grades_bp.route('/dashboard-summary', methods=['GET'])
