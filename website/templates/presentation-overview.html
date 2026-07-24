@@ -19,6 +19,7 @@
       </div>
 
       <div class="d-flex justify-content-end gap-2 mb-3 overview-actions">
+        <button id="overview-grade-btn" type="button" class="btn btn-outline-primary d-none">Grade</button>
         <a href="/overview/download.pdf" class="btn btn-outline-dark">Download Program</a>
       </div>
 
@@ -89,5 +90,5 @@
 
 {% block scripts %}
   {{ super() }}
-  <script src="{{ url_for('static', filename='js/presentation-overview.js') }}?v=overview-list-2"></script>
+  <script src="{{ url_for('static', filename='js/presentation-overview.js') }}?v=overview-grade-1"></script>
 {% endblock %}
