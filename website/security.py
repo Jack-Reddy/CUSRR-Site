@@ -159,7 +159,7 @@ def _check_presentations_api(User, path, method):
         if path == '/api/v1/presentations/abstract-images':
             return _require_authenticated_user(User)
         if path.endswith('/upload'):
-            return _check_presentation_owner_or_organizer(User, path)
+            return _require_roles(User, 'organizer')
         return _require_authenticated_user(User)
 
     if method == 'PUT':
