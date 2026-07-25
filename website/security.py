@@ -1,5 +1,10 @@
 """Security helpers for API route authorization."""
-from flask import jsonify, request, session
+import io
+import zipfile
+
+from flask import jsonify, request, send_file, session
+from sqlalchemy import text
+from werkzeug.utils import secure_filename
 
 
 ROLE_ALIASES = {
@@ -71,6 +76,138 @@ def _path_int_after(path, marker):
         return int(parts[marker_index + 1])
     except (ValueError, IndexError, TypeError):
         return None
+
+
+def _ensure_presentation_upload_table(db):
+    """Make sure the upload metadata table exists before reading original filenames."""
+    with db.engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS presentation_uploads (
+                presentation_id INTEGER PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        ))
+
+
+def _presentation_file_bytes(value):
+    """Return real bytes from SQLAlchemy LargeBinary values across database drivers."""
+    if value is None:
+        return b''
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, bytearray):
+        return bytes(value)
+    if isinstance(value, memoryview):
+        return value.tobytes()
+    try:
+        return bytes(value)
+    except TypeError:
+        return b''
+
+
+def _safe_zip_piece(value, fallback='untitled', max_length=90):
+    """Return a readable, slash-free filename piece for ZIP entries."""
+    cleaned = ''.join(
+        char if char.isalnum() or char in (' ', '-', '_') else ' '
+        for char in str(value or '')
+    )
+    cleaned = ' '.join(cleaned.split()).strip()
+    if not cleaned:
+        cleaned = fallback
+    return cleaned[:max_length].strip() or fallback
+
+
+def _uploaded_filename(db, presentation_id):
+    row = db.session.execute(
+        text("SELECT filename FROM presentation_uploads WHERE presentation_id = :pid"),
+        {"pid": presentation_id}
+    ).fetchone()
+    return row[0] if row and row[0] else None
+
+
+def _extension_from_upload(uploaded_name, file_data):
+    """Prefer the stored filename extension, then infer common upload formats from bytes."""
+    if uploaded_name and '.' in uploaded_name:
+        extension = uploaded_name.rsplit('.', 1)[-1].lower()
+        if extension in {'pdf', 'ppt', 'pptx'}:
+            return extension
+
+    if file_data.startswith(b'%PDF'):
+        return 'pdf'
+    if file_data.startswith(b'PK\x03\x04'):
+        return 'pptx'
+    if file_data.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'):
+        return 'ppt'
+    return 'pptx'
+
+
+def _unique_zip_name(filename, used_names):
+    """Avoid duplicate names in the ZIP while preserving readable names."""
+    count = used_names.get(filename, 0)
+    used_names[filename] = count + 1
+    if count == 0:
+        return filename
+
+    if '.' in filename:
+        base, extension = filename.rsplit('.', 1)
+        return f"{base} ({count + 1}).{extension}"
+    return f"{filename} ({count + 1})"
+
+
+def _download_all_presentations_zip(User):
+    """Return the presentation upload ZIP with robust naming and legacy-file support."""
+    permission_response = _require_roles(User, 'organizer')
+    if permission_response:
+        return permission_response
+
+    from website import db
+    from website.models import Presentation
+
+    _ensure_presentation_upload_table(db)
+    zip_buffer = io.BytesIO()
+    presentations = Presentation.query.order_by(Presentation.time.asc(), Presentation.id.asc()).all()
+    used_names = {}
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for presentation in presentations:
+            file_data = _presentation_file_bytes(presentation.presentation_file)
+            if not file_data:
+                continue
+
+            uploaded_name = _uploaded_filename(db, presentation.id)
+            safe_uploaded_name = secure_filename(uploaded_name) if uploaded_name else None
+            extension = _extension_from_upload(safe_uploaded_name, file_data)
+
+            timestamp = presentation.time.strftime('%Y-%m-%d_%H%M') if presentation.time else 'no_time'
+            title = _safe_zip_piece(presentation.title, fallback=f'presentation-{presentation.id}', max_length=110)
+            presenter_names = ', '.join(
+                _safe_zip_piece(
+                    f"{presenter.firstname or ''} {presenter.lastname or ''}".strip() or presenter.email,
+                    fallback='presenter',
+                    max_length=45
+                )
+                for presenter in presentation.presenters
+            )
+            presenter_part = presenter_names or f'presentation-{presentation.id}'
+
+            if safe_uploaded_name:
+                filename = f"{timestamp} - {presenter_part} - {title} - {safe_uploaded_name}"
+            else:
+                filename = f"{timestamp} - {presenter_part} - {title}.{extension}"
+
+            filename = _unique_zip_name(filename, used_names)
+            zipf.writestr(filename, file_data)
+
+    zip_buffer.seek(0)
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name='presentations.zip'
+    )
 
 
 def install_api_security(app, User):
@@ -150,7 +287,7 @@ def _check_users_api(User, path, method):
 def _check_presentations_api(User, path, method):
     if method == 'GET':
         if path == '/api/v1/presentations/download-all':
-            return _require_roles(User, 'organizer')
+            return _download_all_presentations_zip(User)
         return None
 
     if method == 'POST':
