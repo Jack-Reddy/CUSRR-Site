@@ -213,12 +213,29 @@ def create_presentation_with_five_person_limit():
     return jsonify(presentations_module.presentation_to_dict(new_presentation)), 201
 
 
-def _title_filename(title):
-    """Return a ZIP entry base name from the presentation title only."""
-    cleaned = str(title or 'Untitled').strip() or 'Untitled'
+def _zip_safe_name(value, fallback):
+    """Return a readable ZIP entry name part without path separators."""
+    cleaned = str(value or fallback).strip() or fallback
     cleaned = cleaned.replace('/', '-').replace('\\', '-')
     cleaned = ''.join(ch for ch in cleaned if ord(ch) >= 32)
-    return cleaned or 'Untitled'
+    return cleaned or fallback
+
+
+def _presenter_names_for_zip(presentation):
+    """Return presenter names for ZIP filenames."""
+    presenters = (
+        User.query
+        .filter_by(presentation_id=presentation.id)
+        .order_by(User.id.asc())
+        .all()
+    )
+    names = []
+    for presenter in presenters:
+        first = (presenter.firstname or '').strip()
+        last = (presenter.lastname or '').strip()
+        full_name = f"{first} {last}".strip()
+        names.append(full_name or presenter.email)
+    return ', '.join(names) or 'Unknown Presenter'
 
 
 def _extension_for_uploaded_file(uploaded_name, file_data):
@@ -237,7 +254,7 @@ def _extension_for_uploaded_file(uploaded_name, file_data):
 
 
 def download_all_presentations_by_title():
-    """Download uploaded presentation files using presentation-title filenames."""
+    """Download uploaded presentation files using presenter and presentation-title filenames."""
     presentations_module.ensure_presentation_upload_table()
     zip_buffer = io.BytesIO()
     presentations = Presentation.query.order_by(Presentation.title.asc(), Presentation.id.asc()).all()
@@ -254,7 +271,9 @@ def download_all_presentations_by_title():
             ).fetchone()
             uploaded_name = upload_row[0] if upload_row and upload_row[0] else None
             extension = _extension_for_uploaded_file(uploaded_name, file_data)
-            filename = f"{_title_filename(presentation.title)}.{extension}"
+            presenter_names = _zip_safe_name(_presenter_names_for_zip(presentation), 'Unknown Presenter')
+            presentation_title = _zip_safe_name(presentation.title, 'Untitled')
+            filename = f"{presenter_names} - {presentation_title}.{extension}"
 
             zipf.writestr(filename, file_data)
 
