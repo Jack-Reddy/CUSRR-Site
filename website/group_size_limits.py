@@ -295,3 +295,9 @@ def install_group_size_limit_overrides(app):
     app.view_functions['presentations.create_presentation'] = create_presentation_with_five_person_limit
     app.view_functions['presentations.update_presentation'] = update_presentation_with_lightweight_response
     app.view_functions['presentations.download_all_presentations'] = download_all_presentations_by_title
+    app.add_url_rule(
+        '/api/v1/presentations/download-all-named',
+        'download_all_presentations_named',
+        download_all_presentations_by_title,
+        methods=['GET']
+    )
