@@ -108,16 +108,12 @@ def _presentation_file_bytes(value):
         return b''
 
 
-def _safe_zip_piece(value, fallback='untitled', max_length=90):
-    """Return a readable, slash-free filename piece for ZIP entries."""
-    cleaned = ''.join(
-        char if char.isalnum() or char in (' ', '-', '_') else ' '
-        for char in str(value or '')
-    )
-    cleaned = ' '.join(cleaned.split()).strip()
-    if not cleaned:
-        cleaned = fallback
-    return cleaned[:max_length].strip() or fallback
+def _safe_zip_piece(value, fallback='untitled'):
+    """Return a readable ZIP entry name part without path separators."""
+    cleaned = str(value or fallback).strip() or fallback
+    cleaned = cleaned.replace('/', '-').replace('\\', '-')
+    cleaned = ''.join(char for char in cleaned if ord(char) >= 32)
+    return cleaned or fallback
 
 
 def _uploaded_filename(db, presentation_id):
@@ -157,8 +153,19 @@ def _unique_zip_name(filename, used_names):
     return f"{filename} ({count + 1})"
 
 
+def _presenter_names_for_zip(presentation):
+    """Return presenter names for ZIP filenames."""
+    names = []
+    for presenter in presentation.presenters:
+        first = (presenter.firstname or '').strip()
+        last = (presenter.lastname or '').strip()
+        full_name = f"{first} {last}".strip()
+        names.append(full_name or presenter.email)
+    return ', '.join(names) or f'presentation-{presentation.id}'
+
+
 def _download_all_presentations_zip(User):
-    """Return the presentation upload ZIP with robust naming and legacy-file support."""
+    """Return the presentation upload ZIP named as Presenter Names - Presentation Title.ext."""
     permission_response = _require_roles(User, 'organizer')
     if permission_response:
         return permission_response
@@ -168,7 +175,7 @@ def _download_all_presentations_zip(User):
 
     _ensure_presentation_upload_table(db)
     zip_buffer = io.BytesIO()
-    presentations = Presentation.query.order_by(Presentation.time.asc(), Presentation.id.asc()).all()
+    presentations = Presentation.query.order_by(Presentation.title.asc(), Presentation.id.asc()).all()
     used_names = {}
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -180,25 +187,9 @@ def _download_all_presentations_zip(User):
             uploaded_name = _uploaded_filename(db, presentation.id)
             safe_uploaded_name = secure_filename(uploaded_name) if uploaded_name else None
             extension = _extension_from_upload(safe_uploaded_name, file_data)
-
-            timestamp = presentation.time.strftime('%Y-%m-%d_%H%M') if presentation.time else 'no_time'
-            title = _safe_zip_piece(presentation.title, fallback=f'presentation-{presentation.id}', max_length=110)
-            presenter_names = ', '.join(
-                _safe_zip_piece(
-                    f"{presenter.firstname or ''} {presenter.lastname or ''}".strip() or presenter.email,
-                    fallback='presenter',
-                    max_length=45
-                )
-                for presenter in presentation.presenters
-            )
-            presenter_part = presenter_names or f'presentation-{presentation.id}'
-
-            if safe_uploaded_name:
-                filename = f"{timestamp} - {presenter_part} - {title} - {safe_uploaded_name}"
-            else:
-                filename = f"{timestamp} - {presenter_part} - {title}.{extension}"
-
-            filename = _unique_zip_name(filename, used_names)
+            presenter_part = _safe_zip_piece(_presenter_names_for_zip(presentation), f'presentation-{presentation.id}')
+            title = _safe_zip_piece(presentation.title, fallback=f'presentation-{presentation.id}')
+            filename = _unique_zip_name(f"{presenter_part} - {title}.{extension}", used_names)
             zipf.writestr(filename, file_data)
 
     zip_buffer.seek(0)
@@ -286,7 +277,7 @@ def _check_users_api(User, path, method):
 
 def _check_presentations_api(User, path, method):
     if method == 'GET':
-        if path == '/api/v1/presentations/download-all':
+        if path in ('/api/v1/presentations/download-all', '/api/v1/presentations/download-all-named'):
             return _download_all_presentations_zip(User)
         return None
 
