@@ -1,7 +1,9 @@
 """Group-size limits shared by presentation creation and attendee assignment."""
+import io
+import zipfile
 from datetime import datetime
 
-from flask import current_app, jsonify, request, session
+from flask import current_app, jsonify, request, send_file, session
 from sqlalchemy import text
 
 from website import db
@@ -211,6 +213,60 @@ def create_presentation_with_five_person_limit():
     return jsonify(presentations_module.presentation_to_dict(new_presentation)), 201
 
 
+def _title_filename(title):
+    """Return a ZIP entry base name from the presentation title only."""
+    cleaned = str(title or 'Untitled').strip() or 'Untitled'
+    cleaned = cleaned.replace('/', '-').replace('\\', '-')
+    cleaned = ''.join(ch for ch in cleaned if ord(ch) >= 32)
+    return cleaned or 'Untitled'
+
+
+def _extension_for_uploaded_file(uploaded_name, file_data):
+    """Return the best file extension for a stored presentation file."""
+    uploaded_name = str(uploaded_name or '').strip()
+    if '.' in uploaded_name:
+        extension = uploaded_name.rsplit('.', 1)[-1].strip().lower()
+        if extension:
+            return extension
+
+    if file_data.startswith(b'%PDF'):
+        return 'pdf'
+    if file_data.startswith(b'PK\x03\x04'):
+        return 'pptx'
+    return 'pptx'
+
+
+def download_all_presentations_by_title():
+    """Download uploaded presentation files using presentation-title filenames."""
+    presentations_module.ensure_presentation_upload_table()
+    zip_buffer = io.BytesIO()
+    presentations = Presentation.query.order_by(Presentation.title.asc(), Presentation.id.asc()).all()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for presentation in presentations:
+            file_data = presentation.presentation_file
+            if not file_data:
+                continue
+
+            upload_row = db.session.execute(
+                text("SELECT filename FROM presentation_uploads WHERE presentation_id = :pid"),
+                {"pid": presentation.id}
+            ).fetchone()
+            uploaded_name = upload_row[0] if upload_row and upload_row[0] else None
+            extension = _extension_for_uploaded_file(uploaded_name, file_data)
+            filename = f"{_title_filename(presentation.title)}.{extension}"
+
+            zipf.writestr(filename, file_data)
+
+    zip_buffer.seek(0)
+    return send_file(
+        zip_buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="presentations.zip"
+    )
+
+
 def install_group_size_limit_overrides(app):
     """Install five-person group-size behavior after the API blueprints are registered."""
     if app.config.get('TESTING', False):
@@ -219,3 +275,4 @@ def install_group_size_limit_overrides(app):
     users_module._can_assign_presentation = _can_assign_presentation_with_five_person_limit
     app.view_functions['presentations.create_presentation'] = create_presentation_with_five_person_limit
     app.view_functions['presentations.update_presentation'] = update_presentation_with_lightweight_response
+    app.view_functions['presentations.download_all_presentations'] = download_all_presentations_by_title
