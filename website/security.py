@@ -1,4 +1,5 @@
 """Security helpers for API route authorization."""
+import base64
 import io
 import zipfile
 
@@ -92,6 +93,17 @@ def _ensure_presentation_upload_table(db):
         ))
 
 
+def _looks_like_file(data):
+    """Return whether bytes look like a supported presentation upload."""
+    if not data:
+        return False
+    return (
+        data.startswith(b'%PDF')
+        or data.startswith(b'PK\x03\x04')
+        or data.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1')
+    )
+
+
 def _presentation_file_bytes(value):
     """Return real bytes from SQLAlchemy LargeBinary values across database drivers."""
     if value is None:
@@ -102,6 +114,40 @@ def _presentation_file_bytes(value):
         return bytes(value)
     if isinstance(value, memoryview):
         return value.tobytes()
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return b''
+
+        if raw.startswith('data:') and ',' in raw:
+            raw = raw.split(',', 1)[1].strip()
+
+        if raw.startswith('\\x'):
+            try:
+                decoded_hex = bytes.fromhex(raw[2:])
+                if _looks_like_file(decoded_hex) or len(decoded_hex) > 1024:
+                    return decoded_hex
+            except ValueError:
+                pass
+
+        compact = ''.join(raw.split())
+        padded = compact + ('=' * (-len(compact) % 4))
+        try:
+            decoded_b64 = base64.b64decode(padded, validate=True)
+            if _looks_like_file(decoded_b64) or len(decoded_b64) > 1024:
+                return decoded_b64
+        except Exception:
+            pass
+
+        try:
+            raw_bytes = raw.encode('latin1')
+            if _looks_like_file(raw_bytes):
+                return raw_bytes
+        except UnicodeEncodeError:
+            pass
+
+        return b''
+
     try:
         return bytes(value)
     except TypeError:
@@ -164,6 +210,54 @@ def _presenter_names_for_zip(presentation):
     return ', '.join(names) or f'presentation-{presentation.id}'
 
 
+def _zip_filename_for_presentation(presentation, extension, used_names=None):
+    presenter_part = _safe_zip_piece(_presenter_names_for_zip(presentation), f'presentation-{presentation.id}')
+    title = _safe_zip_piece(presentation.title, fallback=f'presentation-{presentation.id}')
+    filename = f"{presenter_part} - {title}.{extension}"
+    return _unique_zip_name(filename, used_names) if used_names is not None else filename
+
+
+def _presentation_upload_diagnostics(User):
+    """Return upload metadata so organizers can see why a file is missing from the ZIP."""
+    permission_response = _require_roles(User, 'organizer')
+    if permission_response:
+        return permission_response
+
+    from website import db
+    from website.models import Presentation
+
+    _ensure_presentation_upload_table(db)
+    query = str(request.args.get('q') or '').strip().lower()
+    rows = []
+
+    presentations = Presentation.query.order_by(Presentation.title.asc(), Presentation.id.asc()).all()
+    for presentation in presentations:
+        uploaded_name = _uploaded_filename(db, presentation.id)
+        file_data = _presentation_file_bytes(presentation.presentation_file)
+        extension = _extension_from_upload(uploaded_name, file_data) if file_data else None
+        presenter_names = _presenter_names_for_zip(presentation)
+        searchable = ' '.join([
+            str(presentation.id),
+            presentation.title or '',
+            presenter_names,
+            uploaded_name or '',
+        ]).lower()
+        if query and query not in searchable:
+            continue
+        rows.append({
+            "presentation_id": presentation.id,
+            "title": presentation.title,
+            "presenters": presenter_names,
+            "uploaded_filename_metadata": uploaded_name,
+            "presentation_file_bytes": len(file_data),
+            "included_in_zip": bool(file_data),
+            "zip_filename": _zip_filename_for_presentation(presentation, extension) if file_data else None,
+            "reason_if_missing": None if file_data else "upload metadata may exist, but presentations.presentation_file is empty or unreadable",
+        })
+
+    return jsonify({"count": len(rows), "results": rows})
+
+
 def _download_all_presentations_zip(User):
     """Return the presentation upload ZIP named as Presenter Names - Presentation Title.ext."""
     permission_response = _require_roles(User, 'organizer')
@@ -187,9 +281,7 @@ def _download_all_presentations_zip(User):
             uploaded_name = _uploaded_filename(db, presentation.id)
             safe_uploaded_name = secure_filename(uploaded_name) if uploaded_name else None
             extension = _extension_from_upload(safe_uploaded_name, file_data)
-            presenter_part = _safe_zip_piece(_presenter_names_for_zip(presentation), f'presentation-{presentation.id}')
-            title = _safe_zip_piece(presentation.title, fallback=f'presentation-{presentation.id}')
-            filename = _unique_zip_name(f"{presenter_part} - {title}.{extension}", used_names)
+            filename = _zip_filename_for_presentation(presentation, extension, used_names)
             zipf.writestr(filename, file_data)
 
     zip_buffer.seek(0)
@@ -279,6 +371,8 @@ def _check_presentations_api(User, path, method):
     if method == 'GET':
         if path in ('/api/v1/presentations/download-all', '/api/v1/presentations/download-all-named'):
             return _download_all_presentations_zip(User)
+        if path == '/api/v1/presentations/upload-diagnostics':
+            return _presentation_upload_diagnostics(User)
         return None
 
     if method == 'POST':
