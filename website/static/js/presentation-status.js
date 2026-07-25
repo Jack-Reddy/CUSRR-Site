@@ -319,7 +319,9 @@ document.getElementById("download-presentations")?.addEventListener("click", asy
     btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Downloading...';
   }
   try {
-    const response = await fetch("/api/v1/presentations/download-all");
+    const response = await fetch(`/api/v1/presentations/download-all?zipNameVersion=${Date.now()}`, {
+      cache: 'no-store',
+    });
 
     if (!response.ok) {
       throw new Error(await apiErrorMessage(response, `Failed to download presentations: ${response.status}`));
