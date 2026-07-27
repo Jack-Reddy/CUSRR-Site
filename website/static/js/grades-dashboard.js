@@ -20,11 +20,35 @@ async function loadGrades() {
     }
 
     const summaryRows = await response.json();
-    renderGradesTable(summaryRows);
+    const typeMap = await loadPresentationTypeMap();
+    const rows = summaryRows.map((row) => ({
+      ...row,
+      presentation_type: row.presentation_type || typeMap.get(Number(row.presentation_id)) || row.type || '—',
+    }));
+
+    renderGradesTable(rows);
 
   } catch (err) {
     console.error('Failed to load grades', err);
     container.innerHTML = `<p class="text-danger">Could not load grades: ${err.message}</p>`;
+  }
+}
+
+async function loadPresentationTypeMap() {
+  try {
+    const response = await fetch('/api/v1/presentations/table');
+    if (!response.ok) return new Map();
+
+    const presentations = await response.json();
+    return new Map(
+      presentations.map((presentation) => [
+        Number(presentation.id),
+        presentation.type || presentation.presentation_type || '—',
+      ])
+    );
+  } catch (err) {
+    console.warn('Could not load presentation types for grades dashboard', err);
+    return new Map();
   }
 }
 
@@ -38,6 +62,17 @@ function formatCount(value) {
   return Number.isNaN(count) ? '—' : count;
 }
 
+function formatPresentationType(value) {
+  const raw = String(value ?? '').trim();
+  const normalized = raw.toLowerCase();
+
+  if (!raw || raw === '—') return '—';
+  if (normalized === 'presentation' || normalized === 'pres') return 'Pres';
+  if (normalized === 'poster') return 'Poster';
+  if (normalized === 'blitz') return 'Blitz';
+  return raw;
+}
+
 function renderGradesTable(rows) {
   const container = document.getElementById('grades-container');
   if (!container) return;
@@ -48,6 +83,7 @@ function renderGradesTable(rows) {
         <thead class="table-light">
           <tr>
             <th>Presentation</th>
+            <th>Type</th>
             <th>Presenters</th>
             <th>Average Grade</th>
             <th>Average Abstract Grade</th>
@@ -66,6 +102,11 @@ function renderGradesTable(rows) {
     data: rows,
     columns: [
       { data: 'presentation_title', defaultContent: '—' },
+      {
+        data: 'presentation_type',
+        defaultContent: '—',
+        render: formatPresentationType,
+      },
       { data: 'presenter_names', defaultContent: '—' },
       {
         data: 'average_score',
